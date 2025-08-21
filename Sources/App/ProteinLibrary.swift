@@ -3052,16 +3052,16 @@ struct ProteinLibraryView: View {
         }
         .onChange(of: showingFavoritesOnly) { _ in resetPagination() }
         .task {
-            // 모든 카테고리의 실제 개수를 먼저 로드하여 "All Categories" 화면에 표시
-            print("🔍 모든 카테고리의 실제 개수 미리 로드 시작...")
-            await loadAllCategoryCounts()
-            
             // 초기 로딩 - 모든 카테고리의 데이터를 가져와서 개수 표시
             if database.proteins.isEmpty {
                 print("🚀 Protein Library 초기 데이터 로딩 시작...")
                 await database.loadProteins()
                 print("✅ 초기 로딩 완료: \(database.proteins.count)개 단백질")
             }
+            
+            // 모든 카테고리의 실제 개수를 미리 로드하여 "All Categories" 화면에 표시
+            print("🔍 모든 카테고리의 실제 개수 미리 로드 시작...")
+            await loadAllCategoryCounts()
         }
         .overlay {
             if showingLoadingPopup || database.isLoading {
