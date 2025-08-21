@@ -1597,15 +1597,21 @@ class PDBAPIService {
             
         } catch {
             print("GraphQL API error: \(error)")
+            print("Error details: \(error.localizedDescription)")
+            
             if let bodyData = try? JSONEncoder().encode(body),
                let jsonString = String(data: bodyData, encoding: .utf8) {
                 print("GraphQL request: \(jsonString)")
             }
             
-            // 실패 시 fallback 데이터 생성
-            return batch.map { pdbId in
+            // GraphQL 실패 시에도 PDB ID는 성공적으로 수집되었으므로
+            // 기본 정보로 ProteinInfo 생성
+            print("🔄 GraphQL 실패, 기본 정보로 ProteinInfo 생성...")
+            let fallbackProteins = batch.map { pdbId in
                 createFallbackProteinInfo(pdbId: pdbId)
             }
+            print("✅ Fallback 데이터 생성 완료: \(fallbackProteins.count)개")
+            return fallbackProteins
         }
     }
     
