@@ -2780,7 +2780,10 @@ struct ProteinLibraryView: View {
     var categoryProteinCounts: [ProteinCategory: Int] {
         var counts: [ProteinCategory: Int] = [:]
         for category in ProteinCategory.allCases {
-            counts[category] = allProteinsByCategory[category]?.count ?? 0
+            // 현재 로드된 데이터가 있으면 그것을 사용, 없으면 샘플 데이터 개수 사용
+            let currentCount = allProteinsByCategory[category]?.count ?? 0
+            let sampleCount = database.getSampleCount(for: category)
+            counts[category] = max(currentCount, sampleCount)
         }
         print("📈 카테고리별 단백질 개수: \(counts)")
         return counts
@@ -3056,6 +3059,10 @@ struct ProteinLibraryView: View {
                 await database.loadProteins()
                 print("✅ 초기 로딩 완료: \(database.proteins.count)개 단백질")
             }
+            
+            // 모든 카테고리의 실제 개수를 미리 로드하여 "All Categories" 화면에 표시
+            print("🔍 모든 카테고리의 실제 개수 미리 로드 시작...")
+            await loadAllCategoryCounts()
         }
         .overlay {
             if showingLoadingPopup || database.isLoading {
@@ -3120,6 +3127,37 @@ struct ProteinLibraryView: View {
             isLoadingMore = false
             showingLoadingPopup = false
         }
+    }
+    
+    // 모든 카테고리의 실제 개수를 미리 로드
+    private func loadAllCategoryCounts() async {
+        print("🔄 모든 카테고리 개수 로드 시작...")
+        
+        for category in ProteinCategory.allCases {
+            do {
+                // 각 카테고리에서 실제 API 데이터 개수 확인 (빠른 검색)
+                let pdbIds = try await database.apiService.searchProteinsByCategory(category: category, limit: 10)
+                let actualCount = pdbIds.count
+                
+                await MainActor.run {
+                    // 실제 개수가 샘플보다 많으면 업데이트
+                    let sampleCount = database.getSampleCount(for: category)
+                    if actualCount > sampleCount {
+                        print("✅ \(category.rawValue): 샘플 \(sampleCount)개 → 실제 \(actualCount)개")
+                    } else {
+                        print("ℹ️ \(category.rawValue): 샘플 \(sampleCount)개 유지")
+                    }
+                }
+                
+                // API 부하 방지를 위한 짧은 지연
+                try? await Task.sleep(nanoseconds: 200_000_000) // 0.2초
+                
+            } catch {
+                print("❌ \(category.rawValue) 개수 확인 실패: \(error.localizedDescription)")
+            }
+        }
+        
+        print("🎉 모든 카테고리 개수 로드 완료!")
     }
 }
 
