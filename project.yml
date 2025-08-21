@@ -1,0 +1,56 @@
+name: ProteinApp
+options:
+  bundleIdPrefix: com.avas
+  deploymentTarget:
+    iOS: "15.0"
+
+settings:
+  PRODUCT_BUNDLE_IDENTIFIER: com.avas.ProteinApp
+  DEVELOPMENT_TEAM: DDU65CBFSC
+  SWIFT_VERSION: 5.0
+  IPHONEOS_DEPLOYMENT_TARGET: 15.0
+  CODE_SIGN_STYLE: Automatic
+  ALWAYS_SEARCH_USER_PATHS: NO
+  CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]: NO
+  CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]: NO
+
+targets:
+  ProteinApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    resources:
+      - path: Resources
+    dependencies:
+      - sdk: SceneKit.framework
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: ProteinApp
+        LSApplicationCategoryType: "public.app-category.education"
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UIRequiresFullScreen: false
+        UILaunchScreen: {}
+        CFBundleIcons:
+          CFBundlePrimaryIcon:
+            CFBundleIconName: AppIcon
+            CFBundleIconFiles:
+              - AppIcon
+        CFBundleIcons~ipad:
+          CFBundlePrimaryIcon:
+            CFBundleIconName: AppIcon
+            CFBundleIconFiles:
+              - AppIcon
+        UIRequiresPersistentWiFi: false
+        UIStatusBarStyle: UIStatusBarStyleDefault
+        UIViewControllerBasedStatusBarAppearance: true
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+
+schemes:
+  ProteinApp:
+    build:
+      targets:
+        ProteinApp: all 

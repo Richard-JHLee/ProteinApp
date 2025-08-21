@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>기본 앱 아이콘 생성</title>
+</head>
+<body>
+    <h2>ProteinApp 기본 아이콘 생성</h2>
+    <p>아래 버튼을 클릭하여 기본 아이콘을 생성하고 다운로드하세요.</p>
+    
+    <button onclick="generateIcon()">1024x1024 아이콘 생성</button>
+    <br><br>
+    <canvas id="canvas" width="1024" height="1024" style="border:1px solid #ccc;"></canvas>
+    
+    <script>
+        function generateIcon() {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 배경 (iOS 스타일 파란색)
+            ctx.fillStyle = '#007AFF';
+            ctx.fillRect(0, 0, 1024, 1024);
+            
+            // 둥근 모서리
+            ctx.globalCompositeOperation = 'destination-in';
+            ctx.beginPath();
+            ctx.roundRect(0, 0, 1024, 1024, 200);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+            
+            // 단백질 구조 (흰색 원들)
+            ctx.fillStyle = 'white';
+            
+            // 중앙 큰 원
+            ctx.beginPath();
+            ctx.arc(512, 512, 200, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // 주변 작은 원들
+            const positions = [
+                [312, 312], [712, 312], [512, 712]
+            ];
+            
+            positions.forEach(pos => {
+                ctx.beginPath();
+                ctx.arc(pos[0], pos[1], 80, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+            
+            // 연결선
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 40;
+            ctx.lineCap = 'round';
+            
+            ctx.beginPath();
+            ctx.moveTo(312, 312);
+            ctx.lineTo(712, 312);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(312, 312);
+            ctx.lineTo(512, 712);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(712, 312);
+            ctx.lineTo(512, 712);
+            ctx.stroke();
+            
+            // 다운로드
+            const link = document.createElement('a');
+            link.download = 'ProteinApp_Icon_1024.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        // roundRect 지원 추가
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+                this.beginPath();
+                this.moveTo(x + radius, y);
+                this.lineTo(x + width - radius, y);
+                this.quadraticCurveTo(x + width, y, x + width, y + radius);
+                this.lineTo(x + width, y + height - radius);
+                this.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                this.lineTo(x + radius, y + height);
+                this.quadraticCurveTo(x, y + height, x, y + height - radius);
+                this.lineTo(x, y + radius);
+                this.quadraticCurveTo(x, y, x + radius, y);
+                this.closePath();
+            };
+        }
+    </script>
+</body>
+</html>
