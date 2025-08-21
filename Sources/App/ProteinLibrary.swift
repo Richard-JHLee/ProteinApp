@@ -2338,7 +2338,7 @@ class ProteinDatabase: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     
-    private let apiService = PDBAPIService.shared
+    let apiService = PDBAPIService.shared
     private var loadedCategories: Set<ProteinCategory> = []
     
     // 페이지네이션 상태 관리
@@ -2780,12 +2780,11 @@ struct ProteinLibraryView: View {
     var categoryProteinCounts: [ProteinCategory: Int] {
         var counts: [ProteinCategory: Int] = [:]
         for category in ProteinCategory.allCases {
-            // 현재 로드된 데이터가 있으면 그것을 사용, 없으면 샘플 데이터 개수 사용
-            let currentCount = allProteinsByCategory[category]?.count ?? 0
-            let sampleCount = database.getSampleCount(for: category)
-            counts[category] = max(currentCount, sampleCount)
+            // 실제 API에서 로드된 데이터 개수 우선 사용
+            let actualCount = allProteinsByCategory[category]?.count ?? 0
+            counts[category] = actualCount
         }
-        print("📈 카테고리별 단백질 개수: \(counts)")
+        print("📈 카테고리별 실제 로드된 단백질 개수: \(counts)")
         return counts
     }
     
@@ -3136,17 +3135,11 @@ struct ProteinLibraryView: View {
         for category in ProteinCategory.allCases {
             do {
                 // 각 카테고리에서 실제 API 데이터 개수 확인 (빠른 검색)
-                let pdbIds = try await database.apiService.searchProteinsByCategory(category: category, limit: 10)
+                let pdbIds = try await database.apiService.searchProteinsByCategory(category: category, limit: 100)
                 let actualCount = pdbIds.count
                 
                 await MainActor.run {
-                    // 실제 개수가 샘플보다 많으면 업데이트
-                    let sampleCount = database.getSampleCount(for: category)
-                    if actualCount > sampleCount {
-                        print("✅ \(category.rawValue): 샘플 \(sampleCount)개 → 실제 \(actualCount)개")
-                    } else {
-                        print("ℹ️ \(category.rawValue): 샘플 \(sampleCount)개 유지")
-                    }
+                    print("✅ \(category.rawValue): 실제 \(actualCount)개 단백질 확인")
                 }
                 
                 // API 부하 방지를 위한 짧은 지연
