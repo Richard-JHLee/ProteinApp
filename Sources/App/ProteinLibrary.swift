@@ -3133,10 +3133,49 @@ struct ProteinLibraryView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
+                    if #available(iOS 16.0, *) {
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
+                    } else {
+                        // Fallback on earlier versions
+                    };if #available(iOS 16.0, *) {
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
+                    } else {
+                        // Fallback on earlier versions
+                    };if #available(iOS 16.0, *) {
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
+                    } else {
+                        // Fallback on earlier versions
+                    };if #available(iOS 16.0, *) {
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
+                    } else {
+                        // Fallback on earlier versions
+                    };if #available(iOS 16.0, *) {
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
+                    } else {
+                        // Fallback on earlier versions
+                    };if #available(iOS 16.0, *) {
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
+                    } else {
+                        // Fallback on earlier versions
                     }
-                    .fontWeight(.semibold)
                 }
             }
             .background(Color(.systemBackground))
