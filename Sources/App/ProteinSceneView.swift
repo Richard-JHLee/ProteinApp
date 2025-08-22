@@ -277,7 +277,8 @@ final class Coordinator: NSObject {
 
 // MARK: - Main Container View
 struct ProteinSceneContainer: View {
-    @State private var pdbId: String = "1CRN"
+    let selectedProteinId: String
+    @State private var pdbId: String
     @State private var structure: PDBStructure? = nil
     @State private var style: RenderStyle = .cartoon
     @State private var color: ColorMode = .secondaryStructure
@@ -475,6 +476,7 @@ struct ProteinSceneContainer: View {
             Text(error ?? "")
         }
         .onAppear {
+            pdbId = selectedProteinId
             Task { await load() }
         }
     }
