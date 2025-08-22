@@ -545,7 +545,10 @@ class PDBAPIService {
     func searchProteins(category: ProteinCategory? = nil, limit: Int = 100) async throws -> [ProteinInfo] {
         if let category = category {
             // 새로운 2단계 파이프라인 사용
-            let (pdbIds, totalCount) = try await searchProteinsByCategory(category: category, limit: limit)
+            let (pdbIds, _) = try await searchProteinsByCategory(
+                category: category,
+                limit: limit
+            )
             return try await fetchProteinDetails(batch: Array(pdbIds.prefix(limit)))
         } else {
             // 전체 검색의 경우 기존 방식 유지 (성능상)
@@ -1839,13 +1842,13 @@ class PDBAPIService {
         do {
             // Stage 1: Search for PDB IDs (더 많은 ID 수집)
             print("🔄 Stage 1: PDB ID 검색 시작...")
-            let (pdbIds, totalCount) = try await searchProteinsByCategory(category: category, limit: limit * 5)
-            print("📋 Stage 1 완료: \(pdbIds.count)개 PDB ID 수집, 전체: \(totalCount)개")
+            let (pdbIds, _) = try await searchProteinsByCategory(category: category, limit: limit * 5)
+            print("📋 Stage 1 완료: \(pdbIds.count)개 PDB ID 수집")
             
             guard !pdbIds.isEmpty else {
                 print("⚠️ No PDB IDs found for \(category), trying fallback search...")
                 // Fallback: 더 관대한 검색 시도
-                let (fallbackIds, fallbackTotalCount) = try await searchWithFallback(category: category, limit: limit)
+                let (fallbackIds, _) = try await searchWithFallback(category: category, limit: limit)
                 if !fallbackIds.isEmpty {
                     let fallbackProteins = try await fetchProteinDetails(batch: Array(fallbackIds.prefix(limit)))
                     if !fallbackProteins.isEmpty {
@@ -3265,7 +3268,7 @@ struct ProteinLibraryView: View {
         for category in ProteinCategory.allCases {
             do {
                 // 각 카테고리에서 실제 API 데이터 개수 확인 (빠른 검색)
-                let (pdbIds, totalCount) = try await database.apiService.searchProteinsByCategory(category: category, limit: 100)
+                let (_, totalCount) = try await database.apiService.searchProteinsByCategory(category: category, limit: 100)
                 
                 await MainActor.run {
                     database.categoryTotalCounts[category] = totalCount
