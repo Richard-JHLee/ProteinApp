@@ -11,6 +11,13 @@
 		3EFDF2053CD3A6B58C54AA8E /* MiniProteinViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF017AD4B427A9A68A473A0A /* MiniProteinViewer.swift */; };
 		4E276CBDE560EDBC9919290E /* PDB.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F7B844E14B6CC3907FFBEC /* PDB.swift */; };
 		4E618D2CB3A72FAA015CBD99 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2722617C118B539735B9A4C5 /* ContentView.swift */; };
+		797284232E587182000842BE /* InfoSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284222E587182000842BE /* InfoSheet.swift */; };
+		7972842A2E587417000842BE /* AdditionalInfoSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284252E587417000842BE /* AdditionalInfoSectionView.swift */; };
+		7972842B2E587417000842BE /* HeaderSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284272E587417000842BE /* HeaderSectionView.swift */; };
+		7972842C2E587417000842BE /* UIComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284292E587417000842BE /* UIComponents.swift */; };
+		7972842D2E587417000842BE /* MainInfoSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284282E587417000842BE /* MainInfoSectionView.swift */; };
+		7972842E2E587417000842BE /* ActionButtonsSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284242E587417000842BE /* ActionButtonsSectionView.swift */; };
+		7972842F2E587417000842BE /* DetailedInfoSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284262E587417000842BE /* DetailedInfoSectionView.swift */; };
 		ABF56BC87AF826996205F340 /* ProteinSceneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABDBD862116CF498A63A4482 /* ProteinSceneView.swift */; };
 		BB44BDF9E6313690D82218D8 /* SceneKitExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D9F412DFA7AD49E2AF30C0 /* SceneKitExtensions.swift */; };
 		BC849FBAF9245F690738D7DB /* SceneKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1E552674910C4E6B9E6BCBCD /* SceneKit.framework */; };
@@ -25,6 +32,13 @@
 		2B5A091B94160CE42052DDCE /* ProteinLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProteinLibrary.swift; sourceTree = "<group>"; };
 		39F7B844E14B6CC3907FFBEC /* PDB.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDB.swift; sourceTree = "<group>"; };
 		486BC17E3218B56871333E70 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		797284222E587182000842BE /* InfoSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoSheet.swift; sourceTree = "<group>"; };
+		797284242E587417000842BE /* ActionButtonsSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButtonsSectionView.swift; sourceTree = "<group>"; };
+		797284252E587417000842BE /* AdditionalInfoSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdditionalInfoSectionView.swift; sourceTree = "<group>"; };
+		797284262E587417000842BE /* DetailedInfoSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailedInfoSectionView.swift; sourceTree = "<group>"; };
+		797284272E587417000842BE /* HeaderSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderSectionView.swift; sourceTree = "<group>"; };
+		797284282E587417000842BE /* MainInfoSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainInfoSectionView.swift; sourceTree = "<group>"; };
+		797284292E587417000842BE /* UIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIComponents.swift; sourceTree = "<group>"; };
 		ABDBD862116CF498A63A4482 /* ProteinSceneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProteinSceneView.swift; sourceTree = "<group>"; };
 		B697830EAB8BA6ABE13919E5 /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = Base; path = Base.lproj/ProteinApp.entitlements; sourceTree = "<group>"; };
 		D9D9F412DFA7AD49E2AF30C0 /* SceneKitExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneKitExtensions.swift; sourceTree = "<group>"; };
@@ -74,6 +88,13 @@
 		BDAB3465C9D2EBAF66C2BD77 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				797284222E587182000842BE /* InfoSheet.swift */,
+				797284242E587417000842BE /* ActionButtonsSectionView.swift */,
+				797284252E587417000842BE /* AdditionalInfoSectionView.swift */,
+				797284262E587417000842BE /* DetailedInfoSectionView.swift */,
+				797284272E587417000842BE /* HeaderSectionView.swift */,
+				797284282E587417000842BE /* MainInfoSectionView.swift */,
+				797284292E587417000842BE /* UIComponents.swift */,
 				2722617C118B539735B9A4C5 /* ContentView.swift */,
 				EF017AD4B427A9A68A473A0A /* MiniProteinViewer.swift */,
 				39F7B844E14B6CC3907FFBEC /* PDB.swift */,
@@ -167,6 +188,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7972842A2E587417000842BE /* AdditionalInfoSectionView.swift in Sources */,
+				7972842B2E587417000842BE /* HeaderSectionView.swift in Sources */,
+				7972842C2E587417000842BE /* UIComponents.swift in Sources */,
+				7972842D2E587417000842BE /* MainInfoSectionView.swift in Sources */,
+				7972842E2E587417000842BE /* ActionButtonsSectionView.swift in Sources */,
+				7972842F2E587417000842BE /* DetailedInfoSectionView.swift in Sources */,
 				4E618D2CB3A72FAA015CBD99 /* ContentView.swift in Sources */,
 				3EFDF2053CD3A6B58C54AA8E /* MiniProteinViewer.swift in Sources */,
 				4E276CBDE560EDBC9919290E /* PDB.swift in Sources */,
@@ -174,6 +201,7 @@
 				CE908529D3B3AED3A89BB155 /* ProteinLibrary.swift in Sources */,
 				ABF56BC87AF826996205F340 /* ProteinSceneView.swift in Sources */,
 				BB44BDF9E6313690D82218D8 /* SceneKitExtensions.swift in Sources */,
+				797284232E587182000842BE /* InfoSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
