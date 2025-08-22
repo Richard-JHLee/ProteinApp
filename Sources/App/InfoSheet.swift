@@ -58,14 +58,14 @@ struct InfoSheet: View {
             }
             .navigationTitle("Protein Details")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                SwiftUI.ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
-            }
         }
         .sheet(isPresented: $showingProteinView) {
             ProteinSceneContainer(selectedProteinId: protein.id)
+        }
+        .toolbar {
+            SwiftUI.ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Done") { dismiss() }
+            }
         }
     }
 }
