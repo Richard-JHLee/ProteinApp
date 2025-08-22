@@ -59,7 +59,7 @@ struct InfoSheet: View {
             .navigationTitle("Protein Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                SwiftUI.ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") { dismiss() }
                 }
             }
