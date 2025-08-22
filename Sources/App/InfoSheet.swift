@@ -14,7 +14,7 @@ struct InfoSheet: View {
 
     var body: some View {
         NavigationView {
-            ScrollView {
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 24) {
                     HeaderSectionView(protein: protein)
 
