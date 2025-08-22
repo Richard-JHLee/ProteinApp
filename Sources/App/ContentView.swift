@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        ProteinSceneContainer()
+        ProteinSceneContainer(selectedProteinId: "1CRN") // 기본값으로 1CRN (크로모그라닌) 표시
             .ignoresSafeArea()
             .preferredColorScheme(.light) // 밝은 테마를 기본으로 설정
             .statusBarHidden(false) // 상태바 표시
