@@ -3136,7 +3136,7 @@ struct ProteinLibraryView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .modifier(ConditionalFontWeight(weight: .semibold, fallbackFont: .headline))
+                    .fontWeight(.semibold)
                 }
             }
             .background(Color(.systemBackground))
@@ -3193,7 +3193,20 @@ struct ProteinLibraryView: View {
         }
         .sheet(isPresented: $showingInfoSheet) {
             if let protein = selectedProtein {
-                InfoSheet(protein: protein, onProteinSelected: onProteinSelected)
+                VStack(spacing: 20) {
+                    Text("Protein Info: \(protein.name)")
+                        .font(.title)
+                    Text("ID: \(protein.id)")
+                        .font(.headline)
+                    Text("Category: \(protein.category.rawValue)")
+                        .font(.body)
+                    Button("View 3D Structure") {
+                        onProteinSelected(protein.id)
+                        dismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding()
             }
         }
         .alert("Error", isPresented: .constant(database.errorMessage != nil)) {
