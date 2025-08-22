@@ -16,19 +16,15 @@ struct InfoSheet: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 24) {
-                    // 헤더 섹션 (단백질명, 카테고리)
+                    // 1) 헤더(미니 히어로 카드)
                     headerSection
                     
-                    // 주요 정보 섹션 (기능 요약, PDB 링크, 질병 연관성)
+                    // 2) 주요 정보 카드들(요약/링크/질병/연구)
                     mainInfoSection
                     
-                    // 상세 정보 섹션
+                    // --- 아래는 기존 섹션 유지/교체 선택 ---
                     detailedInfoSection
-                    
-                    // 키워드 및 관련 정보
                     additionalInfoSection
-                    
-                    // 액션 버튼들
                     actionButtonsSection
                 }
                 .padding(.horizontal, 20)
@@ -38,9 +34,7 @@ struct InfoSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
+                    Button("Done") { dismiss() }
                 }
             }
         }
@@ -51,512 +45,249 @@ struct InfoSheet: View {
             PDBWebsiteSheet(proteinId: protein.id)
         }
     }
-    
-    // MARK: - Header Section
-    private var headerSection: some View {
-        VStack(spacing: 20) {
-            // 단백질 아이콘과 카테고리
-            HStack(spacing: 20) {
-                // 단백질 아이콘
-                ZStack {
-                    Circle()
-                        .fill(protein.category.color.opacity(0.1))
-                        .frame(width: 70, height: 70)
-                    
-                    Image(systemName: protein.category.icon)
-                        .font(.system(size: 35))
-                        .foregroundColor(protein.category.color)
-                }
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    // 단백질 이름
+}
+
+// MARK: - Header Section (NavigationView 유지)
+private extension InfoSheet {
+    var headerSection: some View {
+        GlassCard {
+            HStack(alignment: .center, spacing: 16) {
+                GradientIcon(systemName: protein.category.icon,
+                             base: protein.category.color)
+                    .frame(width: 64, height: 64)
+
+                VStack(alignment: .leading, spacing: 6) {
                     Text(protein.name)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
                         .multilineTextAlignment(.leading)
-                    
-                    // PDB ID
-                    Text("PDB ID: \(protein.id)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .fontWeight(.medium)
-                    
-                    // 카테고리 태그
-                    HStack {
-                        Image(systemName: "tag.fill")
-                            .foregroundColor(protein.category.color)
-                            .font(.caption)
-                        Text(protein.category.rawValue)
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(protein.category.color)
+
+                    HStack(spacing: 8) {
+                        CapsuleTag(text: "PDB \(protein.id)",
+                                   foreground: protein.category.color,
+                                   background: protein.category.color.opacity(0.12),
+                                   icon: "barcode.viewfinder")
+                        CapsuleTag(text: protein.category.rawValue,
+                                   foreground: .white,
+                                   background: protein.category.color.opacity(0.9),
+                                   icon: "tag.fill")
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(protein.category.color.opacity(0.1))
-                    .cornerRadius(16)
+                    .padding(.top, 2)
                 }
-                
-                Spacer()
+                Spacer(minLength: 8)
             }
         }
-        .padding(.top, 20)
+        .padding(.top, 6)
     }
     
-    // MARK: - Main Info Section
-    private var mainInfoSection: some View {
-        VStack(spacing: 20) {
+    var mainInfoSection: some View {
+        VStack(spacing: 14) {
             // 기능 요약
-            VStack(alignment: .leading, spacing: 12) {
-                sectionHeader("Function Summary", icon: "function")
-                
+            InfoCard(icon: "function",
+                     title: "Function Summary",
+                     tint: protein.category.color) {
                 Text(protein.description)
                     .font(.body)
-                    .foregroundColor(.primary)
-                    .padding(16)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(12)
+                    .foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            
-            // PDB 링크 및 외부 정보
-            VStack(alignment: .leading, spacing: 12) {
-                sectionHeader("External Resources", icon: "link")
-                
-                VStack(spacing: 12) {
-                    // PDB 웹사이트 링크
-                    Button(action: {
-                        showingPDBWebsite = true
-                    }) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "globe")
-                                .foregroundColor(.blue)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("View on PDB Website")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.blue)
-                                Text("rcsb.org/structure/\(protein.id)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                            Image(systemName: "arrow.up.right.square")
-                                .foregroundColor(.blue)
-                        }
-                        .padding(16)
-                        .background(Color(.systemBlue).opacity(0.1))
-                        .cornerRadius(12)
-                    }
-                    
-                    // UniProt 링크 (나중에 구현)
-                    Button(action: {
+
+            // 핵심 포인트
+            HStack(spacing: 10) {
+                MetricPill(title: "Structure", value: "1→4 단계", icon: "square.grid.2x2")
+                MetricPill(title: "Coloring",  value: "Element/Chain/SS", icon: "paintbrush")
+                MetricPill(title: "Interact",  value: "Rotate/Zoom/Slice", icon: "hand.tap")
+            }
+
+            // 외부 리소스
+            InfoCard(icon: "link",
+                     title: "External Resources",
+                     tint: .blue) {
+                VStack(spacing: 10) {
+                    LinkRow(
+                        title: "View on PDB Website",
+                        subtitle: "rcsb.org/structure/\(protein.id)",
+                        systemImage: "globe",
+                        tint: .blue
+                    ) { showingPDBWebsite = true }
+
+                    LinkRow(
+                        title: "View on UniProt",
+                        subtitle: "Protein sequence & function",
+                        systemImage: "database",
+                        tint: .green
+                    ) {
                         // TODO: UniProt 링크 구현
-                    }) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "database")
-                                .foregroundColor(.green)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("View on UniProt")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.green)
-                                Text("Protein sequence & function")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                            Image(systemName: "arrow.up.right.square")
-                                .foregroundColor(.green)
-                        }
-                        .padding(16)
-                        .background(Color(.systemGreen).opacity(0.1))
-                        .cornerRadius(12)
                     }
                 }
             }
-            
+
             // 질병 연관성
-            VStack(alignment: .leading, spacing: 12) {
-                sectionHeader("Disease Association", icon: "cross.case")
-                
-                VStack(spacing: 12) {
-                    // 질병 연관성 정보 (샘플 데이터)
-                    diseaseAssociationCard
-                    
-                    // 관련 연구 정보
-                    researchInfoCard
+            InfoCard(icon: "cross.case",
+                     title: "Disease Association",
+                     tint: .orange) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("This protein is associated with several diseases:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    VStack(spacing: 6) {
+                        diseaseItem(name: "Inflammatory diseases", severity: "Moderate", color: .orange)
+                        diseaseItem(name: "Autoimmune disorders",  severity: "High",    color: .red)
+                        diseaseItem(name: "Metabolic syndrome",     severity: "Low",     color: .blue)
+                    }
                 }
             }
-        }
-    }
-    
-    // MARK: - Disease Association Card
-    private var diseaseAssociationCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.orange)
-                Text("Disease Associations")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                Spacer()
-            }
-            
-            // 질병 연관성 정보 (샘플 데이터)
-            VStack(alignment: .leading, spacing: 8) {
-                Text("This protein is associated with several diseases:")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                VStack(alignment: .leading, spacing: 6) {
-                    diseaseItem(name: "Inflammatory diseases", severity: "Moderate", color: .orange)
-                    diseaseItem(name: "Autoimmune disorders", severity: "High", color: .red)
-                    diseaseItem(name: "Metabolic syndrome", severity: "Low", color: .blue)
-                }
-            }
-            .padding(12)
-            .background(Color(.tertiarySystemBackground))
-            .cornerRadius(8)
-        }
-    }
-    
-    // MARK: - Research Info Card
-    private var researchInfoCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "flask.fill")
-                    .foregroundColor(.purple)
-                Text("Research Status")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                Spacer()
-            }
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Current research focus:")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
+
+            // 연구 상태
+            InfoCard(icon: "flask.fill",
+                     title: "Research Status",
+                     tint: .purple) {
                 HStack(spacing: 12) {
-                    researchStatusItem(title: "Active Studies", count: "12", color: .green)
-                    researchStatusItem(title: "Clinical Trials", count: "3", color: .blue)
-                    researchStatusItem(title: "Publications", count: "47", color: .purple)
+                    researchStatusItem(title: "Active Studies",  count: "12", color: .green)
+                    researchStatusItem(title: "Clinical Trials", count: "3",  color: .blue)
+                    researchStatusItem(title: "Publications",    count: "47", color: .purple)
                 }
             }
-            .padding(12)
-            .background(Color(.tertiarySystemBackground))
-            .cornerRadius(8)
         }
     }
-    
-    // MARK: - Helper Views for Disease & Research
-    private func diseaseItem(name: String, severity: String, color: Color) -> some View {
+}
+
+// MARK: - 기존 helper(필요 최소 포함) + 재사용 컴포넌트
+private extension InfoSheet {
+    func diseaseItem(name: String, severity: String, color: Color) -> some View {
         HStack {
-            Circle()
-                .fill(color)
-                .frame(width: 8, height: 8)
-            Text(name)
-                .font(.caption)
-                .foregroundColor(.primary)
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(name).font(.caption).foregroundStyle(.primary)
             Spacer()
             Text(severity)
                 .font(.caption2)
-                .foregroundColor(color)
+                .foregroundStyle(color)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
                 .background(color.opacity(0.1))
-                .cornerRadius(4)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         }
     }
     
-    private func researchStatusItem(title: String, count: String, color: Color) -> some View {
+    func researchStatusItem(title: String, count: String, color: Color) -> some View {
         VStack(spacing: 4) {
-            Text(count)
-                .font(.title3)
-                .fontWeight(.bold)
-                .foregroundColor(color)
-            Text(title)
-                .font(.caption2)
-                .foregroundColor(.secondary)
+            Text(count).font(.title3.weight(.bold)).foregroundStyle(color)
+            Text(title).font(.caption2).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-        .background(color.opacity(0.1))
-        .cornerRadius(8)
-    }
-    
-    // MARK: - Detailed Info Section
-    private var detailedInfoSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            sectionHeader("Additional Information", icon: "info.circle")
-            
-            VStack(spacing: 12) {
-                // 구조 정보
-                infoRow(title: "Structure Type", value: "X-ray Crystallography", icon: "cube.box")
-                infoRow(title: "Resolution", value: "2.1 Å", icon: "scope")
-                infoRow(title: "Organism", value: "Homo sapiens", icon: "person")
-                infoRow(title: "Expression", value: "Ubiquitous", icon: "leaf")
-            }
-        }
-    }
-    
-    // MARK: - Additional Info Section
-    private var additionalInfoSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            sectionHeader("Keywords & Tags", icon: "key.fill")
-            
-            LazyVGrid(columns: [
-                GridItem(.adaptive(minimum: 100), spacing: 8)
-            ], spacing: 8) {
-                ForEach(protein.keywords, id: \.self) { keyword in
-                    Text(keyword)
-                        .font(.caption)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(protein.category.color.opacity(0.1))
-                        .foregroundColor(protein.category.color)
-                        .cornerRadius(16)
-                }
-            }
-            
-            // 관련 단백질 정보
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Related Proteins")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-                
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        relatedProteinChip(id: "1CAT", name: "Catalase")
-                        relatedProteinChip(id: "1TIM", name: "Triose Phosphate Isomerase")
-                        relatedProteinChip(id: "1HRP", name: "Horseradish Peroxidase")
-                    }
-                    .padding(.horizontal, 4)
-                }
-            }
-        }
-    }
-    
-    // MARK: - Action Buttons Section
-    private var actionButtonsSection: some View {
-        VStack(spacing: 16) {
-            // Protein View 버튼
-            Button(action: {
-                if let onProteinSelected = onProteinSelected {
-                    onProteinSelected(protein.id)
-                    dismiss()
-                } else {
-                    showingProteinView = true
-                }
-            }) {
-                HStack(spacing: 12) {
-                    Image(systemName: "cube.box.fill")
-                        .font(.title2)
-                    Text("View 3D Structure")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(protein.category.color)
-                .cornerRadius(16)
-            }
-            
-            // 즐겨찾기 버튼 (나중에 구현)
-            Button(action: {
-                // TODO: 즐겨찾기 토글 기능 구현
-            }) {
-                HStack(spacing: 12) {
-                    Image(systemName: "heart")
-                        .font(.title2)
-                    Text("Add to Favorites")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                }
-                .foregroundColor(protein.category.color)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(protein.category.color.opacity(0.1))
-                .cornerRadius(16)
-            }
-        }
-        .padding(.top, 20)
-    }
-    
-    // MARK: - Helper Views
-    private func sectionHeader(_ title: String, icon: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .foregroundColor(protein.category.color)
-            Text(title)
-                .font(.headline)
-                .fontWeight(.semibold)
-        }
-        .foregroundColor(.primary)
-    }
-    
-    private func infoRow(title: String, value: String, icon: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(protein.category.color)
-                .frame(width: 20)
-            
-            Text(title)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .frame(width: 80, alignment: .leading)
-            
-            Spacer()
-            
-            Text(value)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .multilineTextAlignment(.trailing)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color(.tertiarySystemBackground))
-        .cornerRadius(12)
-    }
-    
-    private func relatedProteinChip(id: String, name: String) -> some View {
-        VStack(spacing: 4) {
-            Text(id)
-                .font(.caption2)
-                .fontWeight(.bold)
-                .foregroundColor(.secondary)
-            Text(name)
-                .font(.caption)
-                .foregroundColor(.primary)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color(.quaternarySystemBackground))
-        .cornerRadius(12)
+        .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
-// MARK: - Protein View Sheet
-struct ProteinViewSheet: View {
-    let proteinId: String
-    @Environment(\.dismiss) private var dismiss
-    
+// MARK: - Pretty UI Components
+struct GlassCard<Content: View>: View {
+    var content: () -> Content
+    init(@ViewBuilder content: @escaping () -> Content) { self.content = content }
     var body: some View {
-        NavigationView {
-            ProteinSceneView(proteinId: proteinId)
-                .navigationTitle("3D Structure")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Done") {
-                            dismiss()
-                        }
-                    }
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            content().padding(16)
+        }
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.06), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 6)
+    }
+}
+
+struct GradientIcon: View {
+    let systemName: String
+    let base: Color
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(LinearGradient(colors: [base.opacity(0.28), base.opacity(0.12)],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay(Circle().stroke(base.opacity(0.25), lineWidth: 1))
+                .shadow(color: base.opacity(0.25), radius: 8, x: 0, y: 4)
+            Image(systemName: systemName)
+                .font(.system(size: 30, weight: .semibold))
+                .foregroundStyle(base)
         }
     }
 }
 
-// MARK: - PDB Website Sheet
-struct PDBWebsiteSheet: View {
-    let proteinId: String
-    @Environment(\.dismiss) private var dismiss
-    @State private var urlString = ""
-    
+struct CapsuleTag: View {
+    let text: String
+    let foreground: Color
+    let background: Color
+    var icon: String? = nil
     var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                // PDB 링크 정보
-                VStack(spacing: 16) {
-                    Image(systemName: "globe")
-                        .font(.system(size: 60))
-                        .foregroundColor(.blue)
-                    
-                    Text("PDB Website")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text("View detailed information about this protein structure on the official PDB website.")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 20)
-                }
-                
-                // PDB 링크
-                VStack(spacing: 12) {
-                    Text("Direct Link:")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    
-                    Link(destination: URL(string: "https://www.rcsb.org/structure/\(proteinId)")!) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "link")
-                            Text("rcsb.org/structure/\(proteinId)")
-                        }
-                        .foregroundColor(.blue)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color(.systemBlue).opacity(0.1))
-                        .cornerRadius(8)
-                    }
-                }
-                
-                // 추가 정보
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("What you'll find:")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        featureItem(icon: "cube.box", text: "3D structure visualization")
-                        featureItem(icon: "doc.text", text: "Detailed experimental data")
-                        featureItem(icon: "chart.bar", text: "Sequence information")
-                        featureItem(icon: "person.2", text: "Publication references")
-                    }
-                }
-                .padding(.horizontal, 20)
-                
+        HStack(spacing: 6) {
+            if let icon { Image(systemName: icon).font(.caption) }
+            Text(text).font(.caption.weight(.medium))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .foregroundStyle(foreground)
+        .background(background, in: Capsule(style: .continuous))
+    }
+}
+
+struct InfoCard<Content: View>: View {
+    let icon: String
+    let title: String
+    let tint: Color
+    var content: () -> Content
+    init(icon: String, title: String, tint: Color, @ViewBuilder content: @escaping () -> Content) {
+        self.icon = icon; self.title = title; self.tint = tint; self.content = content
+    }
+    var body: some View {
+        GlassCard {
+            HStack(spacing: 10) {
+                Image(systemName: icon).foregroundStyle(tint).frame(width: 22)
+                Text(title).font(.headline.weight(.semibold))
                 Spacer()
             }
-            .padding(.top, 30)
-            .navigationTitle("PDB Website")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-    }
-    
-    private func featureItem(icon: String, text: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(.blue)
-                .frame(width: 20)
-            Text(text)
-                .font(.subheadline)
-                .foregroundColor(.primary)
-            Spacer()
+            .padding(.bottom, 8)
+            content()
         }
     }
 }
 
-// MARK: - Preview
-struct InfoSheet_Previews: PreviewProvider {
-    static var previews: some View {
-        InfoSheet(protein: ProteinInfo(
-            id: "1LYZ",
-            name: "Lysozyme",
-            category: .enzymes,
-            description: "항균 작용을 하는 효소, 눈물과 침에 존재하며 세균의 세포벽을 분해하는 역할을 합니다.",
-            keywords: ["항균", "효소", "lysozyme", "antibacterial", "tears"]
-        ))
+struct LinkRow: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    let tint: Color
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage).foregroundStyle(tint)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.subheadline.weight(.medium)).foregroundStyle(tint)
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "arrow.up.right.square").foregroundStyle(tint)
+            }
+            .padding(14)
+            .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct MetricPill: View {
+    let title: String
+    let value: String
+    let icon: String
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.caption)
+                Text(title).font(.caption2).foregroundStyle(.secondary)
+            }
+            Text(value).font(.callout.weight(.semibold)).foregroundStyle(.primary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
