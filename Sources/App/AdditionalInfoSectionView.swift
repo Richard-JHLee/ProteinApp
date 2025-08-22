@@ -48,7 +48,7 @@ struct AdditionalInfoSectionView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color.quaternarySystemBackground)
+            .background(Color(.systemGray6))
             .cornerRadius(12)
         }
         .buttonStyle(.plain)
