@@ -279,6 +279,11 @@ final class Coordinator: NSObject {
 struct ProteinSceneContainer: View {
     let selectedProteinId: String
     @State private var pdbId: String
+    
+    init(selectedProteinId: String) {
+        self.selectedProteinId = selectedProteinId
+        self._pdbId = State(initialValue: selectedProteinId)
+    }
     @State private var structure: PDBStructure? = nil
     @State private var style: RenderStyle = .cartoon
     @State private var color: ColorMode = .secondaryStructure
