@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import SafariServices
 
 // MARK: - Extensions
 
@@ -2798,6 +2799,8 @@ struct ProteinLibraryView: View {
     @State private var showingLoadingPopup = false
     @State private var customSearchTerms: [String] = []
     @State private var showingCustomSearchSheet = false
+    @State private var showingInfoSheet = false
+    @State private var selectedProtein: ProteinInfo? = nil
     @Environment(\.dismiss) private var dismiss
     
     let onProteinSelected: (String) -> Void
@@ -3074,10 +3077,6 @@ struct ProteinLibraryView: View {
                                                 selectedCategory = category
                                                 resetPagination()
                                             }
-                                            
-                                            withAnimation(.spring(response: 0.4)) {
-                                                selectedCategory = category
-                                            }
                                         }
                                     }
                                 }
@@ -3105,9 +3104,8 @@ struct ProteinLibraryView: View {
                                             let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
                                             impactFeedback.impactOccurred()
                                             
-                                            withAnimation(.spring(response: 0.3)) {
-                                                onProteinSelected(protein.id)
-                                            }
+                                            selectedProtein = protein
+                                            showingInfoSheet = true
                                         },
                                         onFavoriteToggle: {
                                             database.toggleFavorite(protein.id)
@@ -3192,6 +3190,11 @@ struct ProteinLibraryView: View {
                 customSearchTerms: $customSearchTerms,
                 selectedCategory: selectedCategory
             )
+        }
+        .sheet(isPresented: $showingInfoSheet) {
+            if let protein = selectedProtein {
+                InfoSheet(protein: protein, onProteinSelected: onProteinSelected)
+            }
         }
         .alert("Error", isPresented: .constant(database.errorMessage != nil)) {
             Button("Retry") {
