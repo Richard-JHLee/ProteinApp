@@ -2422,7 +2422,7 @@ class ProteinDatabase: ObservableObject {
             // 특정 카테고리의 첫 페이지 로드 (실제 API 데이터 우선, 실패 시 샘플 데이터 유지)
             print("🔍 \(category.rawValue) 카테고리 실제 데이터 로딩 시작...")
             
-            // categoryHasMore 상태 초기화
+            // categoryHasMore 상태 초기화 (기본값을 true로 설정)
             await MainActor.run {
                 categoryHasMore[category] = true
             }
@@ -2444,9 +2444,12 @@ class ProteinDatabase: ObservableObject {
                     let sampleProteins = apiService.getSampleProteins(for: category)
                     await MainActor.run {
                         proteins.append(contentsOf: sampleProteins)
-                        // 샘플 데이터만 있는 경우 hasMore = false
-                        categoryHasMore[category] = false
+                        // API가 실패했지만 더 시도해볼 수 있으므로 hasMore는 여전히 true로 유지
+                        // 샘플 데이터만 있는 경우에는 실제 API 데이터가 있을 가능성이 있으므로 true 유지
+                        categoryHasMore[category] = true
                     }
+                } else {
+                    print("✅ \(category.rawValue) 실제 API 데이터 \(loadedRealProteins.count)개 로드 성공")
                 }
             } catch {
                 print("❌ \(category.rawValue) 로딩 실패: \(error.localizedDescription)")
@@ -2457,8 +2460,9 @@ class ProteinDatabase: ObservableObject {
                     let sampleProteins = apiService.getSampleProteins(for: category)
                     proteins.append(contentsOf: sampleProteins)
                     errorMessage = "Using sample data for \(category.rawValue) (API error: \(error.localizedDescription))"
-                    // 샘플 데이터만 있는 경우 hasMore = false
-                    categoryHasMore[category] = false
+                    // API 실패했지만 재시도 가능성이 있으므로 hasMore는 true 유지
+                    // 사용자가 Load More를 누르면 다시 API를 시도할 수 있음
+                    categoryHasMore[category] = true
                 }
                 print("🔄 \(category.rawValue) 샘플 데이터로 복원 완료")
             }
@@ -2617,18 +2621,24 @@ class ProteinDatabase: ObservableObject {
     
     // 특정 카테고리에 더 로드할 수 있는지 확인 (개선된 로직)
     func hasMoreProteins(for category: ProteinCategory) -> Bool {
-        let hasMoreFromState = categoryHasMore[category] ?? false
+        let hasMoreFromState = categoryHasMore[category] ?? true // 기본값을 true로 설정
         let currentlyLoaded = proteins.filter { $0.category == category }.count
         let totalAvailable = categoryTotalCounts[category] ?? 0
         
-        print("🔍 (category.rawValue) hasMoreProteins 체크:")
-        print("   - categoryHasMore[\(category.rawValue)]: (hasMoreFromState)")
-        print("   - 현재 로드된 개수: (currentlyLoaded)")
-        print("   - 전체 사용 가능: (totalAvailable)")
+        print("🔍 \(category.rawValue) hasMoreProteins 체크:")
+        print("   - categoryHasMore[\(category.rawValue)]: \(hasMoreFromState)")
+        print("   - 현재 로드된 개수: \(currentlyLoaded)")
+        print("   - 전체 사용 가능: \(totalAvailable)")
+        
+        // 샘플 데이터만 있는 경우 (보통 3-6개): API에서 더 많은 데이터가 있을 가능성이 높음
+        if currentlyLoaded <= 10 && totalAvailable > currentlyLoaded {
+            print("   - 샘플 데이터 수준, API에서 더 로드 가능")
+            return true
+        }
         
         // 상태가 true이고, 현재 로드된 개수가 전체보다 적은 경우에만 true
-        let result = hasMoreFromState && currentlyLoaded < totalAvailable
-        print("   - 최종 결과: (result)")
+        let result = hasMoreFromState && (totalAvailable == 0 || currentlyLoaded < totalAvailable)
+        print("   - 최종 결과: \(result)")
         
         return result
     }
@@ -2994,20 +3004,24 @@ struct ProteinLibraryView: View {
             let hasMore = database.hasMoreProteins(for: selectedCategory)
             let currentCount = displayedProteins.count
             let totalCount = categoryProteinCounts[selectedCategory] ?? 0
+            let loadedCount = database.proteins.filter { $0.category == selectedCategory }.count
             
-            print("📊 (selectedCategory.rawValue) 카테고리:")
-            print("   - 현재 표시: (currentCount)개")
-            print("   - 전체 개수: (totalCount)개")
-            print("   - API hasMore: (hasMore)")
-            print("   - 더 보기 가능: (hasMore && currentCount < totalCount)")
+            print("📊 \(selectedCategory.rawValue) 카테고리:")
+            print("   - 현재 표시: \(currentCount)개")
+            print("   - 로드된 데이터: \(loadedCount)개")
+            print("   - 전체 개수: \(totalCount)개")
+            print("   - API hasMore: \(hasMore)")
             
-            // API에서 더 가져올 수 있고, 현재 표시된 개수가 전체보다 적은 경우에만 true
-            return hasMore && currentCount < totalCount
+            // 로드된 데이터가 샘플 데이터만 있거나, API에서 더 가져올 수 있는 경우
+            let shouldShowLoadMore = hasMore || (loadedCount <= 10 && totalCount > loadedCount)
+            print("   - Load More 버튼 표시: \(shouldShowLoadMore)")
+            
+            return shouldShowLoadMore
         }
         
         // 전체 카테고리 보기 시: 로컬 페이지네이션
         let hasMoreLocal = displayedProteins.count < allFilteredProteins.count
-        print("📊 전체 카테고리 보기: 로컬 페이지네이션 (hasMoreLocal)")
+        print("📊 전체 카테고리 보기: 로컬 페이지네이션 \(hasMoreLocal)")
         return hasMoreLocal
     }
     
@@ -3262,49 +3276,10 @@ struct ProteinLibraryView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    if #available(iOS 16.0, *) {
-                        Button("Done") {
-                            dismiss()
-                        }
-                        .fontWeight(.semibold)
-                    } else {
-                        // Fallback on earlier versions
-                    };if #available(iOS 16.0, *) {
-                        Button("Done") {
-                            dismiss()
-                        }
-                        .fontWeight(.semibold)
-                    } else {
-                        // Fallback on earlier versions
-                    };if #available(iOS 16.0, *) {
-                        Button("Done") {
-                            dismiss()
-                        }
-                        .fontWeight(.semibold)
-                    } else {
-                        // Fallback on earlier versions
-                    };if #available(iOS 16.0, *) {
-                        Button("Done") {
-                            dismiss()
-                        }
-                        .fontWeight(.semibold)
-                    } else {
-                        // Fallback on earlier versions
-                    };if #available(iOS 16.0, *) {
-                        Button("Done") {
-                            dismiss()
-                        }
-                        .fontWeight(.semibold)
-                    } else {
-                        // Fallback on earlier versions
-                    };if #available(iOS 16.0, *) {
-                        Button("Done") {
-                            dismiss()
-                        }
-                        .fontWeight(.semibold)
-                    } else {
-                        // Fallback on earlier versions
+                    Button("Done") {
+                        dismiss()
                     }
+                    .fontWeight(.semibold)
                 }
             }
             .background(Color(.systemBackground))
