@@ -26,12 +26,6 @@ struct MiniProteinViewer: UIViewRepresentable {
         view.showsStatistics = false
         view.debugOptions = []
         view.rendersContinuously = false // 필요할 때만 렌더링
-        view.jitteringEnabled = false // 지터링 비활성화
-        
-        // 품질 설정 낮춤
-        if #available(iOS 13.0, *) {
-            view.temporalAntialiasingEnabled = false
-        }
         
         setupScene(view: view)
         loadMiniStructure(view: view)

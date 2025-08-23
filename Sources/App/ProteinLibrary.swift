@@ -1836,9 +1836,11 @@ class PDBAPIService {
         return Array(Array(Set(keywords)).prefix(5))
     }
     
-    // MARK: - Main Search Function (2-Stage Loading)
+    // MARK: - Main Search Function (2-Stage Loading with Guaranteed Results)
     func searchProteins(category: ProteinCategory, limit: Int = 30) async throws -> [ProteinInfo] {
         print("🔍 Starting 2-stage search for \(category) with limit \(limit)")
+        
+        var finalProteins: [ProteinInfo] = []
         
         do {
             // Stage 1: Search for PDB IDs (더 많은 ID 수집)
@@ -1846,39 +1848,51 @@ class PDBAPIService {
             let (pdbIds, _) = try await searchProteinsByCategory(category: category, limit: limit * 5)
             print("📋 Stage 1 완료: \(pdbIds.count)개 PDB ID 수집")
             
-            guard !pdbIds.isEmpty else {
-                print("⚠️ No PDB IDs found for \(category), trying fallback search...")
-                // Fallback: 더 관대한 검색 시도
+            if !pdbIds.isEmpty {
+                // Stage 2: Enrich with detailed information (GraphQL batch)
+                print("🔄 Stage 2: 상세 정보 수집 시작...")
+                let detailedProteins = try await fetchProteinDetails(batch: pdbIds)
+                print("📋 Stage 2 완료: \(detailedProteins.count)개 상세 정보 수집")
+                
+                if !detailedProteins.isEmpty {
+                    finalProteins = detailedProteins
+                }
+            }
+            
+            // API 데이터가 부족하면 fallback 시도
+            if finalProteins.count < 5 {
+                print("⚠️ API 데이터 부족 (\(finalProteins.count)개), fallback 검색 시도...")
                 let (fallbackIds, _) = try await searchWithFallback(category: category, limit: limit)
                 if !fallbackIds.isEmpty {
                     let fallbackProteins = try await fetchProteinDetails(batch: Array(fallbackIds.prefix(limit)))
                     if !fallbackProteins.isEmpty {
-                        return fallbackProteins
+                        // 기존 데이터와 중복 제거 후 더하기
+                        let newProteins = fallbackProteins.filter { fallback in
+                            !finalProteins.contains { $0.id == fallback.id }
+                        }
+                        finalProteins.append(contentsOf: newProteins)
+                        print("✅ Fallback 성공: \(newProteins.count)개 추가 데이터 수집")
                     }
                 }
-                print("⚠️ Fallback also failed, using sample data")
-                return getSampleProteins(for: category)
             }
-            
-            // Stage 2: Enrich with detailed information (GraphQL batch)
-            print("🔄 Stage 2: 상세 정보 수집 시작...")
-            let detailedProteins = try await fetchProteinDetails(batch: pdbIds)
-            print("📋 Stage 2 완료: \(detailedProteins.count)개 상세 정보 수집")
-            
-            if detailedProteins.isEmpty {
-                print("⚠️ No detailed info found, using sample data")
-                return getSampleProteins(for: category)
-            }
-            
-            print("✅ \(category) 카테고리 검색 성공: \(detailedProteins.count)개 단백질")
-            return detailedProteins
             
         } catch {
-            print("❌ 2-stage search failed for \(category): \(error)")
-            print("❌ Error details: \(error.localizedDescription)")
-            print("❌ Using sample data as fallback")
-            return getSampleProteins(for: category)
+            print("❌ API 검색 오류: \(error.localizedDescription)")
         }
+        
+        // 여전히 데이터가 부족하면 샘플 데이터 사용
+        if finalProteins.count < 3 {
+            print("🔄 샘플 데이터를 추가하여 사용자 경험 개선...")
+            let sampleProteins = getSampleProteins(for: category)
+            let newSamples = sampleProteins.filter { sample in
+                !finalProteins.contains { $0.id == sample.id }
+            }
+            finalProteins.append(contentsOf: newSamples)
+            print("📦 샘플 데이터 \(newSamples.count)개 추가")
+        }
+        
+        print("✅ \(category) 카테고리 검색 완료: 총 \(finalProteins.count)개 단백질")
+        return finalProteins
     }
 
     // Fallback 검색 (더 관대한 조건)
@@ -2405,21 +2419,38 @@ class ProteinDatabase: ObservableObject {
         }
         
         if let category = category {
-            // 특정 카테고리의 첫 페이지 로드 (실제 API 데이터만)
+            // 특정 카테고리의 첫 페이지 로드 (실제 API 데이터 우선, 실패 시 샘플 데이터 유지)
             print("🔍 \(category.rawValue) 카테고리 실제 데이터 로딩 시작...")
             do {
-                // 샘플 데이터 제거 후 실제 API 데이터만 로드
-                await MainActor.run {
-                    proteins.removeAll { $0.category == category }
-                }
+                // 먼저 샘플 데이터가 있는지 확인
+                let existingSampleProteins = proteins.filter { $0.category == category }
+                let hasSampleData = !existingSampleProteins.isEmpty
                 
+                // 실제 API 데이터 로드 시도
                 try await loadCategoryPage(category: category, refresh: true)
                 print("✅ \(category.rawValue) 카테고리 로딩 완료")
+                
+                // 로드된 실제 데이터 확인
+                let loadedRealProteins = proteins.filter { $0.category == category }
+                if loadedRealProteins.isEmpty {
+                    print("⚠️ \(category.rawValue) 실제 데이터 없음, 샘플 데이터 유지")
+                    // 샘플 데이터 복원
+                    let sampleProteins = apiService.getSampleProteins(for: category)
+                    await MainActor.run {
+                        proteins.append(contentsOf: sampleProteins)
+                    }
+                }
             } catch {
                 print("❌ \(category.rawValue) 로딩 실패: \(error.localizedDescription)")
+                
+                // API 실패 시 샘플 데이터 사용
                 await MainActor.run {
-                    errorMessage = "Failed to load \(category.rawValue): \(error.localizedDescription)"
+                    proteins.removeAll { $0.category == category }
+                    let sampleProteins = apiService.getSampleProteins(for: category)
+                    proteins.append(contentsOf: sampleProteins)
+                    errorMessage = "Using sample data for \(category.rawValue) (API error: \(error.localizedDescription))"
                 }
+                print("🔄 \(category.rawValue) 샘플 데이터로 복원 완료")
             }
         } else {
             // 전체 카테고리의 샘플 데이터만 로드 (빠른 시작)
@@ -2434,7 +2465,7 @@ class ProteinDatabase: ObservableObject {
         }
     }
     
-    // 특정 카테고리의 페이지 로드 (수정됨: 실제 API 데이터만 로딩)
+    // 특정 카테고리의 페이지 로드 (수정됨: 실제 API 데이터 우선, 실패 시 폴백)
     private func loadCategoryPage(category: ProteinCategory, refresh: Bool = false) async throws {
         if refresh {
             categoryPages[category] = 0
@@ -2456,24 +2487,34 @@ class ProteinDatabase: ObservableObject {
             let newProteins = try await apiService.searchProteins(category: category, limit: limit)
             print("✅ \(category.rawValue): \(newProteins.count)개 실제 단백질 로드 완료 (페이지 \(currentPage + 1))")
             
-            // 실제 API에서 가져온 데이터만 추가 (샘플 데이터 제외)
-            let realProteins = newProteins.filter { protein in
-                // 샘플 데이터 ID 목록에 없는 것만 필터링
-                let sampleIds = apiService.getSampleProteins(for: category).map { $0.id }
-                return !sampleIds.contains(protein.id)
-            }
+            // 모든 API 데이터를 사용 (샘플 데이터 포함)
+            let allProteins = newProteins
             
             await MainActor.run {
                 if refresh {
                     proteins.removeAll { $0.category == category }
                 }
-                proteins.append(contentsOf: realProteins)
+                proteins.append(contentsOf: allProteins)
                 categoryPages[category] = currentPage + 1
                 // 가져온 데이터가 요청한 개수보다 적으면 더 이상 없음
                 categoryHasMore[category] = newProteins.count >= limit
                 loadedCategories.insert(category)
                 
-                print("📊 \(category.rawValue) 상태: 로드된 단백질 \(realProteins.count)개, hasMore: \(categoryHasMore[category] ?? false)")
+                print("📊 \(category.rawValue) 상태: 로드된 단백질 \(allProteins.count)개, hasMore: \(categoryHasMore[category] ?? false)")
+            }
+            
+            // API에서 충분한 데이터를 가져오지 못했을 때 샘플 데이터로 보완
+            if newProteins.count < 5 {
+                print("⚠️ \(category.rawValue) API 데이터 부족 (\(newProteins.count)개), 샘플 데이터로 보완")
+                let sampleProteins = apiService.getSampleProteins(for: category)
+                let filteredSamples = sampleProteins.filter { sample in
+                    !allProteins.contains { $0.id == sample.id }
+                }
+                
+                await MainActor.run {
+                    proteins.append(contentsOf: filteredSamples)
+                    print("📦 \(category.rawValue) 샘플 데이터 \(filteredSamples.count)개 추가")
+                }
             }
         } catch {
             print("❌ \(category.rawValue) API 실패: \(error.localizedDescription)")
@@ -2830,6 +2871,7 @@ struct ProteinLibraryView: View {
     
     var allFilteredProteins: [ProteinInfo] {
         var result = database.proteins
+        print("📊 전체 단백질 수: \(result.count)")
         
         // 검색어 필터링
         if !searchText.isEmpty {
@@ -2838,18 +2880,31 @@ struct ProteinLibraryView: View {
                 protein.description.localizedCaseInsensitiveContains(searchText) ||
                 protein.keywords.contains { $0.localizedCaseInsensitiveContains(searchText) }
             }
+            print("🔍 검색어 '\(searchText)' 필터링 후: \(result.count)개")
         }
         
         // 카테고리 필터링
         if let category = selectedCategory {
+            let beforeCount = result.count
             result = result.filter { $0.category == category }
+            print("📊 카테고리 '\(category.rawValue)' 필터링: \(beforeCount)개 -> \(result.count)개")
+            
+            // 카테고리별 세부 데이터 확인
+            let categoryProteins = database.proteins.filter { $0.category == category }
+            print("📊 데이터베이스에서 \(category.rawValue) 카테고리: \(categoryProteins.count)개")
+            if categoryProteins.count <= 3 {
+                print("📊 \(category.rawValue) 세부: \(categoryProteins.map { $0.name })")
+            }
         }
         
         // 즐겨찾기 필터링
         if showingFavoritesOnly {
+            let beforeCount = result.count
             result = result.filter { database.favorites.contains($0.id) }
+            print("🔍 즐겨찾기 필터링: \(beforeCount)개 -> \(result.count)개")
         }
         
+        print("✅ 최종 필터링 결과: \(result.count)개 단백질")
         return result
     }
     
