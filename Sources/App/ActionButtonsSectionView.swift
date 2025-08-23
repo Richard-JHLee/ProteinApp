@@ -9,27 +9,42 @@ struct ActionButtonsSectionView: View {
         VStack(spacing: 16) {
             Button(action: onView3D) {
                 HStack(spacing: 12) {
-                    Image(systemName: "cube.box.fill").font(.title2)
-                    Text("View 3D Structure").font(.headline.weight(.semibold))
+                    Image(systemName: "cube.box.fill")
+                        .font(.title2)
+                        .accessibilityHidden(true)
+                    Text("View 3D Structure")
+                        .font(.headline.weight(.semibold))
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(protein.category.color)
-                .cornerRadius(16)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .shadow(color: protein.category.color.opacity(0.3), radius: 4, x: 0, y: 2)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("View 3D structure for \(protein.name)")
 
             Button(action: onFavorite) {
                 HStack(spacing: 12) {
-                    Image(systemName: "heart").font(.title2)
-                    Text("Add to Favorites").font(.headline.weight(.semibold))
+                    Image(systemName: "heart")
+                        .font(.title2)
+                        .accessibilityHidden(true)
+                    Text("Add to Favorites")
+                        .font(.headline.weight(.semibold))
                 }
                 .foregroundColor(protein.category.color)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(protein.category.color.opacity(0.1))
-                .cornerRadius(16)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(protein.category.color.opacity(0.3), lineWidth: 1)
+                )
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Add \(protein.name) to favorites")
         }
         .padding(.top, 8)
     }

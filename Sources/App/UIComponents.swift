@@ -8,8 +8,11 @@ struct GlassCard<Content: View>: View {
             content()
         }
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.06), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 6)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.black.opacity(0.06), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
     }
 }
 
@@ -100,14 +103,27 @@ struct MetricPill: View {
     let icon: String
     var body: some View {
         VStack(spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: icon).font(.caption)
-                Text(title).font(.caption2).foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(title)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
-            Text(value).font(.callout.weight(.semibold)).foregroundStyle(.primary)
+            Text(value)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 8)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(.quaternary, lineWidth: 0.5)
+        )
     }
 }

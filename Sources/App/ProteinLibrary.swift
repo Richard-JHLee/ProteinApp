@@ -2405,10 +2405,15 @@ class ProteinDatabase: ObservableObject {
         }
         
         if let category = category {
-            // 특정 카테고리의 첫 페이지 로드 (실제 API 데이터)
+            // 특정 카테고리의 첫 페이지 로드 (실제 API 데이터만)
             print("🔍 \(category.rawValue) 카테고리 실제 데이터 로딩 시작...")
             do {
-                try await loadCategoryPage(category: category, refresh: refresh)
+                // 샘플 데이터 제거 후 실제 API 데이터만 로드
+                await MainActor.run {
+                    proteins.removeAll { $0.category == category }
+                }
+                
+                try await loadCategoryPage(category: category, refresh: true)
                 print("✅ \(category.rawValue) 카테고리 로딩 완료")
             } catch {
                 print("❌ \(category.rawValue) 로딩 실패: \(error.localizedDescription)")
@@ -2429,7 +2434,7 @@ class ProteinDatabase: ObservableObject {
         }
     }
     
-    // 특정 카테고리의 페이지 로드 (수정됨: 효율적인 로딩)
+    // 특정 카테고리의 페이지 로드 (수정됨: 실제 API 데이터만 로딩)
     private func loadCategoryPage(category: ProteinCategory, refresh: Bool = false) async throws {
         if refresh {
             categoryPages[category] = 0
@@ -2440,26 +2445,42 @@ class ProteinDatabase: ObservableObject {
         }
         
         let currentPage = categoryPages[category] ?? 0
-        print("🔄 \(category.rawValue) 카테고리 로딩 중... (페이지 \(currentPage + 1))")
+        print("🔄 \(category.rawValue) 카테고리 실제 API 데이터 로딩 중... (페이지 \(currentPage + 1))")
         
         do {
-            // 효율적인 로딩: 적절한 개수만 가져오기
-            let limit = currentPage == 0 ? 30 : itemsPerPage // 첫 페이지는 30개, 추가 페이지는 20개
+            // 실제 API에서 30개씩 가져오기 (페이지네이션)
+            let skip = currentPage * itemsPerPage
+            let limit = itemsPerPage // 항상 30개씩
+            
+            print("📡 API 호출: skip=\(skip), limit=\(limit)")
             let newProteins = try await apiService.searchProteins(category: category, limit: limit)
-            print("✅ \(category.rawValue): \(newProteins.count)개 단백질 로드 완료 (페이지 \(currentPage + 1), limit: \(limit))")
+            print("✅ \(category.rawValue): \(newProteins.count)개 실제 단백질 로드 완료 (페이지 \(currentPage + 1))")
+            
+            // 실제 API에서 가져온 데이터만 추가 (샘플 데이터 제외)
+            let realProteins = newProteins.filter { protein in
+                // 샘플 데이터 ID 목록에 없는 것만 필터링
+                let sampleIds = apiService.getSampleProteins(for: category).map { $0.id }
+                return !sampleIds.contains(protein.id)
+            }
             
             await MainActor.run {
                 if refresh {
                     proteins.removeAll { $0.category == category }
                 }
-                proteins.append(contentsOf: newProteins)
+                proteins.append(contentsOf: realProteins)
                 categoryPages[category] = currentPage + 1
-                categoryHasMore[category] = newProteins.count == limit
+                // 가져온 데이터가 요청한 개수보다 적으면 더 이상 없음
+                categoryHasMore[category] = newProteins.count >= limit
                 loadedCategories.insert(category)
+                
+                print("📊 \(category.rawValue) 상태: 로드된 단백질 \(realProteins.count)개, hasMore: \(categoryHasMore[category] ?? false)")
             }
         } catch {
             print("❌ \(category.rawValue) API 실패: \(error.localizedDescription)")
-            // 에러를 다시 던져서 상위에서 처리하도록 함
+            // 에러 발생 시 더 이상 로드하지 않도록 설정
+            await MainActor.run {
+                categoryHasMore[category] = false
+            }
             throw error
         }
     }
@@ -2873,13 +2894,13 @@ struct ProteinLibraryView: View {
     }
     
     var hasMoreData: Bool {
-        // 로컬 페이지네이션: 표시된 항목이 전체 필터링된 항목보다 적으면 더 보여줄 수 있음
-        let hasMoreLocal = displayedProteins.count < allFilteredProteins.count
+        // 카테고리가 선택된 경우: API에서 더 가져올 수 있는지 확인
+        if let selectedCategory = selectedCategory {
+            return database.hasMoreProteins(for: selectedCategory)
+        }
         
-        // API 페이지네이션: 선택된 카테고리에서 더 가져올 수 있는지
-        let hasMoreFromAPI = selectedCategory != nil ? database.hasMoreProteins(for: selectedCategory!) : false
-        
-        return hasMoreLocal || hasMoreFromAPI
+        // 전체 카테고리 보기 시: 로컬 페이지네이션
+        return displayedProteins.count < allFilteredProteins.count
     }
     
     var body: some View {
@@ -3260,16 +3281,17 @@ struct ProteinLibraryView: View {
         isLoadingMore = true
         
         Task {
-            // 로컬 페이지네이션: 더 많은 항목을 표시
-            if displayedProteins.count < allFilteredProteins.count {
-                await MainActor.run {
-                    currentPage += 1
-                }
-            }
-            
-            // API 페이지네이션: 선택된 카테고리에서 더 많은 데이터 로드
-            if let selectedCategory = selectedCategory, database.hasMoreProteins(for: selectedCategory) {
+            if let selectedCategory = selectedCategory {
+                // 카테고리가 선택된 경우: API에서 더 많은 데이터 로드
+                print("🔄 \(selectedCategory.rawValue) 카테고리의 추가 데이터 로딩...")
                 await database.loadMoreProteins(for: selectedCategory)
+            } else {
+                // 전체 카테고리 보기 시: 로컬 페이지네이션
+                if displayedProteins.count < allFilteredProteins.count {
+                    await MainActor.run {
+                        currentPage += 1
+                    }
+                }
             }
             
             await MainActor.run {

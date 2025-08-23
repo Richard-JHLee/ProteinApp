@@ -63,7 +63,7 @@ struct InfoSheet: View {
             ProteinSceneContainer(selectedProteinId: protein.id)
         }
         .toolbar {
-            SwiftUI.ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Done") { dismiss() }
             }
         }

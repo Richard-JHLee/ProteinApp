@@ -18,13 +18,20 @@ struct MiniProteinViewer: UIViewRepresentable {
         view.isUserInteractionEnabled = false
         
         // 성능 최적화 설정
-        view.preferredFramesPerSecond = 30 // FPS 제한
+        view.preferredFramesPerSecond = 24 // FPS 제한 (더 낮춤)
         view.isPlaying = true
         view.loops = true
         
         // 렌더링 최적화
         view.showsStatistics = false
         view.debugOptions = []
+        view.rendersContinuously = false // 필요할 때만 렌더링
+        view.jitteringEnabled = false // 지터링 비활성화
+        
+        // 품질 설정 낮춤
+        if #available(iOS 13.0, *) {
+            view.temporalAntialiasingEnabled = false
+        }
         
         setupScene(view: view)
         loadMiniStructure(view: view)
