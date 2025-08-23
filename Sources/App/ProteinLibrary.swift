@@ -3276,10 +3276,17 @@ struct ProteinLibraryView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
+                    if #available(iOS 16.0, *) {
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .fontWeight(.semibold)
+                    } else {
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .font(.system(size: 17, weight: .semibold))
                     }
-                    .fontWeight(.semibold)
                 }
             }
             .background(Color(.systemBackground))

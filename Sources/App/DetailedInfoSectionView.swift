@@ -31,7 +31,7 @@ struct DetailedInfoSectionView: View {
 
             Text(value)
                 .font(.subheadline)
-                .fontWeight(.medium)
+                .modifier(ConditionalFontWeight(weight: .medium, fallbackFont: .subheadline))
                 .multilineTextAlignment(.trailing)
         }
         .padding(.horizontal, 16)

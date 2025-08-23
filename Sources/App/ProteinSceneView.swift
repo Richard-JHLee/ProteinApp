@@ -540,7 +540,7 @@ struct StyleButton: View {
                 
                 Text(style.rawValue)
                     .font(.caption)
-                    .fontWeight(.medium)
+                    .modifier(ConditionalFontWeight(weight: .medium, fallbackFont: .caption))
                     .foregroundColor(isSelected ? .white : .primary)
             }
             .frame(width: 80, height: 64)
@@ -574,7 +574,7 @@ struct ColorButton: View {
                 
                 Text(colorMode.rawValue)
                     .font(.caption2)
-                    .fontWeight(.medium)
+                    .modifier(ConditionalFontWeight(weight: .medium, fallbackFont: .caption2))
                     .foregroundColor(isSelected ? .white : .primary)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -630,7 +630,7 @@ struct AtomInfoView: View {
             HStack {
                 Text("Selected Atom")
                     .font(.headline)
-                    .fontWeight(.bold)
+                    .modifier(ConditionalFontWeight(weight: .bold, fallbackFont: .headline))
                 
                 Spacer()
                 
@@ -645,21 +645,21 @@ struct AtomInfoView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ELEMENT")
                         .font(.caption)
-                        .fontWeight(.semibold)
+                        .modifier(ConditionalFontWeight(weight: .semibold, fallbackFont: .caption))
                         .foregroundColor(.secondary)
                     Text(atom.element)
                         .font(.title2)
-                        .fontWeight(.bold)
+                        .modifier(ConditionalFontWeight(weight: .bold, fallbackFont: .title2))
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("NAME")
                         .font(.caption)
-                        .fontWeight(.semibold)
+                        .modifier(ConditionalFontWeight(weight: .semibold, fallbackFont: .caption))
                         .foregroundColor(.secondary)
                     Text(atom.name)
                         .font(.title2)
-                        .fontWeight(.bold)
+                        .modifier(ConditionalFontWeight(weight: .bold, fallbackFont: .title2))
                 }
                 
                 Spacer()
@@ -667,22 +667,22 @@ struct AtomInfoView: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("CHAIN")
                         .font(.caption)
-                        .fontWeight(.semibold)
+                        .modifier(ConditionalFontWeight(weight: .semibold, fallbackFont: .caption))
                         .foregroundColor(.secondary)
                     Text(atom.chain)
                         .font(.title2)
-                        .fontWeight(.bold)
+                        .modifier(ConditionalFontWeight(weight: .bold, fallbackFont: .title2))
                 }
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text("RESIDUE")
                     .font(.caption)
-                    .fontWeight(.semibold)
+                    .modifier(ConditionalFontWeight(weight: .semibold, fallbackFont: .caption))
                     .foregroundColor(.secondary)
                 Text("\(atom.residueName) \(atom.residueNumber)")
                     .font(.subheadline)
-                    .fontWeight(.medium)
+                    .modifier(ConditionalFontWeight(weight: .medium, fallbackFont: .subheadline))
             }
         }
         .padding(20)
