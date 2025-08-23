@@ -374,15 +374,11 @@ class PDBAPIService {
         // 기본 검색도 실패하면 fallback 검색 시도
         if finalIdentifiers.isEmpty {
             print("🔄 [\(category.rawValue)] 기본 검색 실패, fallback 검색 시도...")
-            // skip이 0인 경우에만 fallback 검색 시도 (초기 로드용)
-            if skip == 0 {
-                let (fallbackIdentifiers, fallbackTotalCount) = try await searchWithFallback(category: category, limit: limit, skip: skip)
-                print("🔍 [\(category.rawValue)] fallback 검색 결과: \(fallbackIdentifiers.count)개, 전체: \(fallbackTotalCount)개")
-                finalIdentifiers = fallbackIdentifiers
-                finalTotalCount = fallbackTotalCount
-            } else {
-                print("⚠️ [\(category.rawValue)] skip>0이므로 fallback 검색 생략")
-            }
+            // fallback 검색을 항상 시도 (skip 값과 관계없이)
+            let (fallbackIdentifiers, fallbackTotalCount) = try await searchWithFallback(category: category, limit: limit, skip: skip)
+            print("🔍 [\(category.rawValue)] fallback 검색 결과: \(fallbackIdentifiers.count)개, 전체: \(fallbackTotalCount)개")
+            finalIdentifiers = fallbackIdentifiers
+            finalTotalCount = fallbackTotalCount
         }
         
         // 모든 검색이 실패한 경우 최후의 수단으로 간단한 검색 시도
