@@ -2421,6 +2421,12 @@ class ProteinDatabase: ObservableObject {
         if let category = category {
             // 특정 카테고리의 첫 페이지 로드 (실제 API 데이터 우선, 실패 시 샘플 데이터 유지)
             print("🔍 \(category.rawValue) 카테고리 실제 데이터 로딩 시작...")
+            
+            // categoryHasMore 상태 초기화
+            await MainActor.run {
+                categoryHasMore[category] = true
+            }
+            
             do {
                 // 먼저 샘플 데이터가 있는지 확인
                 let existingSampleProteins = proteins.filter { $0.category == category }
@@ -2438,6 +2444,8 @@ class ProteinDatabase: ObservableObject {
                     let sampleProteins = apiService.getSampleProteins(for: category)
                     await MainActor.run {
                         proteins.append(contentsOf: sampleProteins)
+                        // 샘플 데이터만 있는 경우 hasMore = false
+                        categoryHasMore[category] = false
                     }
                 }
             } catch {
@@ -2449,6 +2457,8 @@ class ProteinDatabase: ObservableObject {
                     let sampleProteins = apiService.getSampleProteins(for: category)
                     proteins.append(contentsOf: sampleProteins)
                     errorMessage = "Using sample data for \(category.rawValue) (API error: \(error.localizedDescription))"
+                    // 샘플 데이터만 있는 경우 hasMore = false
+                    categoryHasMore[category] = false
                 }
                 print("🔄 \(category.rawValue) 샘플 데이터로 복원 완료")
             }
@@ -2496,11 +2506,26 @@ class ProteinDatabase: ObservableObject {
                 }
                 proteins.append(contentsOf: allProteins)
                 categoryPages[category] = currentPage + 1
-                // 가져온 데이터가 요청한 개수보다 적으면 더 이상 없음
-                categoryHasMore[category] = newProteins.count >= limit
+                
+                // hasMore 로직 개선: 실제 받은 데이터 개수와 요청한 개수 비교
+                let actuallyReceived = newProteins.count
+                let hasMoreData = actuallyReceived >= limit
+                categoryHasMore[category] = hasMoreData
+                
+                // 추가 검증: 전체 개수와 비교
+                let totalCount = categoryTotalCounts[category] ?? 0
+                let currentTotal = proteins.filter { $0.category == category }.count
+                if totalCount > 0 && currentTotal >= totalCount {
+                    categoryHasMore[category] = false
+                }
+                
                 loadedCategories.insert(category)
                 
-                print("📊 \(category.rawValue) 상태: 로드된 단백질 \(allProteins.count)개, hasMore: \(categoryHasMore[category] ?? false)")
+                print("📊 \(category.rawValue) 상태 업데이트:")
+                print("   - 로드된 단백질: \(allProteins.count)개")
+                print("   - 수신된 데이터: \(actuallyReceived)개 (limit: \(limit))")
+                print("   - hasMore: \(categoryHasMore[category] ?? false)")
+                print("   - 전체 로드된 개수: \(currentTotal)/\(totalCount)")
             }
             
             // API에서 충분한 데이터를 가져오지 못했을 때 샘플 데이터로 보완
@@ -2572,7 +2597,7 @@ class ProteinDatabase: ObservableObject {
             let sampleProteins = apiService.getSampleProteins(for: category)
             await MainActor.run {
                 proteins.append(contentsOf: sampleProteins)
-                categoryPages[category] = 1
+                categoryPages[category] = 0 // 샘플 데이터는 페이지 0으로 설정
                 categoryHasMore[category] = true // 실제 데이터가 더 있을 수 있음
                 loadedCategories.insert(category)
             }
@@ -2590,9 +2615,22 @@ class ProteinDatabase: ObservableObject {
         await loadAllCategoryCounts()
     }
     
-    // 특정 카테고리에 더 로드할 수 있는지 확인
+    // 특정 카테고리에 더 로드할 수 있는지 확인 (개선된 로직)
     func hasMoreProteins(for category: ProteinCategory) -> Bool {
-        return categoryHasMore[category] ?? true
+        let hasMoreFromState = categoryHasMore[category] ?? false
+        let currentlyLoaded = proteins.filter { $0.category == category }.count
+        let totalAvailable = categoryTotalCounts[category] ?? 0
+        
+        print("🔍 (category.rawValue) hasMoreProteins 체크:")
+        print("   - categoryHasMore[\(category.rawValue)]: (hasMoreFromState)")
+        print("   - 현재 로드된 개수: (currentlyLoaded)")
+        print("   - 전체 사용 가능: (totalAvailable)")
+        
+        // 상태가 true이고, 현재 로드된 개수가 전체보다 적은 경우에만 true
+        let result = hasMoreFromState && currentlyLoaded < totalAvailable
+        print("   - 최종 결과: (result)")
+        
+        return result
     }
     
     // 모든 카테고리의 실제 API 총 개수 로드
@@ -2949,13 +2987,28 @@ struct ProteinLibraryView: View {
     }
     
     var hasMoreData: Bool {
+        print("🔍 hasMoreData 체크 시작...")
+        
         // 카테고리가 선택된 경우: API에서 더 가져올 수 있는지 확인
         if let selectedCategory = selectedCategory {
-            return database.hasMoreProteins(for: selectedCategory)
+            let hasMore = database.hasMoreProteins(for: selectedCategory)
+            let currentCount = displayedProteins.count
+            let totalCount = categoryProteinCounts[selectedCategory] ?? 0
+            
+            print("📊 (selectedCategory.rawValue) 카테고리:")
+            print("   - 현재 표시: (currentCount)개")
+            print("   - 전체 개수: (totalCount)개")
+            print("   - API hasMore: (hasMore)")
+            print("   - 더 보기 가능: (hasMore && currentCount < totalCount)")
+            
+            // API에서 더 가져올 수 있고, 현재 표시된 개수가 전체보다 적은 경우에만 true
+            return hasMore && currentCount < totalCount
         }
         
         // 전체 카테고리 보기 시: 로컬 페이지네이션
-        return displayedProteins.count < allFilteredProteins.count
+        let hasMoreLocal = displayedProteins.count < allFilteredProteins.count
+        print("📊 전체 카테고리 보기: 로컬 페이지네이션 (hasMoreLocal)")
+        return hasMoreLocal
     }
     
     var body: some View {
@@ -3331,21 +3384,42 @@ struct ProteinLibraryView: View {
     // MARK: - Helper Functions
     
     private func loadMoreProteins() {
-        guard !isLoadingMore else { return }
+        guard !isLoadingMore else { 
+            print("⚠️ LoadMore 이미 진행 중, 요청 무시")
+            return 
+        }
         
+        print("🔄 LoadMore 버튼 클릭 시작")
         isLoadingMore = true
         
         Task {
             if let selectedCategory = selectedCategory {
                 // 카테고리가 선택된 경우: API에서 더 많은 데이터 로드
                 print("🔄 \(selectedCategory.rawValue) 카테고리의 추가 데이터 로딩...")
-                await database.loadMoreProteins(for: selectedCategory)
+                
+                // 현재 상태 정보 출력
+                let currentCount = displayedProteins.count
+                let totalCount = categoryProteinCounts[selectedCategory] ?? 0
+                let hasMore = database.hasMoreProteins(for: selectedCategory)
+                
+                print("📊 현재 상태 - 표시: \(currentCount), 전체: \(totalCount), hasMore: \(hasMore)")
+                
+                if hasMore {
+                    await database.loadMoreProteins(for: selectedCategory)
+                    print("✅ \(selectedCategory.rawValue) 추가 로딩 완료")
+                } else {
+                    print("⚠️ \(selectedCategory.rawValue) 더 이상 로드할 데이터 없음")
+                }
             } else {
                 // 전체 카테고리 보기 시: 로컬 페이지네이션
                 if displayedProteins.count < allFilteredProteins.count {
+                    print("🔄 로컬 페이지네이션: 페이지 \(currentPage) -> \(currentPage + 1)")
                     await MainActor.run {
                         currentPage += 1
                     }
+                    print("✅ 로컬 페이지네이션 완료")
+                } else {
+                    print("⚠️ 로컬 페이지네이션: 더 이상 표시할 데이터 없음")
                 }
             }
             
@@ -3357,6 +3431,8 @@ struct ProteinLibraryView: View {
                 // 합틱 피드백
                 let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
                 impactFeedback.impactOccurred()
+                
+                print("✅ LoadMore 완료, isLoadingMore = false")
             }
         }
     }
