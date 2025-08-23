@@ -134,7 +134,58 @@ struct GraphQLExperimental: Codable {
 
 struct GraphQLEntryInfo: Codable {
     let resolution_combined: [Double]?
-    let experimental_method: [String]?
+    private let _experimental_method: ExperimentalMethodValue?
+    
+    // Computed property to handle both string and array cases
+    var experimental_method: [String]? {
+        switch _experimental_method {
+        case .single(let method):
+            return [method]
+        case .multiple(let methods):
+            return methods
+        case .none:
+            return nil
+        }
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case resolution_combined
+        case _experimental_method = "experimental_method"
+    }
+    
+    // Enum to handle both string and array cases
+    private enum ExperimentalMethodValue: Codable {
+        case single(String)
+        case multiple([String])
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            
+            if let stringValue = try? container.decode(String.self) {
+                self = .single(stringValue)
+            } else if let arrayValue = try? container.decode([String].self) {
+                self = .multiple(arrayValue)
+            } else {
+                throw DecodingError.typeMismatch(
+                    ExperimentalMethodValue.self,
+                    DecodingError.Context(
+                        codingPath: decoder.codingPath,
+                        debugDescription: "Expected string or array of strings"
+                    )
+                )
+            }
+        }
+        
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            switch self {
+            case .single(let method):
+                try container.encode(method)
+            case .multiple(let methods):
+                try container.encode(methods)
+            }
+        }
+    }
 }
 
 struct GraphQLCitation: Codable {
@@ -241,8 +292,8 @@ class PDBAPIService {
     private let graphQLURL = "https://data.rcsb.org/graphql"
     
     // MARK: - Stage 1: Search & Filter (카테고리별 PDB ID 수집)
-    func searchProteinsByCategory(category: ProteinCategory, limit: Int = 200, customTerms: [String] = []) async throws -> ([String], Int) {
-        print("🔍 [\(category.rawValue)] 카테고리 검색 시작 (limit: \(limit), custom terms: \(customTerms.count))")
+    func searchProteinsByCategory(category: ProteinCategory, limit: Int = 200, skip: Int = 0, customTerms: [String] = []) async throws -> ([String], Int) {
+        print("🔍 [\(category.rawValue)] 카테고리 검색 시작 (limit: \(limit), skip: \(skip), custom terms: \(customTerms.count))")
         
         // 사용자 정의 검색어가 있으면 커스텀 쿼리 사용
         if !customTerms.isEmpty {
@@ -256,7 +307,7 @@ class PDBAPIService {
         }
         
         // 먼저 고급 검색 시도
-        let (identifiers, totalCount) = try await performAdvancedSearch(category: category, limit: limit)
+        let (identifiers, totalCount) = try await performAdvancedSearch(category: category, limit: limit, skip: skip)
         print("🔍 [\(category.rawValue)] 고급 검색 결과: \(identifiers.count)개, 전체: \(totalCount)개")
         
         var finalIdentifiers = identifiers
@@ -314,7 +365,7 @@ class PDBAPIService {
         // 고급 검색이 실패하면 기본 검색 시도
         if finalIdentifiers.isEmpty {
             print("🔄 [\(category.rawValue)] 고급 검색 실패, 기본 검색 시도...")
-            let (basicIdentifiers, basicTotalCount) = try await performBasicSearch(category: category, limit: limit)
+            let (basicIdentifiers, basicTotalCount) = try await performBasicSearch(category: category, limit: limit, skip: skip)
             print("🔍 [\(category.rawValue)] 기본 검색 결과: \(basicIdentifiers.count)개, 전체: \(basicTotalCount)개")
             finalIdentifiers = basicIdentifiers
             finalTotalCount = basicTotalCount
@@ -323,10 +374,15 @@ class PDBAPIService {
         // 기본 검색도 실패하면 fallback 검색 시도
         if finalIdentifiers.isEmpty {
             print("🔄 [\(category.rawValue)] 기본 검색 실패, fallback 검색 시도...")
-            let (fallbackIdentifiers, fallbackTotalCount) = try await searchWithFallback(category: category, limit: limit)
-            print("🔍 [\(category.rawValue)] fallback 검색 결과: \(fallbackIdentifiers.count)개, 전체: \(fallbackTotalCount)개")
-            finalIdentifiers = fallbackIdentifiers
-            finalTotalCount = fallbackTotalCount
+            // skip이 0인 경우에만 fallback 검색 시도 (초기 로드용)
+            if skip == 0 {
+                let (fallbackIdentifiers, fallbackTotalCount) = try await searchWithFallback(category: category, limit: limit, skip: skip)
+                print("🔍 [\(category.rawValue)] fallback 검색 결과: \(fallbackIdentifiers.count)개, 전체: \(fallbackTotalCount)개")
+                finalIdentifiers = fallbackIdentifiers
+                finalTotalCount = fallbackTotalCount
+            } else {
+                print("⚠️ [\(category.rawValue)] skip>0이므로 fallback 검색 생략")
+            }
         }
         
         // 모든 검색이 실패한 경우 최후의 수단으로 간단한 검색 시도
@@ -345,7 +401,7 @@ class PDBAPIService {
                 "return_type": "entry",
                 "request_options": [
                     "paginate": [
-                        "start": 0,
+                        "start": skip, // skip 매개변수 적용
                         "rows": limit
                     ]
                 ]
@@ -372,16 +428,16 @@ class PDBAPIService {
     }
     
     // 고급 검색 (카테고리별 전문 쿼리)
-    private func performAdvancedSearch(category: ProteinCategory, limit: Int) async throws -> ([String], Int) {
-        let query = buildAdvancedSearchQuery(category: category, limit: limit)
+    private func performAdvancedSearch(category: ProteinCategory, limit: Int, skip: Int = 0) async throws -> ([String], Int) {
+        let query = buildAdvancedSearchQuery(category: category, limit: limit, skip: skip)
         return try await executeSearchQuery(query: query, description: "고급 검색")
     }
     
     // 기본 검색 (카테고리 이름 기반)
-    private func performBasicSearch(category: ProteinCategory, limit: Int) async throws -> ([String], Int) {
+    private func performBasicSearch(category: ProteinCategory, limit: Int, skip: Int = 0) async throws -> ([String], Int) {
         // Structural 카테고리 전용 특별 처리
         if category == .structural {
-            return try await performStructuralBasicSearch(limit: limit)
+            return try await performStructuralBasicSearch(limit: limit, skip: skip)
         }
         
         let query: [String: Any] = [
@@ -397,7 +453,7 @@ class PDBAPIService {
             "return_type": "entry",
             "request_options": [
                 "paginate": [
-                    "start": 0,
+                    "start": skip, // skip 매개변수 적용
                     "rows": limit
                 ]
             ]
@@ -406,7 +462,7 @@ class PDBAPIService {
     }
     
     // Structural 카테고리 전용 기본 검색 (사용자 제안 기반 최적화)
-    private func performStructuralBasicSearch(limit: Int) async throws -> ([String], Int) {
+    private func performStructuralBasicSearch(limit: Int, skip: Int = 0) async throws -> ([String], Int) {
         let query: [String: Any] = [
             "query": [
                 "type": "group",
@@ -462,7 +518,7 @@ class PDBAPIService {
             "return_type": "entry",
             "request_options": [
                 "paginate": [
-                    "start": 0,
+                    "start": skip, // skip 매개변수 적용
                     "rows": limit
                 ]
             ]
@@ -532,25 +588,30 @@ class PDBAPIService {
         // 배치 처리 (한 번에 최대 20개씩)
         let batchSize = 20
         for batch in pdbIds.chunked(into: batchSize) {
-            let batchProteins = try await fetchProteinDetails(batch: batch)
+            let batchProteins = try await fetchProteinDetails(batch: batch, intendedCategory: nil)
             proteins.append(contentsOf: batchProteins)
             
             // API 부하 방지
-            try await Task.sleep(nanoseconds: 200_000_000) // 0.2초
+            _ = try await Task.sleep(nanoseconds: 200_000_000) // 0.2초
         }
         
         return proteins
     }
     
-    // Legacy 호환성을 위한 래퍼 함수
-    func searchProteins(category: ProteinCategory? = nil, limit: Int = 100) async throws -> [ProteinInfo] {
+    // Legacy 호환성을 위한 래퍼 함수 (페이지네이션 지원 추가)
+    func searchProteins(category: ProteinCategory? = nil, limit: Int = 100, skip: Int = 0) async throws -> [ProteinInfo] {
         if let category = category {
-            // 새로운 2단계 파이프라인 사용
+            // 새로운 2단계 파이프라인 사용 (페이지네이션 지원)
+            // skip 매개변수를 API 호출에 올바르게 적용
             let (pdbIds, _) = try await searchProteinsByCategory(
                 category: category,
-                limit: limit
+                limit: limit,
+                skip: skip // skip을 API 검색에 직접 전달
             )
-            return try await fetchProteinDetails(batch: Array(pdbIds.prefix(limit)))
+            
+            print("📄 페이지네이션 적용: skip=\(skip), limit=\(limit), 받은 결과=\(pdbIds.count)개")
+            
+            return try await fetchProteinDetails(batch: pdbIds, intendedCategory: category)
         } else {
             // 전체 검색의 경우 기존 방식 유지 (성능상)
             return try await searchProteinsLegacy(limit: limit)
@@ -877,13 +938,13 @@ class PDBAPIService {
     }
     
     // MARK: - Advanced Search Queries (구조화된 검색)
-    private func buildAdvancedSearchQuery(category: ProteinCategory, limit: Int) -> [String: Any] {
+    private func buildAdvancedSearchQuery(category: ProteinCategory, limit: Int, skip: Int = 0) -> [String: Any] {
         let query = [
             "query": buildCategorySpecificQuery(category: category),
             "return_type": "entry",
             "request_options": [
                 "paginate": [
-                    "start": 0,
+                    "start": skip, // skip 매개변수를 start로 사용
                     "rows": limit
                 ],
                 "sort": [
@@ -898,7 +959,7 @@ class PDBAPIService {
         // Structural 카테고리 특별 로깅
         if category == .structural {
             print("🔍 Structural 고급 검색 쿼리 생성:")
-            print("   - Limit: \(limit)")
+            print("   - Limit: \(limit), Skip: \(skip)")
             print("   - 전체 쿼리: \(query)")
         }
         
@@ -1386,7 +1447,7 @@ class PDBAPIService {
     }
     
     // Structural 카테고리 전용 fallback 검색 (사용자 제안 기반 최적화)
-    private func searchStructuralFallback(limit: Int) async throws -> ([String], Int) {
+    private func searchStructuralFallback(limit: Int, skip: Int = 0) async throws -> ([String], Int) {
         print("🔄 Structural 전용 fallback 검색 시작...")
         
         // 여러 단계의 fallback 검색 시도
@@ -1555,8 +1616,8 @@ class PDBAPIService {
         return ([], 0)
     }
     
-    // GraphQL을 통한 일괄 상세 정보 수집
-    private func fetchProteinDetails(batch: [String]) async throws -> [ProteinInfo] {
+    // GraphQL을 통한 일괄 상세 정보 수집 (의도된 카테고리 정보 포함)
+    private func fetchProteinDetails(batch: [String], intendedCategory: ProteinCategory? = nil) async throws -> [ProteinInfo] {
         guard !batch.isEmpty else { return [] }
         
         let query = """
@@ -1629,7 +1690,7 @@ class PDBAPIService {
             // 기본 정보로 ProteinInfo 생성
             print("🔄 GraphQL 실패, 기본 정보로 ProteinInfo 생성...")
             let fallbackProteins = batch.map { pdbId in
-                createFallbackProteinInfo(pdbId: pdbId)
+                createFallbackProteinInfo(pdbId: pdbId, intendedCategory: intendedCategory)
             }
             print("✅ Fallback 데이터 생성 완료: \(fallbackProteins.count)개")
             return fallbackProteins
@@ -1880,28 +1941,18 @@ class PDBAPIService {
             print("❌ API 검색 오류: \(error.localizedDescription)")
         }
         
-        // 여전히 데이터가 부족하면 샘플 데이터 사용
-        if finalProteins.count < 3 {
-            print("🔄 샘플 데이터를 추가하여 사용자 경험 개선...")
-            let sampleProteins = getSampleProteins(for: category)
-            let newSamples = sampleProteins.filter { sample in
-                !finalProteins.contains { $0.id == sample.id }
-            }
-            finalProteins.append(contentsOf: newSamples)
-            print("📦 샘플 데이터 \(newSamples.count)개 추가")
-        }
-        
-        print("✅ \(category) 카테고리 검색 완료: 총 \(finalProteins.count)개 단백질")
-        return finalProteins
+        // API 데이터만 반환 (샘플 데이터 제외)
+        print("✅ \(category) 카테고리 API 검색 완료: 총 \(finalProteins.count)개 API 단백질")
+        return Array(finalProteins.prefix(limit)) // limit로 제한
     }
 
     // Fallback 검색 (더 관대한 조건)
-    func searchWithFallback(category: ProteinCategory, limit: Int) async throws -> ([String], Int) {
+    func searchWithFallback(category: ProteinCategory, limit: Int, skip: Int = 0) async throws -> ([String], Int) {
         let categoryTerms = getCategorySearchTerms(category)
         
         // Structural 카테고리 전용 특별 처리
         if category == .structural {
-            return try await searchStructuralFallback(limit: limit)
+            return try await searchStructuralFallback(limit: limit, skip: skip)
         }
         
         // 더 포괄적인 검색을 위해 여러 필드에서 검색
@@ -1991,15 +2042,22 @@ class PDBAPIService {
         }
     }
 
-    // API 디코딩 실패 시 기본 ProteinInfo 생성
-    private func createFallbackProteinInfo(pdbId: String) -> ProteinInfo {
-        // PDB ID로부터 기본 추론 시도
-        let inferredCategory = inferCategoryFromPdbId(pdbId: pdbId)
+    // API 디코딩 실패 시 기본 ProteinInfo 생성 (의도된 카테고리 지원)
+    private func createFallbackProteinInfo(pdbId: String, intendedCategory: ProteinCategory? = nil) -> ProteinInfo {
+        // 의도된 카테고리가 있으면 사용, 없으면 PDB ID로부터 추론
+        let category: ProteinCategory
+        if let intendedCategory = intendedCategory {
+            category = intendedCategory
+            print("🎡 PDB ID \(pdbId): 의도된 카테고리 \(intendedCategory.rawValue) 사용")
+        } else {
+            category = inferCategoryFromPdbId(pdbId: pdbId)
+            print("🔍 PDB ID \(pdbId): 추론된 카테고리 \(category.rawValue) 사용")
+        }
         
         return ProteinInfo(
             id: pdbId,
             name: "Protein \(pdbId.uppercased())",
-            category: inferredCategory,
+            category: category,
             description: "구조 정보를 로드하는 중입니다. PDB ID: \(pdbId.uppercased())",
             keywords: ["protein", "structure", pdbId.lowercased()]
         )
@@ -2429,8 +2487,8 @@ class ProteinDatabase: ObservableObject {
             
             do {
                 // 먼저 샘플 데이터가 있는지 확인
-                let existingSampleProteins = proteins.filter { $0.category == category }
-                let hasSampleData = !existingSampleProteins.isEmpty
+                let _ = proteins.filter { $0.category == category }
+                let _ = !proteins.filter { $0.category == category }.isEmpty
                 
                 // 실제 API 데이터 로드 시도
                 try await loadCategoryPage(category: category, refresh: true)
@@ -2498,8 +2556,18 @@ class ProteinDatabase: ObservableObject {
             let limit = itemsPerPage // 항상 30개씩
             
             print("📡 API 호출: skip=\(skip), limit=\(limit)")
-            let newProteins = try await apiService.searchProteins(category: category, limit: limit)
+            print("🗒 예상 로드 개수: \(limit)개 (해당 카테고리의 API 데이터만)")
+            let newProteins = try await apiService.searchProteins(category: category, limit: limit, skip: skip)
             print("✅ \(category.rawValue): \(newProteins.count)개 실제 단백질 로드 완료 (페이지 \(currentPage + 1))")
+            print("🔍 받은 데이터 상세: \(newProteins.count)/\(limit) (샘플 데이터 제외)")
+            
+            // API 데이터가 30개 미만이면 원인 디버깅
+            if newProteins.count < limit {
+                print("⚠️ 예상보다 적은 데이터: \(newProteins.count)<\(limit)")
+                print("   - API 응답이 비어있거나")
+                print("   - 해당 카테고리에 데이터가 부족하다는 의미")
+                print("   - searchProteins 함수 내부 로직 확인 필요")
+            }
             
             // 모든 API 데이터를 사용 (샘플 데이터 포함)
             let allProteins = newProteins
@@ -2526,24 +2594,10 @@ class ProteinDatabase: ObservableObject {
                 loadedCategories.insert(category)
                 
                 print("📊 \(category.rawValue) 상태 업데이트:")
-                print("   - 로드된 단백질: \(allProteins.count)개")
+                print("   - 로드된 단백질: \(allProteins.count)개 (API 데이터만)")
                 print("   - 수신된 데이터: \(actuallyReceived)개 (limit: \(limit))")
                 print("   - hasMore: \(categoryHasMore[category] ?? false)")
                 print("   - 전체 로드된 개수: \(currentTotal)/\(totalCount)")
-            }
-            
-            // API에서 충분한 데이터를 가져오지 못했을 때 샘플 데이터로 보완
-            if newProteins.count < 5 {
-                print("⚠️ \(category.rawValue) API 데이터 부족 (\(newProteins.count)개), 샘플 데이터로 보완")
-                let sampleProteins = apiService.getSampleProteins(for: category)
-                let filteredSamples = sampleProteins.filter { sample in
-                    !allProteins.contains { $0.id == sample.id }
-                }
-                
-                await MainActor.run {
-                    proteins.append(contentsOf: filteredSamples)
-                    print("📦 \(category.rawValue) 샘플 데이터 \(filteredSamples.count)개 추가")
-                }
             }
         } catch {
             print("❌ \(category.rawValue) API 실패: \(error.localizedDescription)")
@@ -2680,6 +2734,29 @@ class ProteinDatabase: ObservableObject {
             print("🎉 모든 카테고리 개수 로드 완료!")
             for (category, count) in categoryTotalCounts {
                 print("📊 \(category.rawValue): \(count)개")
+            }
+        }
+    }
+    
+    // 개별 카테고리의 실제 API 데이터 로드 (전체 카테고리 보기에서 사용)
+    func loadCategoryProteins(category: ProteinCategory) async {
+        print("🔄 \(category.rawValue) 카테고리 실제 API 데이터 로드 시작...")
+        
+        do {
+            // 기존 샘플 데이터 제거
+            await MainActor.run {
+                proteins.removeAll { $0.category == category }
+            }
+            
+            // 첫 페이지 API 데이터 로드
+            try await loadCategoryPage(category: category, refresh: true)
+            print("✅ \(category.rawValue) 카테고리 API 데이터 로드 완료")
+        } catch {
+            print("❌ \(category.rawValue) 카테고리 API 로드 실패: \(error.localizedDescription)")
+            // 실패 시 샘플 데이터라도 다시 로드
+            let sampleProteins = apiService.getSampleProteins(for: category)
+            await MainActor.run {
+                proteins.append(contentsOf: sampleProteins)
             }
         }
     }
@@ -2915,7 +2992,7 @@ struct ProteinLibraryView: View {
     
     let onProteinSelected: (String) -> Void
     
-    private let itemsPerPage = 10
+    private let itemsPerPage = 30
     
     var allFilteredProteins: [ProteinInfo] {
         var result = database.proteins
@@ -3019,10 +3096,21 @@ struct ProteinLibraryView: View {
             return shouldShowLoadMore
         }
         
-        // 전체 카테고리 보기 시: 로컬 페이지네이션
-        let hasMoreLocal = displayedProteins.count < allFilteredProteins.count
-        print("📊 전체 카테고리 보기: 로컬 페이지네이션 \(hasMoreLocal)")
-        return hasMoreLocal
+        // 전체 카테고리 보기 시: 샘플 데이터만 있는 카테고리가 있는지 확인
+        var hasSampleDataCategories = false
+        for category in ProteinCategory.allCases {
+            let currentCategoryProteins = database.proteins.filter { $0.category == category }.count
+            let totalAvailable = categoryProteinCounts[category] ?? 0
+            
+            // 샘플 데이터만 있고 API에 더 많은 데이터가 있는 카테고리
+            if currentCategoryProteins <= 10 && totalAvailable > currentCategoryProteins {
+                hasSampleDataCategories = true
+                break
+            }
+        }
+        
+        print("📊 전체 카테고리 보기: 샘플 데이터만 있는 카테고리 \(hasSampleDataCategories)")
+        return hasSampleDataCategories
     }
     
     var body: some View {
@@ -3313,7 +3401,7 @@ struct ProteinLibraryView: View {
             // API 카운트가 로드될 때까지 대기 (최대 5초)
             var waitCount = 0
             while database.categoryTotalCounts.isEmpty && waitCount < 50 {
-                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초
+                _ = try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초
                 waitCount += 1
             }
             
@@ -3327,7 +3415,7 @@ struct ProteinLibraryView: View {
             
             // 샘플 데이터가 로드될 때까지 대기
             while database.proteins.isEmpty && !database.isLoading {
-                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초
+                _ = try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초
             }
         }
         .overlay {
@@ -3393,16 +3481,21 @@ struct ProteinLibraryView: View {
                     print("⚠️ \(selectedCategory.rawValue) 더 이상 로드할 데이터 없음")
                 }
             } else {
-                // 전체 카테고리 보기 시: 로컬 페이지네이션
-                if displayedProteins.count < allFilteredProteins.count {
-                    print("🔄 로컬 페이지네이션: 페이지 \(currentPage) -> \(currentPage + 1)")
-                    await MainActor.run {
-                        currentPage += 1
+                // 전체 카테고리 보기 시: 실제 API에서 더 많은 데이터 로딩
+                print("🔄 전체 카테고리 Load More: API에서 추가 데이터 로딩...")
+                
+                // 현재 샘플 데이터만 있는 카테고리들을 찾아서 실제 API 데이터로 대체
+                for category in ProteinCategory.allCases {
+                    let currentCategoryProteins = database.proteins.filter { $0.category == category }
+                    
+                    // 샘플 데이터만 있는 카테고리라면 (6개 이하) 실제 API 데이터 로드
+                    if currentCategoryProteins.count <= 10 {
+                        print("🔄 \(category.rawValue) 카테고리: 샘플 데이터(\(currentCategoryProteins.count)개)를 실제 API 데이터로 교체")
+                        await database.loadCategoryProteins(category: category)
                     }
-                    print("✅ 로컬 페이지네이션 완료")
-                } else {
-                    print("⚠️ 로컬 페이지네이션: 더 이상 표시할 데이터 없음")
                 }
+                
+                print("✅ 전체 카테고리 API 데이터 로딩 완료")
             }
             
             await MainActor.run {
@@ -3456,7 +3549,7 @@ struct ProteinLibraryView: View {
                 }
                 
                 // API 부하 방지를 위한 짧은 지연
-                try? await Task.sleep(nanoseconds: 200_000_000) // 0.2초
+                _ = try? await Task.sleep(nanoseconds: 200_000_000) // 0.2초
                 
             } catch {
                 print("❌ \(category.rawValue) 개수 확인 실패: \(error.localizedDescription)")

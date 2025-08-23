@@ -63,8 +63,7 @@ struct MiniProteinViewer: UIViewRepresentable {
         Task {
             do {
                 let url = URL(string: "https://files.rcsb.org/download/\(pdbId.uppercased()).pdb")!
-                let (data, resp) = try await URLSession.shared.data(from: url)
-                guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else { return }
+                let (data, _) = try await URLSession.shared.data(from: url)
                 let text = String(decoding: data, as: UTF8.self)
                 let parsedStructure = PDBParser.parse(pdbText: text)
                 

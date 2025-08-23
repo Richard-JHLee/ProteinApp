@@ -505,8 +505,8 @@ struct ProteinSceneContainer: View {
         
         do {
             let url = URL(string: "https://files.rcsb.org/download/\(pdbId.uppercased()).pdb")!
-            let (data, resp) = try await URLSession.shared.data(from: url)
-            guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else { 
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { 
                 throw URLError(.badServerResponse) 
             }
             let text = String(decoding: data, as: UTF8.self)
