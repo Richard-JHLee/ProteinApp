@@ -1448,7 +1448,7 @@ class PDBAPIService {
     
     // Structural 카테고리 전용 fallback 검색 (사용자 제안 기반 최적화)
     private func searchStructuralFallback(limit: Int, skip: Int = 0) async throws -> ([String], Int) {
-        print("🔄 Structural 전용 fallback 검색 시작...")
+        print("🔄 Structural 전용 fallback 검색 시작... (skip: \(skip), limit: \(limit))")
         
         // 여러 단계의 fallback 검색 시도
         let fallbackQueries: [[String: Any]] = [
@@ -1481,7 +1481,7 @@ class PDBAPIService {
                 "return_type": "entry",
                 "request_options": [
                     "paginate": [
-                        "start": 0,
+                        "start": skip, // skip 매개변수 적용
                         "rows": limit
                     ]
                 ]
@@ -1542,7 +1542,7 @@ class PDBAPIService {
                 "return_type": "entry",
                 "request_options": [
                     "paginate": [
-                        "start": 0,
+                        "start": skip, // skip 매개변수 적용
                         "rows": limit
                     ]
                 ]
@@ -1594,7 +1594,7 @@ class PDBAPIService {
                 "return_type": "entry",
                 "request_options": [
                     "paginate": [
-                        "start": 0,
+                        "start": skip, // skip 매개변수 적용
                         "rows": limit
                     ]
                 ]
@@ -2011,7 +2011,7 @@ class PDBAPIService {
             "return_type": "entry",
             "request_options": [
                 "paginate": [
-                    "start": 0,
+                    "start": skip, // skip 매개변수 적용
                     "rows": limit
                 ]
             ]
