@@ -382,6 +382,225 @@ struct TertiaryStructureView: View {
     // MARK: - Additional sections would continue here...
     // (Fold Classification, Binding Sites, Structural Metrics, 3D Coordinates)
     
+    // MARK: - Fold Classification Section
+    private func foldClassificationSection(_ data: TertiaryStructureData) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("접힘 분류")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            VStack(alignment: .leading, spacing: 12) {
+                classificationRow("Architecture", value: data.foldClassification.architecture, color: .blue)
+                classificationRow("Topology", value: data.foldClassification.topology, color: .green)
+                classificationRow("Fold Family", value: data.foldClassification.foldFamily, color: .orange)
+                classificationRow("Class Type", value: data.foldClassification.classType, color: .purple)
+                
+                HStack {
+                    Text("Confidence")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text(String(format: "%.1f%%", data.foldClassification.confidence * 100))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.gray.opacity(0.1), in: Capsule())
+                }
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func classificationRow(_ title: String, value: String, color: Color) -> some View {
+        HStack {
+            Text(title)
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(color)
+        }
+    }
+    
+    // MARK: - Binding Sites Section
+    private func bindingSitesSection(_ data: TertiaryStructureData) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("결합 부위")
+                    .font(.title3.weight(.semibold))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Text("\(data.bindingSites.count)개")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            ForEach(data.bindingSites.indices, id: \.self) { index in
+                let site = data.bindingSites[index]
+                bindingSiteCard(site)
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func bindingSiteCard(_ site: BindingSite) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "link.circle.fill")
+                    .font(.title3)
+                    .foregroundColor(site.importance.color)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(site.displayName)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.primary)
+                    
+                    Text(site.ligandType)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Text(site.importance.rawValue)
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(site.importance.color)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(site.importance.color.opacity(0.1), in: Capsule())
+            }
+            
+            Text("Position: \(site.position)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(12)
+        .background(site.importance.color.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+    }
+    
+    // MARK: - Structural Metrics Section
+    private func structuralMetricsSection(_ data: TertiaryStructureData) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("구조 품질 지표")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: 12) {
+                if let resolution = data.structuralMetrics.resolution {
+                    metricCard("해상도", value: String(format: "%.2f Å", resolution), color: data.structuralMetrics.qualityColor, icon: "eye")
+                }
+                
+                if let rFactor = data.structuralMetrics.rFactor {
+                    metricCard("R-Factor", value: String(format: "%.3f", rFactor), color: .blue, icon: "percent")
+                }
+                
+                if let bFactor = data.structuralMetrics.bFactor {
+                    metricCard("B-Factor", value: String(format: "%.1f", bFactor), color: .green, icon: "waveform")
+                }
+                
+                if let ramachandran = data.structuralMetrics.ramachandranFavored {
+                    metricCard("Ramachandran", value: String(format: "%.1f%%", ramachandran * 100), color: .purple, icon: "chart.pie")
+                }
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func metricCard(_ title: String, value: String, color: Color, icon: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(color)
+            
+            Text(title)
+                .font(.caption.weight(.medium))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+    }
+    
+    // MARK: - 3D Coordinates Section
+    private func coordinates3DSection(_ coordinates: Coordinates3D) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("3D 좌표 정보")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            VStack(spacing: 12) {
+                coordinateRow("원자 개수", value: "\(coordinates.atomCount)개", icon: "atom")
+                coordinateRow("치수", value: coordinates.dimensions, icon: "cube")
+                
+                if let surfaceArea = coordinates.surfaceArea {
+                    coordinateRow("표면적", value: String(format: "%.1f Ų", surfaceArea), icon: "circle")
+                }
+                
+                if let volume = coordinates.volume {
+                    coordinateRow("부피", value: String(format: "%.1f ų", volume), icon: "sphere")
+                }
+                
+                HStack {
+                    Image(systemName: "location")
+                        .font(.title3)
+                        .foregroundColor(.orange)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("질량 중심")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundColor(.primary)
+                        
+                        Text(String(format: "(%.2f, %.2f, %.2f)", coordinates.centerOfMass.x, coordinates.centerOfMass.y, coordinates.centerOfMass.z))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                }
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func coordinateRow(_ title: String, value: String, icon: String) -> some View {
+        HStack {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(.orange)
+                .frame(width: 24)
+            
+            Text(title)
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(.primary)
+            
+            Spacer()
+            
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.orange)
+        }
+    }
+    
     // MARK: - API Functions
     private func loadTertiaryStructure() async {
         await MainActor.run {

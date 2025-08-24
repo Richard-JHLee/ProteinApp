@@ -253,7 +253,11 @@ struct QuaternaryStructureView: View {
             if let data = quaternaryStructureData {
                 headerView(data)
                 assemblyOverviewSection(data)
-                // Additional sections would be implemented here
+                subunitsSection(data)
+                interfacesSection(data)
+                symmetrySection(data)
+                stabilityMetricsSection(data)
+                biologicalRelevanceSection(data)
             }
         }
     }
@@ -317,6 +321,336 @@ struct QuaternaryStructureView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
         .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+    }
+    
+    // MARK: - Subunits Section
+    private func subunitsSection(_ data: QuaternaryStructureData) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("서브유닛 분석")
+                    .font(.title3.weight(.semibold))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Text("\(data.subunits.count)개")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            if data.subunits.isEmpty {
+                Text("예시 데이터: 일반적인 단백질은 단일 서브유닛으로 구성")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .padding(16)
+                    .background(.gray.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+            } else {
+                ForEach(data.subunits.indices, id: \.self) { index in
+                    let subunit = data.subunits[index]
+                    subunitCard(subunit)
+                }
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func subunitCard(_ subunit: Subunit) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "cube.fill")
+                    .font(.title3)
+                    .foregroundColor(subunit.subunitType.color)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(subunit.description)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.primary)
+                    
+                    Text("Chain \(subunit.chainId) \u2022 \(subunit.residueCount) residues")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(subunit.weightDescription)
+                        .font(.caption.weight(.medium))
+                        .foregroundColor(.primary)
+                    
+                    Text(subunit.subunitType.rawValue)
+                        .font(.caption2)
+                        .foregroundColor(subunit.subunitType.color)
+                }
+            }
+        }
+        .padding(12)
+        .background(subunit.subunitType.color.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+    }
+    
+    // MARK: - Interfaces Section
+    private func interfacesSection(_ data: QuaternaryStructureData) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("인터페이스 분석")
+                    .font(.title3.weight(.semibold))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Text("\(data.interfaces.count)개")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            if data.interfaces.isEmpty {
+                Text("예시 데이터: 단일 서브유닛에는 내부 인터페이스가 존재")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .padding(16)
+                    .background(.gray.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+            } else {
+                ForEach(data.interfaces.indices, id: \.self) { index in
+                    let interface = data.interfaces[index]
+                    interfaceCard(interface)
+                }
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func interfaceCard(_ interface: SubunitInterface) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "link")
+                    .font(.title3)
+                    .foregroundColor(interface.interactionStrength.color)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(interface.partnersDescription)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.primary)
+                    
+                    Text(interface.interfaceType.rawValue)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(interface.areaDescription)
+                        .font(.caption.weight(.medium))
+                        .foregroundColor(.primary)
+                    
+                    Text(interface.interactionStrength.description)
+                        .font(.caption2)
+                        .foregroundColor(interface.interactionStrength.color)
+                }
+            }
+            
+            HStack {
+                Text("수소결합: \(interface.hydrogenbonds)개")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                Text("염다리: \(interface.saltBridges)개")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(12)
+        .background(interface.interactionStrength.color.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+    }
+    
+    // MARK: - Symmetry Section
+    private func symmetrySection(_ data: QuaternaryStructureData) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("대칭성 분석")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            VStack(alignment: .leading, spacing: 12) {
+                symmetryRow("Point Group", value: data.symmetry.pointGroup, color: .blue)
+                symmetryRow("Symmetry Type", value: data.symmetry.symmetryType.displayName, color: .green)
+                symmetryRow("Symmetry Order", value: "\(data.symmetry.symmetryOrder)", color: .orange)
+                
+                HStack {
+                    Text("Perfect Symmetry")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Image(systemName: data.symmetry.isPerfectSymmetry ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(data.symmetry.isPerfectSymmetry ? .green : .red)
+                }
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func symmetryRow(_ title: String, value: String, color: Color) -> some View {
+        HStack {
+            Text(title)
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(color)
+        }
+    }
+    
+    // MARK: - Stability Metrics Section
+    private func stabilityMetricsSection(_ data: QuaternaryStructureData) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("안정성 지표")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: 12) {
+                if let deltaG = data.stabilityMetrics.deltaG {
+                    stabilityCard("ΔG", value: String(format: "%.1f kcal/mol", deltaG), color: .blue, icon: "thermometer")
+                }
+                
+                if let dissociation = data.stabilityMetrics.dissociationConstant {
+                    stabilityCard("Kd", value: String(format: "%.1e M", dissociation), color: .green, icon: "divide")
+                }
+                
+                if let thermal = data.stabilityMetrics.thermalStability {
+                    stabilityCard("Tm", value: String(format: "%.1f°C", thermal), color: .red, icon: "flame")
+                }
+                
+                if let cooperativity = data.stabilityMetrics.cooperativity {
+                    stabilityCard("Hill Coeff", value: String(format: "%.1f", cooperativity), color: .purple, icon: "arrow.up.right")
+                }
+            }
+            
+            if let pHRange = data.stabilityMetrics.pHStability {
+                HStack {
+                    Text("pH Stability Range")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text(String(format: "%.1f - %.1f", pHRange.min, pHRange.max))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.orange)
+                }
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func stabilityCard(_ title: String, value: String, color: Color, icon: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(color)
+            
+            Text(title)
+                .font(.caption.weight(.medium))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .foregroundColor(color)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+    }
+    
+    // MARK: - Biological Relevance Section
+    private func biologicalRelevanceSection(_ data: QuaternaryStructureData) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("생물학적 연관성")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            VStack(alignment: .leading, spacing: 12) {
+                relevanceRow("Functional State", value: data.biologicalRelevance.functionalState.rawValue, color: data.biologicalRelevance.functionalState.color, icon: "gearshape.fill")
+                relevanceRow("Cellular Location", value: data.biologicalRelevance.cellularLocation, color: .blue, icon: "location.fill")
+                relevanceRow("Physiological Conditions", value: data.biologicalRelevance.physiologicalConditions, color: .green, icon: "drop.fill")
+                relevanceRow("Functional Importance", value: data.biologicalRelevance.functionalImportance.rawValue, color: data.biologicalRelevance.functionalImportance.color, icon: "exclamationmark.triangle.fill")
+                
+                HStack {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.title3)
+                        .foregroundColor(.purple)
+                    
+                    Text("Evolutionary Conservation")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text(String(format: "%.1f%%", data.biologicalRelevance.evolutionaryConservation * 100))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.purple)
+                }
+                
+                if !data.biologicalRelevance.diseaseRelevance.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "cross.case.fill")
+                                .font(.title3)
+                                .foregroundColor(.red)
+                            
+                            Text("Disease Relevance")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                        }
+                        
+                        ForEach(data.biologicalRelevance.diseaseRelevance, id: \.self) { disease in
+                            Text("• \(disease)")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                                .padding(.leading, 8)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func relevanceRow(_ title: String, value: String, color: Color, icon: String) -> some View {
+        HStack {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundColor(color)
+                .frame(width: 24)
+            
+            Text(title)
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(color)
+        }
     }
     
     // MARK: - API Functions
