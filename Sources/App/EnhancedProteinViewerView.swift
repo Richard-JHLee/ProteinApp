@@ -32,6 +32,9 @@ struct EnhancedProteinViewerView: View {
     // Tab Selection
     @State private var selectedTab: ViewerTab = .chains
     
+    // Data States
+    @State private var ligandsData: [LigandData] = []
+    
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -180,9 +183,7 @@ struct EnhancedProteinViewerView: View {
                 residuesTabView
                     .tag(ViewerTab.residues)
                 
-                Text("💊 Ligands Tab\n구현 예정")
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
+                ligandsTabView
                     .tag(ViewerTab.ligands)
                 
                 Text("🔬 Pockets Tab\n구현 예정")
@@ -523,6 +524,54 @@ struct EnhancedProteinViewerView: View {
         }
     }
     
+    // MARK: - Ligands Tab
+    private var ligandsTabView: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                // Header
+                HStack {
+                    Text("💊 Ligands & Small Molecules")
+                        .font(.title3.weight(.semibold))
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    Text("\(ligandsData.count) ligands")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                if ligandsData.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "pills")
+                            .font(.system(size: 40))
+                            .foregroundColor(.gray)
+                        
+                        Text("No ligands found")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        Text("This protein structure doesn't contain any ligands or small molecules")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 40)
+                } else {
+                    // Ligand Cards
+                    ForEach(ligandsData) { ligand in
+                        ligandCard(ligand)
+                    }
+                    
+                    // Ligand Analysis Summary
+                    ligandAnalysisSummary
+                }
+            }
+            .padding()
+        }
+    }
+    
     // MARK: - Functions
     private func loadStructure() async {
         await MainActor.run {
@@ -540,6 +589,7 @@ struct EnhancedProteinViewerView: View {
             await MainActor.run {
                 self.structure = mockStructure
                 self.isLoading = false
+                loadAdditionalData()
             }
         } catch {
             await MainActor.run {
@@ -650,6 +700,79 @@ struct EnhancedProteinViewerView: View {
         return PDBStructure(atoms: atoms, bonds: bonds)
     }
     
+    private func loadAdditionalData() {
+        // Mock data for tabs
+        ligandsData = generateMockLigands()
+    }
+    
+    private func generateMockLigands() -> [LigandData] {
+        return [
+            LigandData(
+                name: "ATP", 
+                description: "Adenosine Triphosphate - Primary energy carrier", 
+                position: SIMD3<Float>(12.5, 8.3, -4.1),
+                molecularWeight: 0.507,
+                charge: -4.0,
+                type: "Nucleotide"
+            ),
+            LigandData(
+                name: "MG", 
+                description: "Magnesium Ion - Cofactor for enzymatic activity", 
+                position: SIMD3<Float>(15.2, 7.8, -3.8),
+                molecularWeight: 0.024,
+                charge: 2.0,
+                type: "Metal Ion"
+            ),
+            LigandData(
+                name: "NAD", 
+                description: "Nicotinamide Adenine Dinucleotide - Electron carrier", 
+                position: SIMD3<Float>(-8.7, 12.1, 6.4),
+                molecularWeight: 0.663,
+                charge: -1.0,
+                type: "Coenzyme"
+            ),
+            LigandData(
+                name: "FAD", 
+                description: "Flavin Adenine Dinucleotide - Redox cofactor", 
+                position: SIMD3<Float>(3.2, -5.6, 9.8),
+                molecularWeight: 0.785,
+                charge: -2.0,
+                type: "Coenzyme"
+            )
+        ]
+    }
+    
+    // MARK: - Ligand Functions
+    private func focusOnLigand(_ ligand: LigandData) {
+        print("Focusing on ligand: \(ligand.name)")
+        // TODO: Implement camera focus and zoom on specific ligand
+    }
+    
+    private func propertyTag(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(.caption2.weight(.medium))
+            .foregroundColor(color)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.1), in: Capsule())
+    }
+    
+    private var ligandAnalysisSummary: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Ligand Analysis Summary")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            HStack(spacing: 16) {
+                statCard("Total MW", value: "\(String(format: "%.1f", ligandsData.reduce(0.0) { $0 + $1.molecularWeight }))kDa", color: .blue)
+                statCard("Avg Charge", value: String(format: "%.1f", ligandsData.isEmpty ? 0.0 : ligandsData.reduce(0.0) { $0 + $1.charge } / Double(ligandsData.count)), color: .green)
+                statCard("Types", value: "\(Set(ligandsData.map { $0.type }).count)", color: .orange)
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
     // Share Functions
     private func exportImage() {
         print("Exporting image...")
@@ -702,4 +825,15 @@ enum ViewerTab: String, CaseIterable {
         case .annotations: return .red
         }
     }
+}
+
+// MARK: - Ligand Data Model
+struct LigandData: Identifiable {
+    let id = UUID()
+    let name: String
+    let description: String
+    let position: SIMD3<Float>
+    let molecularWeight: Double // in kDa
+    let charge: Double
+    let type: String
 }
