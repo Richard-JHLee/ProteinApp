@@ -1,8 +1,14 @@
 import SwiftUI
+import UIKit
 
 struct MainInfoSectionView: View {
     let protein: ProteinInfo
     @Binding var showingPDBWebsite: Bool
+    @State private var showingStructureDetails = false // 구조 세부 정보 표시 상태
+    @State private var showingAminoAcidSequence = false // 아미노산 서열 화면 표시 상태
+    @State private var aminoAcidSequences: [String] = [] // 아미노산 서열 데이터
+    @State private var isLoadingSequence = false // 서열 로딩 상태
+    @State private var sequenceError: String? = nil // 서열 오류 메시지
 
     var body: some View {
         VStack(spacing: 14) {
@@ -18,9 +24,27 @@ struct MainInfoSectionView: View {
 
             // 핵심 포인트
             HStack(spacing: 10) {
-                MetricPill(title: "Structure", value: "1→4 단계", icon: "square.grid.2x2")
+                // 구조 단계 버튼 (클릭 가능)
+                Button(action: {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        showingStructureDetails.toggle()
+                    }
+                }) {
+                    MetricPill(title: "Structure", value: "1→4 단계", icon: "square.grid.2x2")
+                }
+                .buttonStyle(.plain)
+                
                 MetricPill(title: "Coloring",  value: "Element/Chain/SS", icon: "paintbrush")
                 MetricPill(title: "Interact",  value: "Rotate/Zoom/Slice", icon: "hand.tap")
+            }
+            
+            // 구조 단계별 세부 정보 (펼쳐지는 영역)
+            if showingStructureDetails {
+                structureDetailsView
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .top)),
+                        removal: .opacity.combined(with: .move(edge: .top))
+                    ))
             }
 
             // 외부 리소스
@@ -71,6 +95,456 @@ struct MainInfoSectionView: View {
                     researchStatusItem(title: "Clinical Trials", count: "3",  color: .blue)
                     researchStatusItem(title: "Publications",    count: "47", color: .purple)
                 }
+            }
+        }
+        .sheet(isPresented: $showingAminoAcidSequence) {
+            aminoAcidSequenceSheet
+        }
+    }
+
+    // MARK: - Structure Details View
+    private var structureDetailsView: some View {
+        InfoCard(icon: "cube.box",
+                 title: "Protein Structure Levels",
+                 tint: .cyan) {
+            VStack(spacing: 16) {
+                // 각 단계별 정보
+                structureLevel(
+                    number: "1",
+                    title: "Primary Structure",
+                    description: "Amino acid sequence",
+                    apiEndpoint: "polymer_entity/\(protein.id)/1",
+                    color: .blue
+                )
+                
+                structureLevel(
+                    number: "2",
+                    title: "Secondary Structure",
+                    description: "Alpha helices, beta sheets",
+                    apiEndpoint: "secondary_structure/\(protein.id)",
+                    color: .green
+                )
+                
+                structureLevel(
+                    number: "3",
+                    title: "Tertiary Structure",
+                    description: "3D protein fold (PDB file)",
+                    apiEndpoint: "files.rcsb.org/download/\(protein.id).pdb",
+                    color: .orange
+                )
+                
+                structureLevel(
+                    number: "4",
+                    title: "Quaternary Structure",
+                    description: "Multi-subunit assembly",
+                    apiEndpoint: "assembly/\(protein.id)/1",
+                    color: .purple
+                )
+            }
+        }
+    }
+    
+    private func structureLevel(number: String, title: String, description: String, apiEndpoint: String, color: Color) -> some View {
+        VStack(spacing: 8) {
+            HStack {
+                // 단계 번호
+                ZStack {
+                    Circle()
+                        .fill(color.opacity(0.15))
+                        .frame(width: 32, height: 32)
+                    
+                    Text(number)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(color)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    
+                    Text(description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                // API 엔드포인트 버튼
+                Button(action: {
+                    if title == "Primary Structure" {
+                        // Primary Structure는 앱 내 뷰로 표시
+                        showingAminoAcidSequence = true
+                    } else {
+                        // 다른 구조는 웹브라우저로 열기
+                        openAPIEndpoint(apiEndpoint)
+                    }
+                }) {
+                    Image(systemName: "arrow.up.right.square")
+                        .font(.title3)
+                        .foregroundStyle(color)
+                }
+                .buttonStyle(.plain)
+            }
+            
+            // 구분선
+            if number != "4" {
+                Divider()
+                    .opacity(0.5)
+            }
+        }
+    }
+        
+    // MARK: - Amino Acid Sequence Sheet
+    private var aminoAcidSequenceSheet: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 20) {
+                    if isLoadingSequence {
+                        aminoAcidLoadingView
+                    } else if let error = sequenceError {
+                        aminoAcidErrorView(error)
+                    } else {
+                        aminoAcidContentView
+                    }
+                }
+                .padding(20)
+            }
+            .navigationTitle("Primary Structure")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { 
+                        showingAminoAcidSequence = false 
+                    }
+                }
+            }
+        }
+        .onAppear {
+            if aminoAcidSequences.isEmpty {
+                Task {
+                    await loadAminoAcidSequence()
+                }
+            }
+        }
+    }
+        
+    private var aminoAcidLoadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.5)
+                .tint(.blue)
+                
+            Text("아미노산 서열 데이터를 가져오는 중...")
+                .font(.headline)
+                .foregroundColor(.primary)
+                
+            Text("잠시만 기다려주세요")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.top, 100)
+    }
+        
+    private func aminoAcidErrorView(_ message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 50))
+                .foregroundColor(.orange)
+                
+            Text("데이터를 불러올 수 없습니다")
+                .font(.headline)
+                .foregroundColor(.primary)
+                
+            Text(message)
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                
+            Button("다시 시도") {
+                Task { await loadAminoAcidSequence() }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.top, 100)
+    }
+        
+    private var aminoAcidContentView: some View {
+        VStack(spacing: 20) {
+            // 헤더 정보
+            HStack {
+                Image(systemName: "link.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.blue)
+                    
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Protein ID: \(protein.id)")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        
+                    Text("\(aminoAcidSequences.count)개의 폴리머 체인")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                    
+                Spacer()
+            }
+            .padding(16)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                
+            // 아미노산 서열들
+            ForEach(aminoAcidSequences.indices, id: \.self) { index in
+                aminoAcidSequenceCard(aminoAcidSequences[index], chainIndex: index + 1)
+            }
+        }
+    }
+        
+    private func aminoAcidSequenceCard(_ sequence: String, chainIndex: Int) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // 체인 헤더
+            HStack {
+                Text("Chain \(chainIndex)")
+                    .font(.title3.weight(.semibold))
+                    .foregroundColor(.primary)
+                    
+                Spacer()
+                    
+                Text("\(sequence.count) 아미노산")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.gray.opacity(0.2), in: Capsule())
+            }
+                
+            // 아미노산 서열 그리드
+            aminoAcidGrid(sequence)
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+        
+    private func aminoAcidGrid(_ sequence: String) -> some View {
+        let aminoAcids = Array(sequence)
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 10)
+            
+        return VStack(alignment: .leading, spacing: 12) {
+            LazyVGrid(columns: columns, spacing: 8) {
+                ForEach(aminoAcids.indices, id: \.self) { index in
+                    aminoAcidCell(
+                        aminoAcid: String(aminoAcids[index]),
+                        position: index + 1
+                    )
+                }
+            }
+                
+            // 범례
+            aminoAcidLegend
+        }
+    }
+        
+    private func aminoAcidCell(aminoAcid: String, position: Int) -> some View {
+        VStack(spacing: 2) {
+            Text(aminoAcid)
+                .font(.caption.weight(.bold))
+                .foregroundColor(.white)
+                .frame(width: 28, height: 28)
+                .background(aminoAcidColor(aminoAcid), in: RoundedRectangle(cornerRadius: 6))
+                
+            Text("\(position)")
+                .font(.system(size: 8))
+                .foregroundColor(.secondary)
+        }
+    }
+        
+    private var aminoAcidLegend: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("아미노산 분류")
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.primary)
+                
+            HStack(spacing: 16) {
+                legendItem("비극성", color: .blue)
+                legendItem("극성", color: .green)
+                legendItem("산성", color: .red)
+                legendItem("염기성", color: .purple)
+            }
+        }
+        .padding(.top, 8)
+    }
+        
+    private func legendItem(_ title: String, color: Color) -> some View {
+        HStack(spacing: 4) {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(color)
+                .frame(width: 12, height: 12)
+                
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+    }
+        
+    // MARK: - Amino Acid Helper Functions
+    private func aminoAcidColor(_ aminoAcid: String) -> Color {
+        switch aminoAcid.uppercased() {
+        // 비극성 (소수성)
+        case "A", "V", "L", "I", "M", "F", "W", "P", "G":
+            return .blue
+        // 극성 (친수성)
+        case "S", "T", "C", "Y", "N", "Q":
+            return .green
+        // 산성 (음전하)
+        case "D", "E":
+            return .red
+        // 염기성 (양전하)
+        case "K", "R", "H":
+            return .purple
+        default:
+            return .gray
+        }
+    }
+        
+    private func loadAminoAcidSequence() async {
+        await MainActor.run {
+            isLoadingSequence = true
+            sequenceError = nil
+        }
+            
+        do {
+            let sequences = try await fetchAminoAcidSequence()
+            await MainActor.run {
+                self.aminoAcidSequences = sequences
+                self.isLoadingSequence = false
+            }
+        } catch {
+            let errorMessage: String
+                
+            if let urlError = error as? URLError {
+                switch urlError.code {
+                case .notConnectedToInternet:
+                    errorMessage = "인터넷 연결을 확인해주세요"
+                case .timedOut:
+                    errorMessage = "요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요"
+                case .badServerResponse:
+                    errorMessage = "서버에서 오류를 반환했습니다"
+                case .cannotParseResponse:
+                    errorMessage = "데이터 형식을 인식할 수 없습니다"
+                case .badURL:
+                    errorMessage = "잘못된 요청 주소입니다"
+                default:
+                    errorMessage = "네트워크 오류: \(urlError.localizedDescription)"
+                }
+            } else {
+                errorMessage = "알 수 없는 오류: \(error.localizedDescription)"
+            }
+                
+            await MainActor.run {
+                self.sequenceError = errorMessage
+                self.isLoadingSequence = false
+            }
+        }
+    }
+        
+    private func fetchAminoAcidSequence() async throws -> [String] {
+        // Step 1: Get polymer entity IDs from the entry endpoint
+        let entryUrlString = "https://data.rcsb.org/rest/v1/core/entry/\(protein.id)"
+        print("🔗 Step 1 - Entry API 요청 URL: \(entryUrlString)")
+        
+        guard let entryUrl = URL(string: entryUrlString) else {
+            print("❌ 잘못된 Entry URL: \(entryUrlString)")
+            throw URLError(.badURL)
+        }
+        
+        let (entryData, entryResponse) = try await URLSession.shared.data(from: entryUrl)
+        
+        // HTTP 응답 상태 확인
+        if let httpResponse = entryResponse as? HTTPURLResponse {
+            print("📥 Entry HTTP 응답 상태: \(httpResponse.statusCode)")
+            if httpResponse.statusCode != 200 {
+                print("❌ Entry HTTP 오류: \(httpResponse.statusCode)")
+                throw URLError(.badServerResponse)
+            }
+        }
+        
+        // Parse entry data to get polymer entity IDs
+        guard let entryJson = try JSONSerialization.jsonObject(with: entryData) as? [String: Any],
+              let containerIdentifiers = entryJson["rcsb_entry_container_identifiers"] as? [String: Any],
+              let polymerEntityIds = containerIdentifiers["polymer_entity_ids"] as? [String] else {
+            print("❌ polymer_entity_ids를 찾을 수 없음")
+            throw URLError(.cannotParseResponse)
+        }
+        
+        print("✅ 발견된 polymer entity IDs: \(polymerEntityIds)")
+        
+        // Step 2: Fetch sequences from each polymer entity
+        var allSequences: [String] = []
+        
+        for entityId in polymerEntityIds {
+            let entityUrlString = "https://data.rcsb.org/rest/v1/core/polymer_entity/\(protein.id)/\(entityId)"
+            print("🔗 Step 2 - Polymer Entity API 요청 URL: \(entityUrlString)")
+            
+            guard let entityUrl = URL(string: entityUrlString) else {
+                print("❌ 잘못된 Entity URL: \(entityUrlString)")
+                continue
+            }
+            
+            do {
+                let (entityData, entityResponse) = try await URLSession.shared.data(from: entityUrl)
+                
+                // HTTP 응답 상태 확인
+                if let httpResponse = entityResponse as? HTTPURLResponse {
+                    print("📥 Entity HTTP 응답 상태: \(httpResponse.statusCode)")
+                    if httpResponse.statusCode != 200 {
+                        print("❌ Entity HTTP 오류: \(httpResponse.statusCode)")
+                        continue
+                    }
+                }
+                
+                print("📦 받은 Entity 데이터 크기: \(entityData.count) bytes")
+                
+                // Parse entity data to get sequence
+                if let entityJson = try JSONSerialization.jsonObject(with: entityData) as? [String: Any],
+                   let entityPoly = entityJson["entity_poly"] as? [String: Any],
+                   let sequence = entityPoly["pdbx_seq_one_letter_code_can"] as? String {
+                    print("✅ Entity \(entityId) 서열 발견: \(sequence.count)개 아미노산")
+                    allSequences.append(sequence)
+                } else {
+                    print("⚠️ Entity \(entityId)에서 서열을 찾을 수 없음")
+                }
+                
+            } catch {
+                print("❌ Entity \(entityId) 네트워크 오류: \(error.localizedDescription)")
+                continue
+            }
+        }
+        
+        if allSequences.isEmpty {
+            print("❌ 모든 entity에서 아미노산 서열을 찾을 수 없음")
+            throw URLError(.cannotParseResponse)
+        }
+        
+        print("🎉 총 \(allSequences.count)개의 서열 발견")
+        return allSequences
+    }
+    
+    // MARK: - API Functions
+    private func openAPIEndpoint(_ endpoint: String) {
+        let baseURL: String
+        
+        if endpoint.contains("files.rcsb.org") {
+            // PDB 파일 다운로드
+            baseURL = "https://\(endpoint)"
+        } else {
+            // RCSB PDB Data API
+            baseURL = "https://data.rcsb.org/rest/v1/core/\(endpoint)"
+        }
+        
+        if let url = URL(string: baseURL) {
+            DispatchQueue.main.async {
+                UIApplication.shared.open(url)
             }
         }
     }

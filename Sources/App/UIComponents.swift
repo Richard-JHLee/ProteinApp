@@ -40,13 +40,21 @@ struct CapsuleTag: View {
     var icon: String? = nil
     var body: some View {
         HStack(spacing: 6) {
-            if let icon { Image(systemName: icon).font(.caption) }
-            Text(text).font(.caption.weight(.medium))
+            if let icon { 
+                Image(systemName: icon)
+                    .font(.caption)
+                    .foregroundStyle(foreground)
+            }
+            Text(text)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(foreground)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8) // 필요시 텍스트 크기 축소
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .foregroundStyle(foreground)
+        .padding(.horizontal, 12) // 좌우 패딩 증가
+        .padding(.vertical, 7) // 상하 패딩 약간 증가
         .background(background, in: Capsule(style: .continuous))
+        .fixedSize(horizontal: false, vertical: true) // 수직 크기 고정
     }
 }
 

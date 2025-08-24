@@ -309,6 +309,7 @@ class PDBAPIService {
         // 먼저 고급 검색 시도
         let (identifiers, totalCount) = try await performAdvancedSearch(category: category, limit: limit, skip: skip)
         print("🔍 [\(category.rawValue)] 고급 검색 결과: \(identifiers.count)개, 전체: \(totalCount)개")
+        print("📋 [\(category.rawValue)] 고급 검색 PDB ID 목록: \(Array(identifiers.prefix(10)))")
         
         var finalIdentifiers = identifiers
         var finalTotalCount = totalCount
@@ -344,7 +345,7 @@ class PDBAPIService {
                 "return_type": "entry",
                 "request_options": [
                     "paginate": [
-                        "start": 0,
+                        "start": skip, // skip 매개변수 적용
                         "rows": limit
                     ]
                 ]
@@ -353,9 +354,11 @@ class PDBAPIService {
             do {
                 let (directIdentifiers, directTotalCount) = try await executeSearchQuery(query: directQuery, description: "Structural 직접 쿼리")
                 print("🔍 [\(category.rawValue)] 직접 쿼리 결과: \(directIdentifiers.count)개, 전체: \(directTotalCount)개")
+                print("📋 [\(category.rawValue)] 직접 쿼리 PDB ID 목록: \(Array(directIdentifiers.prefix(10)))")
                 if !directIdentifiers.isEmpty {
                     finalIdentifiers = directIdentifiers
                     finalTotalCount = directTotalCount
+                    print("✅ [\(category.rawValue)] 직접 쿼리를 최종 결과로 사용")
                 }
             } catch {
                 print("❌ [\(category.rawValue)] 직접 쿼리 실패: \(error.localizedDescription)")
@@ -607,7 +610,11 @@ class PDBAPIService {
             
             print("📄 페이지네이션 적용: skip=\(skip), limit=\(limit), 받은 결과=\(pdbIds.count)개")
             
-            return try await fetchProteinDetails(batch: pdbIds, intendedCategory: category)
+            // ⚠️ 중요: limit 개수만큼만 처리하여 정확한 페이지네이션 보장
+            let limitedPdbIds = Array(pdbIds.prefix(limit))
+            print("✂️ limit 적용: \(pdbIds.count)개 → \(limitedPdbIds.count)개로 제한")
+            
+            return try await fetchProteinDetails(batch: limitedPdbIds, intendedCategory: category)
         } else {
             // 전체 검색의 경우 기존 방식 유지 (성능상)
             return try await searchProteinsLegacy(limit: limit)
@@ -3030,7 +3037,15 @@ struct ProteinLibraryView: View {
     }
     
     var displayedProteins: [ProteinInfo] {
+        // 카테고리별 보기에서는 모든 로드된 데이터를 표시 (API 페이지네이션 사용)
+        if selectedCategory != nil {
+            print("📺 카테고리별 보기: 모든 로드된 데이터 표시 (\(allFilteredProteins.count)개)")
+            return allFilteredProteins
+        }
+        
+        // 전체 카테고리 보기에서만 로컬 페이지네이션 적용
         let totalItems = min(currentPage * itemsPerPage, allFilteredProteins.count)
+        print("📺 전체 카테고리 보기: \(totalItems)/\(allFilteredProteins.count)개 표시")
         return Array(allFilteredProteins.prefix(totalItems))
     }
     
@@ -3331,8 +3346,14 @@ struct ProteinLibraryView: View {
                                             let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
                                             impactFeedback.impactOccurred()
                                             
-                                            selectedProtein = protein
+                                            // 자연스러운 로딩 흐름: 먼저 로딩 화면 표시
+                                            selectedProtein = nil
                                             showingInfoSheet = true
+                                            
+                                            // 짧은 지연 후 데이터 설정 (로딩 효과)
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                                selectedProtein = protein
+                                            }
                                         },
                                         onFavoriteToggle: {
                                             database.toggleFavorite(protein.id)
@@ -3431,6 +3452,33 @@ struct ProteinLibraryView: View {
                     protein: protein,
                     onProteinSelected: onProteinSelected
                 )
+            } else {
+                // 로딩 상태 표시
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .tint(.blue)
+                    
+                    VStack(spacing: 4) {
+                        Text("단백질 정보 로드 중...")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        Text("잠시만 기다려주세요")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemBackground))
+                .onAppear {
+                    // 로딩 타임아웃 처리 (3초 후 시트 닫기)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                        if selectedProtein == nil {
+                            showingInfoSheet = false
+                        }
+                    }
+                }
             }
         }
         .alert("Error", isPresented: .constant(database.errorMessage != nil)) {
