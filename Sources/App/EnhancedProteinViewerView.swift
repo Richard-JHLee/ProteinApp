@@ -34,6 +34,7 @@ struct EnhancedProteinViewerView: View {
     
     // Data States
     @State private var ligandsData: [LigandData] = []
+    @State private var pocketsData: [PocketData] = []
     
     @Environment(\.dismiss) private var dismiss
     
@@ -186,9 +187,7 @@ struct EnhancedProteinViewerView: View {
                 ligandsTabView
                     .tag(ViewerTab.ligands)
                 
-                Text("🔬 Pockets Tab\n구현 예정")
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
+                pocketsTabView
                     .tag(ViewerTab.pockets)
                 
                 Text("📖 Annotations Tab\n구현 예정")
@@ -572,6 +571,178 @@ struct EnhancedProteinViewerView: View {
         }
     }
     
+    // MARK: - Pockets Tab
+    private var pocketsTabView: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                // Header
+                HStack {
+                    Text("🔬 Binding Pockets")
+                        .font(.title3.weight(.semibold))
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    Text("\(pocketsData.count) pockets")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                if pocketsData.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "scope")
+                            .font(.system(size: 40))
+                            .foregroundColor(.gray)
+                        
+                        Text("No pockets detected")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        Text("Pocket detection analysis hasn't been performed or no significant binding sites were found")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 40)
+                } else {
+                    // Pocket Cards
+                    ForEach(pocketsData) { pocket in
+                        pocketCard(pocket)
+                    }
+                    
+                    // Pocket Analysis Summary
+                    pocketAnalysisSummary
+                }
+            }
+            .padding()
+        }
+    }
+    
+    private func pocketCard(_ pocket: PocketData) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Pocket Header
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(pocket.name)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    Text(pocket.description)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                // Score Gauge
+                ZStack {
+                    Circle()
+                        .stroke(.gray.opacity(0.2), lineWidth: 4)
+                        .frame(width: 50, height: 50)
+                    
+                    Circle()
+                        .trim(from: 0, to: pocket.score)
+                        .stroke(
+                            LinearGradient(
+                                colors: [.red, .orange, .green],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                        )
+                        .frame(width: 50, height: 50)
+                        .rotationEffect(.degrees(-90))
+                    
+                    Text("\(Int(pocket.score * 100))")
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(.primary)
+                }
+            }
+            
+            // Pocket Details
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Volume")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text("\(pocket.volume) Ų")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.primary)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Score")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text(String(format: "%.2f", pocket.score))
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(pocket.score > 0.7 ? .green : pocket.score > 0.5 ? .orange : .red)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Druggability")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text(pocket.druggability)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(druggabilityColor(pocket.druggability))
+                }
+                
+                Spacer()
+                
+                // View Button
+                Button(action: { viewPocket(pocket) }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "eye")
+                        Text("View")
+                    }
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(.orange, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private var pocketAnalysisSummary: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Pocket Analysis Summary")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            HStack(spacing: 16) {
+                statCard("Total Volume", value: "\(pocketsData.reduce(0) { $0 + $1.volume }) Ų", color: .blue)
+                statCard("Avg Score", value: String(format: "%.2f", pocketsData.isEmpty ? 0.0 : pocketsData.reduce(0.0) { $0 + $1.score } / Double(pocketsData.count)), color: .green)
+                statCard("Best Score", value: String(format: "%.2f", pocketsData.max(by: { $0.score < $1.score })?.score ?? 0.0), color: .orange)
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func druggabilityColor(_ druggability: String) -> Color {
+        switch druggability.lowercased() {
+        case "high": return .green
+        case "medium": return .orange
+        case "low": return .red
+        default: return .gray
+        }
+    }
+    
+    private func viewPocket(_ pocket: PocketData) {
+        print("Viewing pocket: \(pocket.name)")
+        // TODO: Implement pocket visualization in 3D viewer
+    }
+    
     // MARK: - Functions
     private func loadStructure() async {
         await MainActor.run {
@@ -703,6 +874,7 @@ struct EnhancedProteinViewerView: View {
     private func loadAdditionalData() {
         // Mock data for tabs
         ligandsData = generateMockLigands()
+        pocketsData = generateMockPockets()
     }
     
     private func generateMockLigands() -> [LigandData] {
@@ -738,6 +910,39 @@ struct EnhancedProteinViewerView: View {
                 molecularWeight: 0.785,
                 charge: -2.0,
                 type: "Coenzyme"
+            )
+        ]
+    }
+    
+    private func generateMockPockets() -> [PocketData] {
+        return [
+            PocketData(
+                name: "Active Site", 
+                score: 0.89, 
+                volume: 1450, 
+                description: "Primary ATP binding site with high druggability",
+                druggability: "High"
+            ),
+            PocketData(
+                name: "Allosteric Site", 
+                score: 0.72, 
+                volume: 820, 
+                description: "Regulatory binding site for allosteric modulators",
+                druggability: "Medium"
+            ),
+            PocketData(
+                name: "Cofactor Binding", 
+                score: 0.65, 
+                volume: 450, 
+                description: "Magnesium ion coordination site",
+                druggability: "Medium"
+            ),
+            PocketData(
+                name: "Substrate Channel", 
+                score: 0.58, 
+                volume: 680, 
+                description: "Substrate entry channel with moderate binding potential",
+                druggability: "Low"
             )
         ]
     }
@@ -836,4 +1041,14 @@ struct LigandData: Identifiable {
     let molecularWeight: Double // in kDa
     let charge: Double
     let type: String
+}
+
+// MARK: - Pocket Data Model
+struct PocketData: Identifiable {
+    let id = UUID()
+    let name: String
+    let score: Double // 0.0 to 1.0
+    let volume: Int // in Ų
+    let description: String
+    let druggability: String // "High", "Medium", "Low"
 }
