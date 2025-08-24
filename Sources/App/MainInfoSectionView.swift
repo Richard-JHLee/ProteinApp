@@ -70,6 +70,9 @@ struct MainInfoSectionView: View {
     @State private var secondaryStructureData: SecondaryStructureData?
     @State private var isLoadingSecondaryStructure = false
     @State private var secondaryStructureError: String?
+    
+    // Tertiary Structure States
+    @State private var showingTertiaryStructure = false
 
     var body: some View {
         VStack(spacing: 14) {
@@ -164,6 +167,9 @@ struct MainInfoSectionView: View {
         .sheet(isPresented: $showingSecondaryStructure) {
             secondaryStructureSheet
         }
+        .sheet(isPresented: $showingTertiaryStructure) {
+            TertiaryStructureView(protein: protein)
+        }
     }
 
     // MARK: - Structure Details View
@@ -242,6 +248,9 @@ struct MainInfoSectionView: View {
                     } else if title == "Secondary Structure" {
                         // Secondary Structure도 앱 내 뷰로 표시
                         showingSecondaryStructure = true
+                    } else if title == "Tertiary Structure" {
+                        // Tertiary Structure도 앱 내 뷰로 표시
+                        showingTertiaryStructure = true
                     } else {
                         // 다른 구조는 웹브라우저로 열기
                         openAPIEndpoint(apiEndpoint)
