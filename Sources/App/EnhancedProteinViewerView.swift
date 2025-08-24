@@ -177,9 +177,7 @@ struct EnhancedProteinViewerView: View {
                 chainsTabView
                     .tag(ViewerTab.chains)
                 
-                Text("🧩 Residues Tab\n구현 예정")
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
+                residuesTabView
                     .tag(ViewerTab.residues)
                 
                 Text("💊 Ligands Tab\n구현 예정")
@@ -316,6 +314,215 @@ struct EnhancedProteinViewerView: View {
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
     
+    // MARK: - Residues Tab
+    private var residuesTabView: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                // Header
+                HStack {
+                    Text("🧩 Secondary Structure")
+                        .font(.title3.weight(.semibold))
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    Text("Color Legend")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                // Secondary Structure Legend
+                secondaryStructureLegend
+                
+                // Secondary Structure Statistics
+                if let structure = structure {
+                    secondaryStructureStats(for: structure)
+                } else {
+                    Text("No structure loaded")
+                        .foregroundColor(.secondary)
+                        .padding(.top, 40)
+                }
+                
+                // Selected Residue Details
+                selectedResidueDetails
+            }
+            .padding()
+        }
+    }
+    
+    private var secondaryStructureLegend: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Secondary Structure Color Scheme")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            VStack(spacing: 8) {
+                legendItem("Alpha Helix", color: .red, icon: "tornado", description: "Right-handed spiral structure")
+                legendItem("Beta Sheet", color: .blue, icon: "rectangle.stack", description: "Extended strand structure")
+                legendItem("Turn/Loop", color: .green, icon: "arrow.turn.up.right", description: "Connecting regions")
+                legendItem("Random Coil", color: .gray, icon: "scribble", description: "Unstructured regions")
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func legendItem(_ name: String, color: Color, icon: String, description: String) -> some View {
+        HStack(spacing: 12) {
+            // Color indicator and icon
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 12, height: 12)
+                
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundColor(color)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.primary)
+                
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private func secondaryStructureStats(for structure: PDBStructure) -> some View {
+        let totalAtoms = structure.atoms.count
+        let helixCount = structure.atoms.filter { $0.secondaryStructure == .helix }.count
+        let sheetCount = structure.atoms.filter { $0.secondaryStructure == .sheet }.count
+        let coilCount = structure.atoms.filter { $0.secondaryStructure == .coil }.count
+        let unknownCount = structure.atoms.filter { $0.secondaryStructure == .unknown }.count
+        
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Structure Distribution")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            VStack(spacing: 8) {
+                if totalAtoms > 0 {
+                    structureBar("Alpha Helix", count: helixCount, total: totalAtoms, color: .red)
+                    structureBar("Beta Sheet", count: sheetCount, total: totalAtoms, color: .blue)
+                    structureBar("Turn/Loop", count: coilCount, total: totalAtoms, color: .green)
+                    structureBar("Random Coil", count: unknownCount, total: totalAtoms, color: .gray)
+                }
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func structureBar(_ name: String, count: Int, total: Int, color: Color) -> some View {
+        let percentage = total > 0 ? Int((Double(count) / Double(total)) * 100) : 0
+        
+        return VStack(spacing: 4) {
+            HStack {
+                Text(name)
+                    .font(.caption)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Text("\(count) atoms (\(percentage)%)")
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(color)
+            }
+            
+            ProgressView(value: Double(count), total: Double(total))
+                .progressViewStyle(LinearProgressViewStyle(tint: color))
+                .scaleEffect(y: 1.5)
+        }
+    }
+    
+    private var selectedResidueDetails: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Residue Information")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            if let atom = selectedAtom {
+                selectedResidueCard(atom)
+            } else {
+                Text("Tap on a residue in the 3D view to see details")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func selectedResidueCard(_ atom: Atom) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("\(atom.residueName) \(atom.residueNumber)")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Text("Chain \(atom.chain)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.gray.opacity(0.2), in: Capsule())
+            }
+            
+            Text("Atom: \(atom.name) (\(atom.element))")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            HStack {
+                Text("Secondary Structure:")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Text(secondaryStructureName(atom.secondaryStructure))
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(secondaryStructureColor(atom.secondaryStructure))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(secondaryStructureColor(atom.secondaryStructure).opacity(0.1), in: Capsule())
+            }
+            
+            Text("Position: (\(String(format: "%.1f", atom.position.x)), \(String(format: "%.1f", atom.position.y)), \(String(format: "%.1f", atom.position.z)))")
+                .font(.caption.monospacedDigit())
+                .foregroundColor(.secondary)
+        }
+        .padding(12)
+        .background(secondaryStructureColor(atom.secondaryStructure).opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+    }
+    
+    private func secondaryStructureName(_ ss: SecondaryStructure) -> String {
+        switch ss {
+        case .helix: return "Alpha Helix"
+        case .sheet: return "Beta Sheet"
+        case .coil: return "Turn/Loop"
+        case .unknown: return "Random Coil"
+        }
+    }
+    
+    private func secondaryStructureColor(_ ss: SecondaryStructure) -> Color {
+        switch ss {
+        case .helix: return .red
+        case .sheet: return .blue
+        case .coil: return .green
+        case .unknown: return .gray
+        }
+    }
+    
     // MARK: - Functions
     private func loadStructure() async {
         await MainActor.run {
@@ -347,8 +554,8 @@ struct EnhancedProteinViewerView: View {
         var atoms: [Atom] = []
         var bonds: [Bond] = []
         
-        // Create a simple helix for Chain A
-        for i in 0..<15 {
+        // Create a simple helix for Chain A (Alpha Helix)
+        for i in 0..<10 {
             let angle = Double(i) * 0.3
             let x = cos(angle) * 5.0
             let y = Double(i) * 1.5
@@ -371,9 +578,55 @@ struct EnhancedProteinViewerView: View {
             }
         }
         
-        // Add a few atoms for Chain B
-        for i in 15..<20 {
-            let x = Double(i - 15) * 2.0
+        // Add beta sheet structure for Chain A
+        for i in 10..<15 {
+            let x = Double(i - 10) * 2.0 - 5.0
+            let y = 15.0
+            let z = 0.0
+            
+            atoms.append(Atom(
+                id: i,
+                element: "C",
+                name: "CA",
+                chain: "A",
+                residueName: "VAL",
+                residueNumber: i + 1,
+                position: SIMD3<Float>(Float(x), Float(y), Float(z)),
+                secondaryStructure: .sheet,
+                isBackbone: true
+            ))
+            
+            if i > 10 {
+                bonds.append(Bond(a: i-1, b: i))
+            }
+        }
+        
+        // Add turn/loop structure for Chain A
+        for i in 15..<18 {
+            let x = Double(i - 15) * 1.0 + 5.0
+            let y = Double(i - 15) * 2.0 + 10.0
+            let z = Double(i - 15) * 1.5
+            
+            atoms.append(Atom(
+                id: i,
+                element: "C",
+                name: "CA",
+                chain: "A",
+                residueName: "GLY",
+                residueNumber: i + 1,
+                position: SIMD3<Float>(Float(x), Float(y), Float(z)),
+                secondaryStructure: .coil,
+                isBackbone: true
+            ))
+            
+            if i > 15 {
+                bonds.append(Bond(a: i-1, b: i))
+            }
+        }
+        
+        // Add a few atoms for Chain B (Random coil)
+        for i in 18..<23 {
+            let x = Double(i - 18) * 1.5 + 8.0
             let y = 0.0
             let z = 10.0
             
@@ -382,14 +635,14 @@ struct EnhancedProteinViewerView: View {
                 element: "C",
                 name: "CA",
                 chain: "B",
-                residueName: "GLY",
-                residueNumber: i - 14,
+                residueName: "PRO",
+                residueNumber: i - 17,
                 position: SIMD3<Float>(Float(x), Float(y), Float(z)),
-                secondaryStructure: .sheet,
+                secondaryStructure: .unknown,
                 isBackbone: true
             ))
             
-            if i > 15 {
+            if i > 18 {
                 bonds.append(Bond(a: i-1, b: i))
             }
         }
