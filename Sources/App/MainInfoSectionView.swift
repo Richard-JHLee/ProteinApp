@@ -1,6 +1,9 @@
 import SwiftUI
 import UIKit
 
+// MARK: - Forward Declarations for Structure Views
+// TertiaryStructureView 및 QuaternaryStructureView는 별도 파일에 정의되어 있음
+
 // MARK: - Secondary Structure Data Models
 struct SecondaryStructureData {
     let helices: [SecondaryStructureElement]
@@ -73,6 +76,9 @@ struct MainInfoSectionView: View {
     
     // Tertiary Structure States
     @State private var showingTertiaryStructure = false
+    
+    // Quaternary Structure States
+    @State private var showingQuaternaryStructure = false
 
     var body: some View {
         VStack(spacing: 14) {
@@ -170,6 +176,9 @@ struct MainInfoSectionView: View {
         .sheet(isPresented: $showingTertiaryStructure) {
             TertiaryStructureView(protein: protein)
         }
+        .sheet(isPresented: $showingQuaternaryStructure) {
+            QuaternaryStructureView(protein: protein)
+        }
     }
 
     // MARK: - Structure Details View
@@ -251,6 +260,9 @@ struct MainInfoSectionView: View {
                     } else if title == "Tertiary Structure" {
                         // Tertiary Structure도 앱 내 뷰로 표시
                         showingTertiaryStructure = true
+                    } else if title == "Quaternary Structure" {
+                        // Quaternary Structure도 앱 내 뷰로 표시
+                        showingQuaternaryStructure = true
                     } else {
                         // 다른 구조는 웹브라우저로 열기
                         openAPIEndpoint(apiEndpoint)
