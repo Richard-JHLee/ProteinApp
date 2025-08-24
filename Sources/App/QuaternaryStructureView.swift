@@ -367,7 +367,7 @@ struct QuaternaryStructureView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(.primary)
                     
-                    Text("Chain \(subunit.chainId) \u2022 \(subunit.residueCount) residues")
+                    Text("Chain \(subunit.chainId) \u{2022} \(subunit.residueCount) residues")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
