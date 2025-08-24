@@ -6,6 +6,7 @@ struct InfoSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingProteinView = false
     @State private var showingPDBWebsite = false
+    @State private var showingEnhancedViewer = false
 
     init(protein: ProteinInfo, onProteinSelected: ((String) -> Void)? = nil) {
         self.protein = protein
@@ -52,6 +53,35 @@ struct InfoSheet: View {
                             // TODO: 즐겨찾기 토글
                         }
                     )
+                    
+                    // Enhanced Viewer Button
+                    Button(action: {
+                        showingEnhancedViewer = true
+                    }) {
+                        HStack {
+                            Image(systemName: "cube.transparent")
+                                .font(.title2)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Enhanced 3D Viewer")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                
+                                Text("Advanced analysis with chains, ligands, pockets")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(16)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
@@ -61,6 +91,9 @@ struct InfoSheet: View {
         }
         .sheet(isPresented: $showingProteinView) {
             ProteinSceneContainer(selectedProteinId: protein.id)
+        }
+        .fullScreenCover(isPresented: $showingEnhancedViewer) {
+            EnhancedProteinViewerView(protein: protein)
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
