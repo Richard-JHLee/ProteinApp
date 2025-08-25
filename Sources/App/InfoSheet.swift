@@ -51,37 +51,11 @@ struct InfoSheet: View {
                         },
                         onFavorite: {
                             // TODO: 즐겨찾기 토글
+                        },
+                        onEnhancedView: {
+                            showingEnhancedViewer = true
                         }
                     )
-                    
-                    // Enhanced Viewer Button
-                    Button(action: {
-                        showingEnhancedViewer = true
-                    }) {
-                        HStack {
-                            Image(systemName: "cube.transparent")
-                                .font(.title2)
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Enhanced 3D Viewer")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-                                
-                                Text("Advanced analysis with chains, ligands, pockets")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                            
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(16)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-                    }
-                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 30)
@@ -92,7 +66,7 @@ struct InfoSheet: View {
         .sheet(isPresented: $showingProteinView) {
             ProteinSceneContainer(selectedProteinId: protein.id)
         }
-        .fullScreenCover(isPresented: $showingEnhancedViewer) {
+        .sheet(isPresented: $showingEnhancedViewer) {
             EnhancedProteinViewerView(protein: protein)
         }
         .toolbar {
