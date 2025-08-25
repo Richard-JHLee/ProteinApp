@@ -36,6 +36,46 @@ final class PDBParser {
         let lines = pdbText.split(whereSeparator: { $0 == "\n" || $0 == "\r" })
         atoms.reserveCapacity(1024)
         var idx = 0
+        
+        // First pass: extract secondary structure information from HELIX and SHEET records
+        var helixRegions: [(chainID: String, startRes: Int, endRes: Int)] = []
+        var sheetRegions: [(chainID: String, startRes: Int, endRes: Int)] = []
+        
+        for line in lines {
+            if line.hasPrefix("HELIX ") {
+                // HELIX record: chainID at col 20, startRes at cols 22-25, endRes at cols 34-37
+                func substr(_ s: Substring, _ r: Range<Int>) -> String {
+                    let start = s.index(s.startIndex, offsetBy: max(0, r.lowerBound), limitedBy: s.endIndex) ?? s.endIndex
+                    let end = s.index(s.startIndex, offsetBy: min(s.count, r.upperBound), limitedBy: s.endIndex) ?? s.endIndex
+                    return String(s[start..<end])
+                }
+                
+                let chainID = substr(line, 19..<20).trimmingCharacters(in: .whitespaces)
+                let startRes = Int(substr(line, 21..<25).trimmingCharacters(in: .whitespaces)) ?? 0
+                let endRes = Int(substr(line, 33..<37).trimmingCharacters(in: .whitespaces)) ?? 0
+                
+                if chainID.isEmpty == false && startRes > 0 && endRes > 0 {
+                    helixRegions.append((chainID, startRes, endRes))
+                }
+            } else if line.hasPrefix("SHEET ") {
+                // SHEET record: chainID at col 22, startRes at cols 23-26, endRes at cols 34-37
+                func substr(_ s: Substring, _ r: Range<Int>) -> String {
+                    let start = s.index(s.startIndex, offsetBy: max(0, r.lowerBound), limitedBy: s.endIndex) ?? s.endIndex
+                    let end = s.index(s.startIndex, offsetBy: min(s.count, r.upperBound), limitedBy: s.endIndex) ?? s.endIndex
+                    return String(s[start..<end])
+                }
+                
+                let chainID = substr(line, 21..<22).trimmingCharacters(in: .whitespaces)
+                let startRes = Int(substr(line, 22..<26).trimmingCharacters(in: .whitespaces)) ?? 0
+                let endRes = Int(substr(line, 33..<37).trimmingCharacters(in: .whitespaces)) ?? 0
+                
+                if chainID.isEmpty == false && startRes > 0 && endRes > 0 {
+                    sheetRegions.append((chainID, startRes, endRes))
+                }
+            }
+        }
+        
+        // Second pass: extract atoms and assign secondary structure
         for line in lines {
             guard line.hasPrefix("ATOM ") || line.hasPrefix("HETATM") else { continue }
             // PDB fixed columns
@@ -63,8 +103,26 @@ final class PDBParser {
             // Determine if backbone atom
             let isBackbone = ["CA", "C", "N", "O"].contains(name)
             
-            // Simple secondary structure assignment (can be enhanced)
-            let ss: SecondaryStructure = .unknown
+            // Assign secondary structure based on HELIX and SHEET records
+            var ss: SecondaryStructure = .coil // Default to coil/loop instead of unknown
+            
+            // Check if this residue is part of a helix
+            for region in helixRegions {
+                if region.chainID == chain && resSeq >= region.startRes && resSeq <= region.endRes {
+                    ss = .helix
+                    break
+                }
+            }
+            
+            // Check if this residue is part of a sheet (only if not already assigned as helix)
+            if ss == .coil {
+                for region in sheetRegions {
+                    if region.chainID == chain && resSeq >= region.startRes && resSeq <= region.endRes {
+                        ss = .sheet
+                        break
+                    }
+                }
+            }
             
             atoms.append(Atom(
                 id: idx, 
@@ -79,8 +137,61 @@ final class PDBParser {
             ))
             idx += 1
         }
+        
+        // If no helix/sheet records found, use heuristic approach based on residue names and patterns
+        if helixRegions.isEmpty && sheetRegions.isEmpty {
+            assignSecondaryStructureHeuristically(&atoms)
+        }
+        
         let bonds = naiveBonds(for: atoms)
         return PDBStructure(atoms: atoms, bonds: bonds)
+    }
+    
+    // Heuristic method to assign secondary structure when HELIX/SHEET records are not available
+    private static func assignSecondaryStructureHeuristically(_ atoms: inout [Atom]) {
+        // Group atoms by residue
+        let residueGroups = Dictionary(grouping: atoms) { "\($0.chain)_\($0.residueNumber)" }
+        
+        // Simple heuristic based on amino acid propensities
+        // Amino acids with high helix propensity
+        let helixFavoringResidues = ["ALA", "LEU", "MET", "GLU", "LYS", "ARG", "GLN"]
+        // Amino acids with high sheet propensity
+        let sheetFavoringResidues = ["VAL", "ILE", "PHE", "TYR", "TRP", "THR"]
+        
+        // Process residues to identify potential secondary structures
+        for (_, residueAtoms) in residueGroups {
+            if let firstAtom = residueAtoms.first {
+                let resName = firstAtom.residueName
+                
+                // Assign based on amino acid propensity
+                let newSS: SecondaryStructure
+                if helixFavoringResidues.contains(resName) {
+                    newSS = .helix
+                } else if sheetFavoringResidues.contains(resName) {
+                    newSS = .sheet
+                } else {
+                    newSS = .coil
+                }
+                
+                // Update all atoms in this residue
+                for atomIndex in atoms.indices {
+                    if atoms[atomIndex].chain == firstAtom.chain && 
+                       atoms[atomIndex].residueNumber == firstAtom.residueNumber {
+                        atoms[atomIndex] = Atom(
+                            id: atoms[atomIndex].id,
+                            element: atoms[atomIndex].element,
+                            name: atoms[atomIndex].name,
+                            chain: atoms[atomIndex].chain,
+                            residueName: atoms[atomIndex].residueName,
+                            residueNumber: atoms[atomIndex].residueNumber,
+                            position: atoms[atomIndex].position,
+                            secondaryStructure: newSS,
+                            isBackbone: atoms[atomIndex].isBackbone
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private static func naiveBonds(for atoms: [Atom]) -> [Bond] {

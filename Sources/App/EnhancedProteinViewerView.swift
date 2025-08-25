@@ -323,7 +323,24 @@ struct EnhancedProteinViewerView: View {
             ForEach(ViewerTab.allCases, id: \.self) { tab in
                 Button(action: { 
                     withAnimation {
+                        // 이전 탭 상태 저장
+                        let oldTab = selectedTab
+                        // 새 탭 설정
                         selectedTab = tab
+                        
+                        // 렌더링 갱신을 강제하기 위한 코드
+                        // 탭이 실제로 변경된 경우에만 실행
+                        if oldTab != tab {
+                            // 필요한 경우 강제로 레이아웃 갱신
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                // 렌더링 스타일 및 색상 모드 강제 갱신
+                                if tab == .residues {
+                                    style = .cartoon // 일시적으로 설정하여 UI 업데이트 트리거
+                                    colorMode = .secondaryStructure
+                                    // 원래 상태로 복원하지 않음 (computed property가 처리함)
+                                }
+                            }
+                        }
                     }
                 }) {
                     VStack(spacing: 4) {
