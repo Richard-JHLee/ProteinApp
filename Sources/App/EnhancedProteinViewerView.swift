@@ -119,8 +119,14 @@ struct EnhancedProteinViewerView: View {
     private var computedRenderStyle: RenderStyle {
         switch selectedTab {
         case .residues:
-            // For residues tab, use cartoon style for better secondary structure visualization
+            // Residues 탭에서는 cartoon 스타일로 표시
             return .cartoon
+        case .ligands:
+            // Ligands 탭에서는 sticks 스타일로 표시 (리간드와 결합 구조를 잘 보여줌)
+            return .sticks
+        case .pockets:
+            // Pockets 탭에서는 surface 스타일로 표시 (결합 포켓을 잘 보여줌)
+            return .surface
         default:
             return style
         }
@@ -129,7 +135,14 @@ struct EnhancedProteinViewerView: View {
     private var computedColorMode: ColorMode {
         switch selectedTab {
         case .residues:
+            // Residues 탭에서는 secondary structure 색상 모드로 표시
             return .secondaryStructure
+        case .ligands:
+            // Ligands 탭에서는 element 색상 모드로 표시 (리간드 원소를 잘 구분함)
+            return .element
+        case .pockets:
+            // Pockets 탭에서는 chain 색상 모드로 표시 (포켓이 어떤 체인에 속하는지 보여줌)
+            return .chain
         default:
             return colorMode
         }
@@ -252,15 +265,15 @@ struct EnhancedProteinViewerView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 280)
             
-            // Render Style Selection (hidden in Residues tab)
-            if selectedTab != .residues {
+            // Render Style Selection (특정 탭에서는 숨김)
+            if selectedTab != .residues && selectedTab != .ligands && selectedTab != .pockets {
                 renderStyleSelector
                     .padding(.vertical, 10)
                     .disabled(isLoading)
             }
             
-            // Color Mode Selection (hidden in Residues tab)
-            if selectedTab != .residues {
+            // Color Mode Selection (특정 탭에서는 숨김)
+            if selectedTab != .residues && selectedTab != .ligands && selectedTab != .pockets {
                 colorModeSelector
                     .padding(.vertical, 10)
                     .disabled(isLoading)
@@ -333,11 +346,23 @@ struct EnhancedProteinViewerView: View {
                         if oldTab != tab {
                             // 필요한 경우 강제로 레이아웃 갱신
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                // 렌더링 스타일 및 색상 모드 강제 갱신
-                                if tab == .residues {
-                                    style = .cartoon // 일시적으로 설정하여 UI 업데이트 트리거
+                                // 탭에 따라 렌더링 스타일 및 색상 모드 강제 갱신
+                                switch tab {
+                                case .residues:
+                                    style = .cartoon
                                     colorMode = .secondaryStructure
-                                    // 원래 상태로 복원하지 않음 (computed property가 처리함)
+                                case .ligands:
+                                    style = .sticks
+                                    colorMode = .element
+                                    // 리간드 하이라이트 작업 추가
+                                    highlightLigands()
+                                case .pockets:
+                                    style = .surface
+                                    colorMode = .chain
+                                    // 포켓 하이라이트 작업 추가
+                                    highlightPockets()
+                                default:
+                                    break
                                 }
                             }
                         }
@@ -763,7 +788,37 @@ struct EnhancedProteinViewerView: View {
     
     private func viewPocket(_ pocket: PocketModel) {
         print("Viewing pocket: \(pocket.name)")
-        // TODO: Implement pocket visualization in 3D viewer
+        
+        // 현재 구현에서는 포켓이 이름으로만 식별되므로 이름에서 체인 ID 추출
+        if let chainIdRange = pocket.name.range(of: "Chain [A-Z]", options: .regularExpression) {
+            let chainIdString = pocket.name[chainIdRange]
+            if let chainId = chainIdString.last {
+                // 해당 체인만 표시하고 나머지는 투명하게 처리
+                if let structure = structure {
+                    // 해당 체인 ID의 원자들만 필터링
+                    let chainAtoms = structure.atoms.filter { String($0.chain) == String(chainId) }
+                    
+                    // TODO: 해당 체인의 원자들만 강조 표시하는 로직
+                    print("Highlighting \(chainAtoms.count) atoms in chain \(chainId) for pocket: \(pocket.name)")
+                    
+                    // 체인 하이라이트 함수 호출
+                    highlightChain(String(chainId))
+                }
+            }
+        }
+        
+        // 포켓 점수에 따라 시각적 피드백 제공
+        let feedbackIntensity: UIImpactFeedbackGenerator.FeedbackStyle
+        if pocket.score > 0.8 {
+            feedbackIntensity = .heavy
+        } else if pocket.score > 0.6 {
+            feedbackIntensity = .medium
+        } else {
+            feedbackIntensity = .light
+        }
+        
+        let impactFeedback = UIImpactFeedbackGenerator(style: feedbackIntensity)
+        impactFeedback.impactOccurred()
     }
     
     // MARK: - Annotations Tab
@@ -1202,7 +1257,31 @@ struct EnhancedProteinViewerView: View {
     // MARK: - Ligand Functions
     private func focusOnLigand(_ ligand: LigandModel) {
         print("Focusing on ligand: \(ligand.name)")
-        // TODO: Implement camera focus and zoom on specific ligand
+        
+        // 리간드 위치 기반으로 카메라 이동 구현
+        // 이미 존재하는 SceneKit 뷰에 접근하여 시점 변경
+        if let window = UIApplication.shared.windows.first,
+           let sceneView = window.findSubview(ofType: SCNView.self) {
+            
+            // 카메라 이동 애니메이션
+            let lookAtPosition = SCNVector3(ligand.position.x, ligand.position.y, ligand.position.z)
+            
+            // 리간드 주변 원자를 하이라이트하기 위한 작업
+            if let structure = structure {
+                // 리간드에서 5Å 이내의 원자들을 찾아 하이라이트
+                let ligandPos = ligand.position
+                let nearbyAtoms = structure.atoms.filter {
+                    let distance = length($0.position - ligandPos)
+                    return distance < 5.0 // 5Å 이내
+                }
+                
+                // TODO: 근처 원자 하이라이트 로직
+                print("Found \(nearbyAtoms.count) atoms near ligand \(ligand.name)")
+            }
+            
+            // 카메라 이동 애니메이션
+            SceneKitUtils.moveCamera(sceneView: sceneView, to: lookAtPosition, duration: 0.8)
+        }
     }
     
     // Share Functions
@@ -1299,6 +1378,30 @@ struct EnhancedProteinViewerView: View {
             self.isLoading = false
         }
     }
+    
+    // 리간드를 하이라이트하는 함수
+    private func highlightLigands() {
+        // 만약 리간드 데이터가 있는 경우
+        if !ligandsData.isEmpty {
+            // 이미 리간드가 선택되어 있다면 아무 작업도 하지 않음
+            // 그렇지 않으면 첫 번째 리간드를 포커스
+            if selectedAtom == nil, let firstLigand = ligandsData.first {
+                focusOnLigand(firstLigand)
+            }
+        }
+    }
+    
+    // 포켓을 하이라이트하는 함수
+    private func highlightPockets() {
+        // 포켓 데이터가 있는 경우
+        if !pocketsData.isEmpty {
+            // 점수가 가장 높은 포켓을 찾아서 포커스
+            if let bestPocket = pocketsData.max(by: { $0.score < $1.score }) {
+                viewPocket(bestPocket)
+            }
+        }
+    }
+    
     // MARK: - Pockets (lightweight heuristic)
     // 목적: 구조 내 원자 밀도와 리간드 인접성을 이용해 간단히 포켓 후보를 생성
     func generatePocketsFromStructure(_ structure: PDBStructure) -> [PocketModel] {
