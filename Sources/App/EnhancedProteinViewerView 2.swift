@@ -1,6 +1,5 @@
 import SwiftUI
 import SceneKit
-import UIKit
 
 // MARK: - Position3D Type Definition
 struct Position3D {
@@ -31,40 +30,11 @@ struct EnhancedProteinViewerView: View {
     @State private var selectedAtom: Atom?
     
     // Tab Selection
-    // ✅ Tab Selection (주석 해제/복원)
     @State private var selectedTab: ViewerTab = .chains
-
-    // ✅ 전역 enum 삭제하고, 이 중첩 enum만 사용
-    enum ViewerTab: String, CaseIterable {
-        case chains = "Chains"
-        case residues = "Residues"
-        case ligands = "Ligands"
-        case pockets = "Pockets"
-        case annotations = "Annotations"
-
-        var title: String { rawValue }
-        var icon: String {
-            switch self {
-            case .chains: return "link"
-            case .residues: return "dna"
-            case .ligands: return "pills"
-            case .pockets: return "scope"
-            case .annotations: return "book"
-            }
-        }
-        var color: Color {
-            switch self {
-            case .chains: return .blue
-            case .residues: return .green
-            case .ligands: return .purple
-            case .pockets: return .orange
-            case .annotations: return .red
-            }
-        }
-    }
+    
     // Data States
-    @State private var ligandsData: [LigandModel] = []
-    @State private var pocketsData: [PocketModel] = []
+    @State private var ligandsData: [LigandData] = []
+    @State private var pocketsData: [PocketData] = []
     @State private var annotationsData: AnnotationData?
     
     @Environment(\.dismiss) private var dismiss
@@ -79,8 +49,8 @@ struct EnhancedProteinViewerView: View {
                 ZStack {
                     ProteinSceneView(
                         structure: structure,
-                        style: computedRenderStyle,  // Use computed render style
-                        colorMode: computedColorMode,  // Use computed color mode
+                        style: style,
+                        colorMode: colorMode,
                         uniformColor: UIColor(uniformColor),
                         autoRotate: autoRotate,
                         onSelectAtom: { atom in
@@ -115,31 +85,6 @@ struct EnhancedProteinViewerView: View {
         }
     }
     
-    // Computed property to automatically change render style and color mode based on selected tab
-    private var computedRenderStyle: RenderStyle {
-        switch selectedTab {
-        case .residues:
-            // For residues tab, use cartoon style for better secondary structure visualization
-            return .cartoon
-        default:
-            return style
-        }
-    }
-    
-    private var computedColorMode: ColorMode {
-        switch selectedTab {
-        case .residues:
-            return .secondaryStructure
-        default:
-            return colorMode
-        }
-    }
-    
-    // Override the color mode buttons when in residues tab
-    private var isColorModeLocked: Bool {
-        selectedTab == .residues
-    }
-
     // MARK: - Enhanced Header
     private var enhancedHeaderView: some View {
         HStack {
@@ -248,84 +193,22 @@ struct EnhancedProteinViewerView: View {
                 
                 annotationsTabView
                     .tag(ViewerTab.annotations)
+
+                Text("📖 Annotations Tab\n구현 예정")
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+                    .tag(ViewerTab.annotations)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 280)
-            
-            // Render Style Selection (hidden in Residues tab)
-            if selectedTab != .residues {
-                renderStyleSelector
-                    .padding(.vertical, 10)
-                    .disabled(isLoading)
-            }
-            
-            // Color Mode Selection (hidden in Residues tab)
-            if selectedTab != .residues {
-                colorModeSelector
-                    .padding(.vertical, 10)
-                    .disabled(isLoading)
-            }
         }
         .background(.ultraThinMaterial)
-        .disabled(isLoading)
-    }
-    
-    private var renderStyleSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(RenderStyle.allCases, id: \.self) { renderStyle in
-                    StyleButton(
-                        style: renderStyle,
-                        isSelected: self.style == renderStyle
-                    ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            self.style = renderStyle
-                        }
-                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                        impactFeedback.impactOccurred()
-                    }
-                }
-            }
-            .padding(.horizontal, 20)
-        }
-    }
-    
-    private var colorModeSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(ColorMode.allCases.filter { $0 != .secondaryStructure }, id: \.self) { colorMode in
-                    ColorButton(
-                        colorMode: colorMode,
-                        isSelected: self.colorMode == colorMode
-                    ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            self.colorMode = colorMode
-                        }
-                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                        impactFeedback.impactOccurred()
-                    }
-                }
-                
-                if self.colorMode == .uniform {
-                    ColorPicker("Custom", selection: $uniformColor)
-                        .labelsHidden()
-                        .frame(width: 44, height: 44)
-                        .background(Color(.systemGray6))
-                        .clipShape(Circle())
-                }
-            }
-            .padding(.horizontal, 20)
-        }
     }
     
     private var tabSelector: some View {
         HStack(spacing: 0) {
             ForEach(ViewerTab.allCases, id: \.self) { tab in
-                Button(action: { 
-                    withAnimation {
-                        selectedTab = tab
-                    }
-                }) {
+                Button(action: { selectedTab = tab }) {
                     VStack(spacing: 4) {
                         Image(systemName: tab.icon)
                             .font(.title3)
@@ -681,13 +564,11 @@ struct EnhancedProteinViewerView: View {
                 } else {
                     // Ligand Cards
                     ForEach(ligandsData) { ligand in
-                        LigandCard(ligand: ligand) {
-                            focusOnLigand(ligand)
-                        }
+                        ligandCard(ligand)
                     }
                     
                     // Ligand Analysis Summary
-                    LigandAnalysisSummary(ligands: ligandsData)
+                    ligandAnalysisSummary
                 }
             }
             .padding()
@@ -731,20 +612,137 @@ struct EnhancedProteinViewerView: View {
                 } else {
                     // Pocket Cards
                     ForEach(pocketsData) { pocket in
-                        PocketCard(pocket: pocket) {
-                            viewPocket(pocket)
-                        }
+                        pocketCard(pocket)
                     }
                     
                     // Pocket Analysis Summary
-                    PocketAnalysisSummary(pockets: pocketsData)
+                    pocketAnalysisSummary
                 }
             }
             .padding()
         }
     }
     
-    private func viewPocket(_ pocket: PocketModel) {
+    private func pocketCard(_ pocket: PocketData) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Pocket Header
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(pocket.name)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    Text(pocket.description)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                // Score Gauge
+                ZStack {
+                    Circle()
+                        .stroke(.gray.opacity(0.2), lineWidth: 4)
+                        .frame(width: 50, height: 50)
+                    
+                    Circle()
+                        .trim(from: 0, to: pocket.score)
+                        .stroke(
+                            LinearGradient(
+                                colors: [.red, .orange, .green],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                        )
+                        .frame(width: 50, height: 50)
+                        .rotationEffect(.degrees(-90))
+                    
+                    Text("\(Int(pocket.score * 100))")
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(.primary)
+                }
+            }
+            
+            // Pocket Details
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Volume")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text("\(pocket.volume) Ų")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.primary)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Score")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text(String(format: "%.2f", pocket.score))
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(pocket.score > 0.7 ? .green : pocket.score > 0.5 ? .orange : .red)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Druggability")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text(pocket.druggability)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(druggabilityColor(pocket.druggability))
+                }
+                
+                Spacer()
+                
+                // View Button
+                Button(action: { viewPocket(pocket) }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "eye")
+                        Text("View")
+                    }
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(.orange, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private var pocketAnalysisSummary: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Pocket Analysis Summary")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            HStack(spacing: 16) {
+                statCard("Total Volume", value: "\(pocketsData.reduce(0) { $0 + $1.volume }) Ų", color: .blue)
+                statCard("Avg Score", value: String(format: "%.2f", pocketsData.isEmpty ? 0.0 : pocketsData.reduce(0.0) { $0 + $1.score } / Double(pocketsData.count)), color: .green)
+                statCard("Best Score", value: String(format: "%.2f", pocketsData.max(by: { $0.score < $1.score })?.score ?? 0.0), color: .orange)
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func druggabilityColor(_ druggability: String) -> Color {
+        switch druggability.lowercased() {
+        case "high": return .green
+        case "medium": return .orange
+        case "low": return .red
+        default: return .gray
+        }
+    }
+    
+    private func viewPocket(_ pocket: PocketData) {
         print("Viewing pocket: \(pocket.name)")
         // TODO: Implement pocket visualization in 3D viewer
     }
@@ -962,24 +960,31 @@ struct EnhancedProteinViewerView: View {
     }
     
     // MARK: - Functions
-    #if DEBUG
-    private func loadStructureMock() async {
-        await MainActor.run { isLoading = true; error = nil }
+    private func loadStructure() async {
+        await MainActor.run {
+            isLoading = true
+            error = nil
+        }
+        
         do {
+            // Simulate loading with mock data
             _ = try await Task.sleep(nanoseconds: 1_000_000_000)
-            let mock = generateMockStructure()
+            
+            // Mock structure data - in real implementation, load from PDB API
+            let mockStructure = generateMockStructure()
+            
             await MainActor.run {
-                self.structure = mock
-                self.ligandsData = generateMockLigands()
-                self.pocketsData = generateMockPockets()
-                self.annotationsData = generateMockAnnotations()
+                self.structure = mockStructure
                 self.isLoading = false
+                loadAdditionalData()
             }
         } catch {
-            await MainActor.run { self.error = error.localizedDescription; self.isLoading = false }
+            await MainActor.run {
+                self.error = error.localizedDescription
+                self.isLoading = false
+            }
         }
     }
-    #endif
     
     private func generateMockStructure() -> PDBStructure {
         // Simplified mock structure using existing SIMD3<Float> type
@@ -1112,9 +1117,9 @@ struct EnhancedProteinViewerView: View {
         )
     }
     
-    private func generateMockLigands() -> [LigandModel] {
+    private func generateMockLigands() -> [LigandData] {
         return [
-            LigandModel(
+            LigandData(
                 name: "ATP", 
                 description: "Adenosine Triphosphate - Primary energy carrier", 
                 position: SIMD3<Float>(12.5, 8.3, -4.1),
@@ -1122,7 +1127,7 @@ struct EnhancedProteinViewerView: View {
                 charge: -4.0,
                 type: "Nucleotide"
             ),
-            LigandModel(
+            LigandData(
                 name: "MG", 
                 description: "Magnesium Ion - Cofactor for enzymatic activity", 
                 position: SIMD3<Float>(15.2, 7.8, -3.8),
@@ -1130,7 +1135,7 @@ struct EnhancedProteinViewerView: View {
                 charge: 2.0,
                 type: "Metal Ion"
             ),
-            LigandModel(
+            LigandData(
                 name: "NAD", 
                 description: "Nicotinamide Adenine Dinucleotide - Electron carrier", 
                 position: SIMD3<Float>(-8.7, 12.1, 6.4),
@@ -1138,7 +1143,7 @@ struct EnhancedProteinViewerView: View {
                 charge: -1.0,
                 type: "Coenzyme"
             ),
-            LigandModel(
+            LigandData(
                 name: "FAD", 
                 description: "Flavin Adenine Dinucleotide - Redox cofactor", 
                 position: SIMD3<Float>(3.2, -5.6, 9.8),
@@ -1149,30 +1154,30 @@ struct EnhancedProteinViewerView: View {
         ]
     }
     
-    private func generateMockPockets() -> [PocketModel] {
+    private func generateMockPockets() -> [PocketData] {
         return [
-            PocketModel(
+            PocketData(
                 name: "Active Site", 
                 score: 0.89, 
                 volume: 1450, 
                 description: "Primary ATP binding site with high druggability",
                 druggability: "High"
             ),
-            PocketModel(
+            PocketData(
                 name: "Allosteric Site", 
                 score: 0.72, 
                 volume: 820, 
                 description: "Regulatory binding site for allosteric modulators",
                 druggability: "Medium"
             ),
-            PocketModel(
+            PocketData(
                 name: "Cofactor Binding", 
                 score: 0.65, 
                 volume: 450, 
                 description: "Magnesium ion coordination site",
                 druggability: "Medium"
             ),
-            PocketModel(
+            PocketData(
                 name: "Substrate Channel", 
                 score: 0.58, 
                 volume: 680, 
@@ -1183,9 +1188,34 @@ struct EnhancedProteinViewerView: View {
     }
     
     // MARK: - Ligand Functions
-    private func focusOnLigand(_ ligand: LigandModel) {
+    private func focusOnLigand(_ ligand: LigandData) {
         print("Focusing on ligand: \(ligand.name)")
         // TODO: Implement camera focus and zoom on specific ligand
+    }
+    
+    private func propertyTag(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(.caption2.weight(.medium))
+            .foregroundColor(color)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.1), in: Capsule())
+    }
+    
+    private var ligandAnalysisSummary: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Ligand Analysis Summary")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            HStack(spacing: 16) {
+                statCard("Total MW", value: "\(String(format: "%.1f", ligandsData.reduce(0.0) { $0 + $1.molecularWeight }))kDa", color: .blue)
+                statCard("Avg Charge", value: String(format: "%.1f", ligandsData.isEmpty ? 0.0 : ligandsData.reduce(0.0) { $0 + $1.charge } / Double(ligandsData.count)), color: .green)
+                statCard("Types", value: "\(Set(ligandsData.map { $0.type }).count)", color: .orange)
+            }
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
     
     // Share Functions
@@ -1208,112 +1238,6 @@ struct EnhancedProteinViewerView: View {
     
     private func focusOnChain(_ chainId: String) {
         print("Focusing on chain: \(chainId)")
-    }
-    
-    /// 실제 로딩(병렬 호출) — 기존 mock 흐름 대체
-    fileprivate func loadStructure() async {
-        await MainActor.run { isLoading = true; error = nil }
-
-        // Try to load structure from RCSB first
-        let structure: PDBStructure
-        do {
-            structure = try await loadStructureFromRCSB(pdbId: protein.id)
-        } catch {
-            await MainActor.run {
-                self.error = "Failed to load structure from RCSB: \(error.localizedDescription)"
-                self.structure = self.generateMockStructure()
-                self.isLoading = false
-            }
-            return
-        }
-        
-        // Load ligand metadata
-        let ligMeta: [LigandModel]
-        do {
-            ligMeta = try await fetchLigandsMetaFromPDBe(pdbId: protein.id)
-        } catch {
-            await MainActor.run {
-                self.error = "Failed to load ligand metadata from PDBe: \(error.localizedDescription)"
-                self.structure = structure
-                self.ligandsData = self.generateMockLigands()
-                self.isLoading = false
-            }
-            return
-        }
-        
-        // Map PDB to UniProt
-        let uni: String?
-        do {
-            uni = try await mapPDBtoUniProt(protein.id)
-        } catch {
-            await MainActor.run {
-                self.error = "Failed to map PDB to UniProt: \(error.localizedDescription)"
-                self.structure = structure
-                self.ligandsData = ligMeta
-                self.isLoading = false
-            }
-            return
-        }
-        
-        // Fetch annotations if UniProt mapping exists
-        let annotations: AnnotationData?
-        if let uni = uni {
-            do {
-                annotations = try await fetchAnnotations(uniprot: uni)
-            } catch {
-                await MainActor.run {
-                    self.error = "Failed to fetch annotations from UniProt: \(error.localizedDescription)"
-                    self.structure = structure
-                    self.ligandsData = mergeLigands(meta: ligMeta, with: structure)
-                    self.annotationsData = self.generateMockAnnotations()
-                    self.isLoading = false
-                }
-                return
-            }
-        } else {
-            annotations = nil
-        }
-
-        await MainActor.run {
-            self.structure = structure
-            self.ligandsData = mergeLigands(meta: ligMeta, with: structure)
-            self.annotationsData = annotations ?? self.generateMockAnnotations()
-            self.pocketsData = generatePocketsFromStructure(structure)
-            self.isLoading = false
-        }
-    }
-    // MARK: - Pockets (lightweight heuristic)
-    // 목적: 구조 내 원자 밀도와 리간드 인접성을 이용해 간단히 포켓 후보를 생성
-    func generatePocketsFromStructure(_ structure: PDBStructure) -> [PocketModel] {
-        // 체인 단위로 그룹핑
-        let chains = Dictionary(grouping: structure.atoms, by: { $0.chain })
-        var pockets: [PocketModel] = []
-
-        for (idx, pair) in chains.enumerated() {
-            let chainId = pair.key
-            let atoms = pair.value
-            guard atoms.count >= 12 else { continue }
-
-            // 중심점(centroid)과 평균 거리로 밀도 근사
-            let center = atoms.reduce(SIMD3<Float>(0,0,0)) { $0 + $1.position } / Float(atoms.count)
-            let avgDist = atoms.map { length($0.position - center) }.reduce(0,+) / Float(atoms.count)
-            let densityScore = max(0.0, min(1.0, 1.0 / Double(avgDist + 0.001)))   // 거리가 작을수록 조밀 → 점수↑
-            let volume = Int(max(300, min(1800, Double(atoms.count) * Double(avgDist) * 8.0)))
-
-            let score = min(0.95, 0.55 + densityScore * 0.4)
-            let druggability = score > 0.85 ? "High" : (score > 0.7 ? "Medium" : "Low")
-
-            pockets.append(
-                PocketModel(
-                    name: "Binding Site \(idx + 1) – Chain \(chainId)",
-                    score: score,
-                    volume: volume,
-                    description: "Heuristic pocket near chain \(chainId) centroid",
-                    druggability: druggability
-                )
-            )
-        }
-        return pockets
     }
 }
 
@@ -1348,8 +1272,8 @@ enum ViewerTab: String, CaseIterable {
     }
 }
 
-// MARK: - Ligand Model
-struct LigandModel: Identifiable {
+// MARK: - Ligand Data Model
+struct LigandData: Identifiable {
     let id = UUID()
     let name: String
     let description: String
@@ -1359,295 +1283,14 @@ struct LigandModel: Identifiable {
     let type: String
 }
 
-// MARK: - Ligand Card View
-struct LigandCard: View {
-    let ligand: LigandModel
-    let onFocus: () -> Void
-    
-    var body: some View {
-        Button(action: onFocus) {
-            HStack(spacing: 12) {
-                // Ligand Icon
-                ZStack {
-                    Circle()
-                        .fill(Color.purple.opacity(0.15))
-                        .frame(width: 40, height: 40)
-                    
-                    Image(systemName: "pills.fill")
-                        .font(.title3)
-                        .foregroundColor(Color.purple)
-                }
-                
-                // Ligand Info
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(ligand.name)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    Text(ligand.description)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                    
-                    HStack(spacing: 8) {
-                        Label("Position", systemImage: "location")
-                            .font(.caption)
-                            .foregroundColor(Color.blue)
-                        
-                        Text("(\(String(format: "%.1f", ligand.position.x)), \(String(format: "%.1f", ligand.position.y)), \(String(format: "%.1f", ligand.position.z)))")
-                            .font(.caption.monospacedDigit())
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    // Molecular Properties
-                    HStack(spacing: 8) {
-                        PropertyTag(text: "MW: \(ligand.molecularWeight)kDa", color: Color.green)
-                        PropertyTag(text: "Charge: \(ligand.charge)", color: Color.orange)
-                    }
-                }
-                
-                Spacer()
-                
-                // Focus Button
-                VStack(spacing: 4) {
-                    Image(systemName: "scope")
-                        .font(.title2)
-                        .foregroundColor(Color.purple)
-                    
-                    Text("Focus")
-                        .font(.caption.weight(.medium))
-                        .foregroundColor(Color.purple)
-                }
-            }
-            .padding(16)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Property Tag View
-struct PropertyTag: View {
-    let text: String
-    let color: Color
-    
-    var body: some View {
-        Text(text)
-            .font(.caption2.weight(.medium))
-            .foregroundColor(color)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(color.opacity(0.1), in: Capsule())
-    }
-}
-
-// MARK: - Ligand Analysis Summary View
-struct LigandAnalysisSummary: View {
-    let ligands: [LigandModel]
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Ligand Analysis Summary")
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.primary)
-            
-            HStack(spacing: 16) {
-                StatCard(
-                    title: "Total MW", 
-                    value: "\(String(format: "%.1f", ligands.reduce(0.0) { $0 + $1.molecularWeight }))kDa", 
-                    color: Color.blue
-                )
-                StatCard(
-                    title: "Avg Charge", 
-                    value: String(format: "%.1f", ligands.isEmpty ? 0.0 : ligands.reduce(0.0) { $0 + $1.charge } / Double(ligands.count)), 
-                    color: Color.green
-                )
-                StatCard(
-                    title: "Types", 
-                    value: "\(Set(ligands.map { $0.type }).count)", 
-                    color: Color.orange
-                )
-            }
-        }
-        .padding(16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-// MARK: - Stat Card View
-struct StatCard: View {
-    let title: String
-    let value: String
-    let color: Color
-    
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.title2.weight(.bold))
-                .foregroundColor(color)
-            
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-// MARK: - Pocket Model
-struct PocketModel: Identifiable {
+// MARK: - Pocket Data Model
+struct PocketData: Identifiable {
     let id = UUID()
     let name: String
     let score: Double // 0.0 to 1.0
     let volume: Int // in Ų
     let description: String
     let druggability: String // "High", "Medium", "Low"
-}
-
-// MARK: - Pocket Card View
-struct PocketCard: View {
-    let pocket: PocketModel
-    let onView: () -> Void
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Pocket Header
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(pocket.name)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    Text(pocket.description)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                // Score Gauge
-                ZStack {
-                    Circle()
-                        .stroke(.gray.opacity(0.2), lineWidth: 4)
-                        .frame(width: 50, height: 50)
-                    
-                    Circle()
-                        .trim(from: 0, to: pocket.score)
-                        .stroke(
-                            LinearGradient(
-                                colors: [.red, .orange, .green],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ),
-                            style: StrokeStyle(lineWidth: 4, lineCap: .round)
-                        )
-                        .frame(width: 50, height: 50)
-                        .rotationEffect(.degrees(-90))
-                    
-                    Text("\(Int(pocket.score * 100))")
-                        .font(.caption.weight(.bold))
-                        .foregroundColor(.primary)
-                }
-            }
-            
-            // Pocket Details
-            HStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Volume")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Text("\(pocket.volume) Ų")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(.primary)
-                }
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Score")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Text(String(format: "%.2f", pocket.score))
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(pocket.score > 0.7 ? .green : pocket.score > 0.5 ? .orange : .red)
-                }
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Druggability")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Text(pocket.druggability)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(DruggabilityHelper.color(for: pocket.druggability))
-                }
-                
-                Spacer()
-                
-                // View Button
-                Button(action: onView) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "eye")
-                        Text("View")
-                    }
-                    .font(.subheadline.weight(.medium))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(.orange, in: Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-// MARK: - Pocket Analysis Summary View
-struct PocketAnalysisSummary: View {
-    let pockets: [PocketModel]
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Pocket Analysis Summary")
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.primary)
-            
-            HStack(spacing: 16) {
-                StatCard(
-                    title: "Total Volume", 
-                    value: "\(pockets.reduce(0) { $0 + $1.volume }) Ų", 
-                    color: Color.blue
-                )
-                StatCard(
-                    title: "Avg Score", 
-                    value: String(format: "%.2f", pockets.isEmpty ? 0.0 : pockets.reduce(0.0) { $0 + $1.score } / Double(pockets.count)), 
-                    color: Color.green
-                )
-                StatCard(
-                    title: "Best Score", 
-                    value: String(format: "%.2f", pockets.max(by: { $0.score < $1.score })?.score ?? 0.0), 
-                    color: Color.orange
-                )
-            }
-        }
-        .padding(16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-    }
-}
-
-// MARK: - Druggability Helper
-struct DruggabilityHelper {
-    static func color(for druggability: String) -> Color {
-        switch druggability.lowercased() {
-        case "high": return .green
-        case "medium": return .orange
-        case "low": return .red
-        default: return .gray
-        }
-    }
 }
 
 // MARK: - Annotation Data Model
@@ -1657,246 +1300,4 @@ struct AnnotationData {
     let organism: String
     let goTerms: [String]
     let pathways: [String]
-}
-
-// MARK: - Networking
-private enum NetError: Error { case badURL, badStatus(Int), badData }
-
-private struct Net {
-    static let decoder: JSONDecoder = {
-        let d = JSONDecoder()
-        d.keyDecodingStrategy = .convertFromSnakeCase
-        return d
-    }()
-
-    static func getText(_ url: URL) async throws -> String {
-        let (data, resp) = try await URLSession.shared.data(from: url)
-        guard let http = resp as? HTTPURLResponse else { throw NetError.badData }
-        guard (200..<300).contains(http.statusCode) else { throw NetError.badStatus(http.statusCode) }
-        guard let text = String(data: data, encoding: .utf8) else { throw NetError.badData }
-        return text
-    }
-
-    static func getJSON<T: Decodable>(_ url: URL, as: T.Type) async throws -> T {
-        let (data, resp) = try await URLSession.shared.data(from: url)
-        guard let http = resp as? HTTPURLResponse else { throw NetError.badData }
-        guard (200..<300).contains(http.statusCode) else { throw NetError.badStatus(http.statusCode) }
-        return try decoder.decode(T.self, from: data)
-    }
-}
-// MARK: - External DTOs
-private struct PDBeLigandRoot: Decodable { let ligandMonomers: [PDBeLigand]? }
-private struct PDBeLigand: Decodable {
-    let chemCompId: String?
-    let moleculeName: [String]?
-    let formulaWeight: Double?
-    let charge: Int?
-}
-
-private struct PDBeUniProtMapRoot: Decodable { let uniprotIds: [String]? }
-
-private struct UniProtDTO: Decodable {
-    struct ProteinDescription: Decodable {
-        struct RecName: Decodable { struct NameText: Decodable { let value: String? }; let fullName: NameText? }
-        let recommendedName: RecName?
-    }
-    struct Organism: Decodable { let scientificName: String? }
-    struct DBRef: Decodable { let type: String?; let id: String? }
-
-    let primaryAccession: String?
-    let proteinDescription: ProteinDescription?
-    let organism: Organism?
-    let genes: [Gene]?
-    let comments: [Comment]?
-    let uniProtKBCrossReferences: [DBRef]?
-
-    struct Gene: Decodable { struct GeneName: Decodable { let value: String? }; let geneName: GeneName? }
-    struct Comment: Decodable { let commentType: String?; let texts: [Text]?; struct Text: Decodable { let value: String? } }
-}
-
-// MARK: - Live Data Loader
-extension EnhancedProteinViewerView {
-
-    /// RCSB에서 PDB 파일(.pdb) 내려받아 파싱
-    private func loadStructureFromRCSB(pdbId: String) async throws -> PDBStructure {
-        let id = pdbId.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: "https://files.rcsb.org/download/\(id).pdb") else { throw NetError.badURL }
-        let pdbText = try await Net.getText(url)
-        return PDBParser.parse(pdbText: pdbText) // 프로젝트에 있는 파서 사용
-    }
-
-    /// PDBe: 리간드 메타 (이름/분자량/전하)
-    private func fetchLigandsMetaFromPDBe(pdbId: String) async throws -> [LigandModel] {
-        let id = pdbId.lowercased()
-        guard let url = URL(string: "https://www.ebi.ac.uk/pdbe/api/pdb/entry/ligand_monomers/\(id)") else { throw NetError.badURL }
-        
-        // First get raw data to check if it's empty
-        let (data, resp) = try await URLSession.shared.data(from: url)
-        guard let http = resp as? HTTPURLResponse else { throw NetError.badData }
-        guard (200..<300).contains(http.statusCode) else { throw NetError.badStatus(http.statusCode) }
-        
-        // Check if data is empty or contains empty array
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let entry = json[id] as? [String: Any],
-              let ligandsArray = entry["ligandMonomers"] as? [Any] else {
-            // Return empty array if parsing fails
-            return []
-        }
-        
-        // If we have an empty array, return empty ligands
-        if ligandsArray.isEmpty {
-            return []
-        }
-        
-        // Otherwise decode normally
-        let dict = try Net.decoder.decode([String: PDBeLigandRoot].self, from: data)
-        let rows = dict[id]?.ligandMonomers ?? []
-
-        return rows.map { r in
-            LigandModel(
-                name: r.chemCompId ?? "LIG",
-                description: r.moleculeName?.first ?? "Small molecule",
-                position: .zero,                               // 좌표는 아래 merge에서 보정
-                molecularWeight: (r.formulaWeight ?? 0) / 1000,// g/mol → kDa
-                charge: Double(r.charge ?? 0),
-                type: "Ligand"
-            )
-        }
-    }
-
-    /// PDBe: PDB → UniProt 매핑
-    private func mapPDBtoUniProt(_ pdbId: String) async throws -> String? {
-        let id = pdbId.lowercased()
-        guard let url = URL(string: "https://www.ebi.ac.uk/pdbe/api/mappings/uniprot/\(id)") else { return nil }
-        let data = try await Net.getJSON(url, as: [String: [String: PDBeUniProtMapRoot]].self)
-        return data[id]?["UniProt"]?.uniprotIds?.first
-    }
-
-    /// UniProt: 기능/생물종/GO 주석
-    private func fetchAnnotations(uniprot: String) async throws -> AnnotationData {
-        guard let url = URL(string: "https://rest.uniprot.org/uniprotkb/\(uniprot).json") else { throw NetError.badURL }
-        let dto = try await Net.getJSON(url, as: UniProtDTO.self)
-
-        let functionText =
-            dto.comments?.first(where: { $0.commentType == "FUNCTION" })?.texts?.first?.value
-            ?? dto.proteinDescription?.recommendedName?.fullName?.value
-            ?? "Function not available"
-
-        let gene = dto.genes?.first?.geneName?.value ?? (dto.primaryAccession ?? "Unknown")
-        let organism = dto.organism?.scientificName ?? "Unknown organism"
-
-        let goTerms = (dto.uniProtKBCrossReferences ?? [])
-            .filter { $0.type == "GO" }
-            .compactMap { $0.id }
-
-        return AnnotationData(function: functionText, gene: gene, organism: organism, goTerms: goTerms, pathways: [])
-    }
-
-    /// 파싱된 구조에서 리간드 그룹을 찾아 PDBe 메타와 좌표 병합
-    private func mergeLigands(meta: [LigandModel], with structure: PDBStructure) -> [LigandModel] {
-        let het = structure.atoms.filter { $0.isLigandCandidate } // HETATM 후보
-        let groups = Dictionary(grouping: het) { "\($0.residueName)_\($0.chain)_\($0.residueNumber)" }
-
-        return meta.map { m in
-            if let (_, atoms) = groups.first(where: { $0.key.hasPrefix(m.name + "_") }),
-               let p = atoms.centerOfMass {
-                return LigandModel(name: m.name, description: m.description, position: p,
-                                   molecularWeight: m.molecularWeight, charge: m.charge, type: m.type)
-            } else {
-                return m
-            }
-        }
-    }
-}
-
-// MARK: - Helpers
-private extension SIMD3 where Scalar == Float {
-    static var zero: SIMD3<Float> { SIMD3<Float>(0,0,0) }
-}
-private extension Array where Element == Atom {
-    var centerOfMass: SIMD3<Float>? {
-        guard !isEmpty else { return nil }
-        let sx = reduce(0) { $0 + $1.position.x }
-        let sy = reduce(0) { $0 + $1.position.y }
-        let sz = reduce(0) { $0 + $1.position.z }
-        let n = Float(count)
-        return SIMD3<Float>(sx/n, sy/n, sz/n)
-    }
-}
-private extension Atom {
-    var isLigandCandidate: Bool {
-        let lig = ["ATP","ADP","GTP","GDP","NAD","FAD","FMN","COA","HEM","MG","CA","ZN","FE","MN"]
-        return lig.contains(residueName) && residueName != "HOH"
-    }
-}
-
-// MARK: - Supporting Views
-struct StyleButton: View {
-    let style: RenderStyle
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: style.icon)
-                    .font(.title2)
-                    .foregroundColor(isSelected ? .white : .primary)
-                
-                Text(style.rawValue)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(isSelected ? .white : .primary)
-            }
-            .frame(width: 80, height: 64)
-            .background(
-                isSelected ? 
-                LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing) :
-                LinearGradient(colors: [Color(.systemGray6)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? .clear : Color(.systemGray4), lineWidth: 1)
-            )
-            .scaleEffect(isSelected ? 1.05 : 1.0)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-struct ColorButton: View {
-    let colorMode: ColorMode
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: colorMode.icon)
-                    .font(.title2)
-                    .foregroundColor(isSelected ? .white : .primary)
-                
-                Text(colorMode.rawValue)
-                    .font(.caption2)
-                    .fontWeight(.medium)
-                    .foregroundColor(isSelected ? .white : .primary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-            }
-            .frame(width: 80, height: 64)
-            .background(
-                isSelected ? 
-                LinearGradient(colors: [.orange, .red], startPoint: .topLeading, endPoint: .bottomTrailing) :
-                LinearGradient(colors: [Color(.systemGray6)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? .clear : Color(.systemGray4), lineWidth: 1)
-            )
-            .scaleEffect(isSelected ? 1.05 : 1.0)
-        }
-        .buttonStyle(.plain)
-    }
 }
