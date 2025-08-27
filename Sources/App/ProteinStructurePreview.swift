@@ -20,7 +20,7 @@ struct ProteinStructurePreview: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
-            } else if let error = error {
+            } else if error != nil {
                 // 에러 시 에러 정보 표시
                 VStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle")
@@ -107,32 +107,41 @@ struct ProteinStructurePreview: View {
     }
     
     private func createProteinImage(structure: PDBStructure) -> UIImage {
+        print("🎨 Starting image creation...")
+        
         // 1. SceneKit 씬 생성
         let scene = SCNScene()
+        print("🎨 Scene created")
         
         // 2. 단백질 노드 생성
         let proteinNode = createProteinNode(structure: structure)
         scene.rootNode.addChildNode(proteinNode)
+        print("🎨 Protein node added to scene")
         
         // 3. 조명 설정
         setupLighting(scene: scene)
+        print("🎨 Lighting setup completed")
         
         // 4. 카메라 설정
         let cameraNode = setupCamera(structure: structure)
         scene.rootNode.addChildNode(cameraNode)
+        print("🎨 Camera setup completed")
         
         // 5. 오프스크린 렌더링
         let renderer = SCNRenderer(device: nil, options: nil)
         renderer.scene = scene
         renderer.pointOfView = cameraNode
+        print("🎨 Renderer configured")
         
         // 6. 이미지 크기 설정
         let size = CGSize(width: 120, height: 120) // 2x for retina
+        print("🎨 Target image size: \(size.width) x \(size.height)")
         
         // 7. 렌더링 실행
+        print("🎨 Starting snapshot...")
         let image = renderer.snapshot(atTime: 0, with: size, antialiasingMode: .multisampling4X)
+        print("🎨 Snapshot completed, image size: \(image.size.width) x \(image.size.height)")
         
-        print("🎨 Rendered image: \(size.width) x \(size.height)")
         return image
     }
     
