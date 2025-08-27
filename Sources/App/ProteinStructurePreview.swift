@@ -1,10 +1,12 @@
 import SwiftUI
+import SceneKit
 
 struct ProteinStructurePreview: View {
     let proteinId: String
     @State private var structure: PDBStructure?
     @State private var isLoading = true
     @State private var error: String?
+    @State private var renderedImage: UIImage?
     
     var body: some View {
         Group {
@@ -18,7 +20,7 @@ struct ProteinStructurePreview: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
-            } else if error != nil {
+            } else if let error = error {
                 // 에러 시 에러 정보 표시
                 VStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle")
@@ -29,18 +31,21 @@ struct ProteinStructurePreview: View {
                         .font(.caption2)
                         .foregroundColor(.red)
                 }
+            } else if let image = renderedImage {
+                // 렌더링된 이미지 표시
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 60, height: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
             } else if let structure = structure {
-                // 2D 단백질 구조 다이어그램 (테스트 버전)
+                // 구조는 로드되었지만 이미지 렌더링 중
                 VStack(spacing: 4) {
-                    Text("✅ Loaded")
+                    Text("Rendering...")
                         .font(.caption2)
-                        .foregroundColor(.green)
+                        .foregroundColor(.blue)
                     
                     Text("\(structure.atoms.count) atoms")
-                        .font(.caption2)
-                        .foregroundColor(.primary)
-                    
-                    Text("Chains: \(structure.atoms.map { $0.chain }.uniqued().sorted().joined(separator: ", "))")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -71,6 +76,10 @@ struct ProteinStructurePreview: View {
                     self.isLoading = false
                     self.error = nil
                 }
+                
+                // 오프스크린 렌더링으로 이미지 생성
+                await renderProteinImage(structure: loadedStructure)
+                
             } catch {
                 print("❌ Failed to load structure for \(proteinId): \(error.localizedDescription)")
                 
@@ -82,66 +91,144 @@ struct ProteinStructurePreview: View {
             }
         }
     }
-}
-
-// MARK: - 2D Protein Structure Diagram (Lightweight)
-struct ProteinStructure2D: View {
-    let structure: PDBStructure
     
-    var body: some View {
-        ZStack {
-            // 배경
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(.systemGray6))
-            
-            // 디버깅 정보 추가
-            VStack(spacing: 4) {
-                // 체인 정보
-                let chains = structure.atoms.map { $0.chain }.uniqued().sorted()
-                Text("Chains: \(chains.joined(separator: ", "))")
-                    .font(.caption2)
-                    .foregroundColor(.primary)
-                
-                // 체인별 색상 표시
-                HStack(spacing: 4) {
-                    ForEach(chains, id: \.self) { chain in
-                        HStack(spacing: 2) {
-                            Circle()
-                                .fill(chainColor(for: chain))
-                                .frame(width: 8, height: 8)
-                            
-                            Text(chain)
-                                .font(.caption2)
-                                .foregroundColor(.primary)
-                        }
-                    }
-                }
-                
-                // 원자 수
-                Text("\(structure.atoms.count) atoms")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            .padding(4)
-        }
-        .onAppear {
-            print("🔍 ProteinStructure2D appeared with \(structure.atoms.count) atoms")
-            print("🔍 Chains found: \(structure.atoms.map { $0.chain }.uniqued().sorted())")
+    private func renderProteinImage(structure: PDBStructure) async {
+        print("🎨 Starting offscreen rendering...")
+        
+        // 백그라운드 스레드에서 렌더링
+        let image = await Task.detached(priority: .userInitiated) {
+            return createProteinImage(structure: structure)
+        }.value
+        
+        await MainActor.run {
+            self.renderedImage = image
+            print("✅ Image rendering completed")
         }
     }
     
-    private func chainColor(for chain: String) -> Color {
-        switch chain {
-        case "A": return .blue
-        case "B": return .green
-        case "C": return .orange
-        case "D": return .red
-        case "E": return .purple
-        case "F": return .pink
-        case "G": return .cyan
-        case "H": return .mint
-        default: return .gray
+    private func createProteinImage(structure: PDBStructure) -> UIImage {
+        // 1. SceneKit 씬 생성
+        let scene = SCNScene()
+        
+        // 2. 단백질 노드 생성
+        let proteinNode = createProteinNode(structure: structure)
+        scene.rootNode.addChildNode(proteinNode)
+        
+        // 3. 조명 설정
+        setupLighting(scene: scene)
+        
+        // 4. 카메라 설정
+        let cameraNode = setupCamera(structure: structure)
+        scene.rootNode.addChildNode(cameraNode)
+        
+        // 5. 오프스크린 렌더링
+        let renderer = SCNRenderer(device: nil, options: nil)
+        renderer.scene = scene
+        renderer.pointOfView = cameraNode
+        
+        // 6. 이미지 크기 설정
+        let size = CGSize(width: 120, height: 120) // 2x for retina
+        
+        // 7. 렌더링 실행
+        let image = renderer.snapshot(atTime: 0, with: size, antialiasingMode: .multisampling4X)
+        
+        print("🎨 Rendered image: \(size.width) x \(size.height)")
+        return image
+    }
+    
+    private func createProteinNode(structure: PDBStructure) -> SCNNode {
+        let proteinNode = SCNNode()
+        
+        // 체인별로 그룹핑
+        let chains = Dictionary(grouping: structure.atoms, by: { $0.chain })
+        
+        for (chainId, atoms) in chains {
+            let chainNode = SCNNode()
+            
+            // 체인별 색상 설정
+            let chainColor = chainColor(for: chainId)
+            
+            // 성능 최적화: 원자 수 제한
+            let atomCount = atoms.count
+            let maxAtoms = min(500, atomCount)
+            let step = max(1, atomCount / maxAtoms)
+            
+            for i in stride(from: 0, to: atomCount, by: step) {
+                if chainNode.childNodes.count >= maxAtoms { break }
+                
+                let atom = atoms[i]
+                let sphere = SCNSphere(radius: 0.4)
+                let material = SCNMaterial()
+                material.diffuse.contents = chainColor
+                material.specular.contents = UIColor.white
+                material.shininess = 0.3
+                sphere.materials = [material]
+                
+                let atomNode = SCNNode(geometry: sphere)
+                atomNode.position = SCNVector3(atom.position)
+                chainNode.addChildNode(atomNode)
+            }
+            
+            proteinNode.addChildNode(chainNode)
+            print("🔧 Chain \(chainId): \(atomCount) atoms → \(chainNode.childNodes.count) rendered")
         }
+        
+        return proteinNode
+    }
+    
+    private func setupLighting(scene: SCNScene) {
+        // 주 조명
+        let lightNode = SCNNode()
+        lightNode.light = SCNLight()
+        lightNode.light?.type = .omni
+        lightNode.light?.intensity = 1000
+        lightNode.position = SCNVector3(x: 10, y: 10, z: 10)
+        scene.rootNode.addChildNode(lightNode)
+        
+        // 환경 조명
+        let ambientLightNode = SCNNode()
+        ambientLightNode.light = SCNLight()
+        ambientLightNode.light?.type = .ambient
+        ambientLightNode.light?.intensity = 300
+        scene.rootNode.addChildNode(ambientLightNode)
+    }
+    
+    private func setupCamera(structure: PDBStructure) -> SCNNode {
+        let camera = SCNCamera()
+        camera.fieldOfView = 45
+        
+        let cameraNode = SCNNode()
+        cameraNode.camera = camera
+        
+        // 단백질을 중앙에 보도록 조정
+        let bounds = structure.atoms.map { $0.position }
+        let center = bounds.reduce(SIMD3<Float>(0,0,0)) { $0 + $1 } / Float(bounds.count)
+        let maxDistance = bounds.map { length($0 - center) }.max() ?? 10
+        
+        // 카메라 위치 설정
+        let cameraDistance = maxDistance * 2.5
+        cameraNode.position = SCNVector3(x: cameraDistance * 0.7, y: cameraDistance * 0.5, z: cameraDistance)
+        cameraNode.look(at: SCNVector3(center))
+        
+        return cameraNode
+    }
+    
+    private func chainColor(for chain: String) -> UIColor {
+        switch chain {
+        case "A": return .systemBlue
+        case "B": return .systemGreen
+        case "C": return .systemOrange
+        case "D": return .systemRed
+        case "E": return .systemPurple
+        case "F": return .systemPink
+        case "G": return .systemCyan
+        case "H": return .systemMint
+        default: return .systemGray
+        }
+    }
+    
+    private func length(_ vector: SIMD3<Float>) -> Float {
+        return sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z)
     }
 }
 
@@ -181,13 +268,5 @@ private func loadStructureFromRCSB(pdbId: String) async throws -> PDBStructure {
     } catch {
         print("❌ Unexpected error: \(error.localizedDescription)")
         throw error
-    }
-}
-
-// MARK: - Extensions
-extension Array where Element: Hashable {
-    func uniqued() -> [Element] {
-        var seen = Set<Element>()
-        return filter { seen.insert($0).inserted }
     }
 }
