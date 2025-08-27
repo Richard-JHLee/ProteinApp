@@ -29,7 +29,7 @@ enum ColorMode: String, CaseIterable {
         case .element: return "atom"
         case .chain: return "link"
         case .uniform: return "paintbrush"
-        case .secondaryStructure: return "helix"
+        case .secondaryStructure: return "link.badge.plus"
         }
     }
 }

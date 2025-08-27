@@ -257,7 +257,7 @@ struct ProteinInfo: Identifiable, Hashable {
         let specialIcon: String
         switch middleChar {
         case "A", "1": specialIcon = "atom"              // 원자 수준
-        case "B", "2": specialIcon = "helix"             // DNA 결합
+        case "B", "2": specialIcon = "link.badge.plus"    // DNA 결합
         case "C", "3": specialIcon = "leaf"              // 식물성
         case "D", "4": specialIcon = "brain.head.profile" // 신경계
         case "E", "5": specialIcon = "heart.fill"        // 심혈관계

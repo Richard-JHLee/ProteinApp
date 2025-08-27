@@ -151,7 +151,7 @@ struct EnhancedProteinViewerView: View {
         var icon: String {
             switch self {
             case .chains: return "link"
-            case .residues: return "helix"
+            case .residues: return "link.badge.plus"
             case .ligands: return "pills"
             case .pockets: return "scope"
             case .annotations: return "book"
@@ -998,7 +998,7 @@ struct EnhancedProteinViewerView: View {
     private func geneCard(_ annotations: AnnotationData) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: "helix")
+                Image(systemName: "link.badge.plus")
                     .font(.title2)
                     .foregroundColor(.green)
                 
@@ -1338,7 +1338,7 @@ enum ViewerTab: String, CaseIterable {
     var icon: String {
         switch self {
         case .chains: return "link"
-        case .residues: return "helix"
+        case .residues: return "link.badge.plus"
         case .ligands: return "pills"
         case .pockets: return "scope"
         case .annotations: return "book"
