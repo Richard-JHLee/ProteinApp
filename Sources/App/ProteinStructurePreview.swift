@@ -260,7 +260,7 @@ struct ProteinStructurePreview: View {
         let baseColor = colors[combinedHash % colors.count]
         
         // 명도와 채도도 약간씩 다르게 조정
-        let brightness = 0.8 + Float(combinedHash % 40) / 100.0 // 0.8 ~ 1.2
+        _ = 0.8 + Float(combinedHash % 40) / 100.0 // 0.8 ~ 1.2
         let saturation = 0.7 + Float(combinedHash % 30) / 100.0 // 0.7 ~ 1.0
         
         return baseColor.withAlphaComponent(CGFloat(saturation))
