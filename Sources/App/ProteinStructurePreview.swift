@@ -14,7 +14,7 @@ struct ProteinStructurePreview: View {
                 Image(systemName: "cube.box")
                     .font(.title2)
                     .foregroundColor(.secondary)
-            } else if let error = error {
+            } else if error != nil {
                 // 에러 시 기본 아이콘 표시
                 Image(systemName: "exclamationmark.triangle")
                     .font(.title2)
@@ -167,7 +167,7 @@ private func loadStructureFromRCSB(pdbId: String) async throws -> PDBStructure {
         throw NSError(domain: "PDBError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to decode PDB data"])
     }
     
-    return try PDBParser.parse(pdbString)
+            return PDBParser.parse(pdbText: pdbString)
 }
 
 private func length(_ vector: SIMD3<Float>) -> Float {
