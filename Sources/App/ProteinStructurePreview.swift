@@ -31,8 +31,14 @@ struct ProteinStructurePreview: View {
                         .foregroundColor(.red)
                 }
             } else if let structure = structure {
-                // 3D 구조를 2D 이미지로 렌더링
-                ProteinStructureImage(structure: structure)
+                // 3D 구조를 2D 이미지로 렌더링 (성능 문제 시 2D 대안 제공)
+                if structure.atoms.count > 3000 {
+                    // 원자 수가 많을 때는 2D 다이어그램 표시
+                    ProteinStructure2D(structure: structure)
+                } else {
+                    // 원자 수가 적을 때는 3D 렌더링
+                    ProteinStructureImage(structure: structure)
+                }
             } else {
                 // 데이터 없을 때 기본 아이콘 표시
                 Image(systemName: "cube.box")
@@ -136,26 +142,33 @@ struct ProteinStructureImage: UIViewRepresentable {
             default: chainColor = .systemGray
             }
             
-            // 원자들을 구체로 표현 (성능 최적화)
+            // 원자들을 구체로 표현 (극한 성능 최적화)
             let atomCount = atoms.count
-            let maxAtoms = 1000 // 성능을 위해 최대 원자 수 제한
+            let maxAtoms = 500 // 더 적극적인 샘플링
             
             if atomCount > maxAtoms {
-                // 원자 수가 많을 때는 샘플링하여 표시
-                let step = atomCount / maxAtoms
+                // 원자 수가 많을 때는 더 적극적으로 샘플링
+                let step = max(1, atomCount / maxAtoms)
+                var addedAtoms = 0
+                
                 for i in stride(from: 0, to: atomCount, by: step) {
+                    if addedAtoms >= maxAtoms { break }
+                    
                     let atom = atoms[i]
-                    let sphere = SCNSphere(radius: 0.4)
+                    let sphere = SCNSphere(radius: 0.5)
                     let material = SCNMaterial()
                     material.diffuse.contents = chainColor
                     material.specular.contents = UIColor.white
-                    material.shininess = 0.5
+                    material.shininess = 0.3
                     sphere.materials = [material]
                     
                     let atomNode = SCNNode(geometry: sphere)
                     atomNode.position = SCNVector3(atom.position)
                     chainNode.addChildNode(atomNode)
+                    addedAtoms += 1
                 }
+                
+                print("🔧 Chain \(chainId): \(atomCount) atoms → \(addedAtoms) rendered (sampled)")
             } else {
                 // 원자 수가 적을 때는 모든 원자 표시
                 for atom in atoms {
@@ -170,6 +183,8 @@ struct ProteinStructureImage: UIViewRepresentable {
                     atomNode.position = SCNVector3(atom.position)
                     chainNode.addChildNode(atomNode)
                 }
+                
+                print("🔧 Chain \(chainId): \(atomCount) atoms rendered (full)")
             }
             
             proteinNode.addChildNode(chainNode)
@@ -196,6 +211,40 @@ struct ProteinStructureImage: UIViewRepresentable {
         cameraNode.look(at: SCNVector3(center))
         
         return cameraNode
+    }
+}
+
+// MARK: - 2D Protein Structure Diagram
+struct ProteinStructure2D: View {
+    let structure: PDBStructure
+    
+    var body: some View {
+        ZStack {
+            // 배경
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(.systemGray6))
+            
+            // 체인별 2D 다이어그램
+            VStack(spacing: 4) {
+                ForEach(Array(structure.atoms.prefix(100)), id: \.id) { atom in
+                    Circle()
+                        .fill(chainColor(for: atom.chain))
+                        .frame(width: 3, height: 3)
+                }
+            }
+            .padding(8)
+        }
+    }
+    
+    private func chainColor(for chain: String) -> Color {
+        switch chain {
+        case "A": return .blue
+        case "B": return .green
+        case "C": return .orange
+        case "D": return .red
+        case "E": return .purple
+        default: return .gray
+        }
     }
 }
 
