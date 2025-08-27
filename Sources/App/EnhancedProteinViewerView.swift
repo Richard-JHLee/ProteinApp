@@ -1738,7 +1738,7 @@ extension EnhancedProteinViewerView {
         
         // GO Terms and Pathways - UniProt에서 가져오되, RCSB 주석도 추가
         var goTerms = uniprotAnnotations?.goTerms ?? []
-        let pathways = uniprotAnnotations?.pathways ?? []
+        var pathways = uniprotAnnotations?.pathways ?? []
         
         // RCSB에서 GO terms와 InterPro 추출
         if let annotations = entity.rcsbPolymerEntityAnnotation {

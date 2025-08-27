@@ -11,7 +11,7 @@
 		3EFDF2053CD3A6B58C54AA8E /* MiniProteinViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF017AD4B427A9A68A473A0A /* MiniProteinViewer.swift */; };
 		4E276CBDE560EDBC9919290E /* PDB.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F7B844E14B6CC3907FFBEC /* PDB.swift */; };
 		4E618D2CB3A72FAA015CBD99 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2722617C118B539735B9A4C5 /* ContentView.swift */; };
-		7953D2AF2E5E9AD8004C95A1 /* EnhancedProteinViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7953D2AE2E5E9AD8004C95A1 /* EnhancedProteinViewerView.swift */; };
+		7953D2B12E5EED9C004C95A1 /* EnhancedProteinViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7953D2B02E5EED9C004C95A1 /* EnhancedProteinViewerView.swift */; };
 		797284232E587182000842BE /* InfoSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284222E587182000842BE /* InfoSheet.swift */; };
 		7972842A2E587417000842BE /* AdditionalInfoSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284252E587417000842BE /* AdditionalInfoSectionView.swift */; };
 		7972842B2E587417000842BE /* HeaderSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284272E587417000842BE /* HeaderSectionView.swift */; };
@@ -33,7 +33,7 @@
 		2B5A091B94160CE42052DDCE /* ProteinLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProteinLibrary.swift; sourceTree = "<group>"; };
 		39F7B844E14B6CC3907FFBEC /* PDB.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDB.swift; sourceTree = "<group>"; };
 		486BC17E3218B56871333E70 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		7953D2AE2E5E9AD8004C95A1 /* EnhancedProteinViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedProteinViewerView.swift; sourceTree = "<group>"; };
+		7953D2B02E5EED9C004C95A1 /* EnhancedProteinViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedProteinViewerView.swift; sourceTree = "<group>"; };
 		797284222E587182000842BE /* InfoSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoSheet.swift; sourceTree = "<group>"; };
 		797284242E587417000842BE /* ActionButtonsSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButtonsSectionView.swift; sourceTree = "<group>"; };
 		797284252E587417000842BE /* AdditionalInfoSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdditionalInfoSectionView.swift; sourceTree = "<group>"; };
@@ -90,7 +90,7 @@
 		BDAB3465C9D2EBAF66C2BD77 /* App */ = {
 			isa = PBXGroup;
 			children = (
-				7953D2AE2E5E9AD8004C95A1 /* EnhancedProteinViewerView.swift */,
+				7953D2B02E5EED9C004C95A1 /* EnhancedProteinViewerView.swift */,
 				797284222E587182000842BE /* InfoSheet.swift */,
 				797284242E587417000842BE /* ActionButtonsSectionView.swift */,
 				797284252E587417000842BE /* AdditionalInfoSectionView.swift */,
@@ -204,7 +204,7 @@
 				CE908529D3B3AED3A89BB155 /* ProteinLibrary.swift in Sources */,
 				ABF56BC87AF826996205F340 /* ProteinSceneView.swift in Sources */,
 				BB44BDF9E6313690D82218D8 /* SceneKitExtensions.swift in Sources */,
-				7953D2AF2E5E9AD8004C95A1 /* EnhancedProteinViewerView.swift in Sources */,
+				7953D2B12E5EED9C004C95A1 /* EnhancedProteinViewerView.swift in Sources */,
 				797284232E587182000842BE /* InfoSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
