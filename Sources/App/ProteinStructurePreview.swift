@@ -99,19 +99,22 @@ struct ProteinStructurePreview: View {
     }
     
     private func renderProteinImage(structure: PDBStructure) async {
-        print("🎨 Starting offscreen rendering...")
+        print("🎨 Starting offscreen rendering for \(proteinId)...")
         
-        // 백그라운드 스레드에서 렌더링 (타임아웃 설정)
+        // 백그라운드 스레드에서 렌더링 (타임아웃 및 성능 최적화)
         let image = await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                let result = createProteinImage(structure: structure)
-                continuation.resume(returning: result)
+            DispatchQueue.global(qos: .utility).async {
+                // 메모리 사용량 제한
+                autoreleasepool {
+                    let result = createProteinImage(structure: structure)
+                    continuation.resume(returning: result)
+                }
             }
         }
         
         await MainActor.run {
             self.renderedImage = image
-            print("✅ Image rendering completed")
+            print("✅ Image rendering completed for \(proteinId)")
         }
     }
     
@@ -223,26 +226,44 @@ struct ProteinStructurePreview: View {
         let center = bounds.reduce(SIMD3<Float>(0,0,0)) { $0 + $1 } / Float(bounds.count)
         let maxDistance = bounds.map { length($0 - center) }.max() ?? 10
         
-        // 카메라 위치 설정
+        // PDB ID 기반으로 카메라 각도 다양화 (고유한 이미지 생성)
+        let pdbHash = abs(proteinId.hashValue)
+        let angleOffset = Float(pdbHash % 360) * .pi / 180.0
+        
+        // 카메라 위치 설정 (각도 다양화)
         let cameraDistance = maxDistance * 2.5
-        cameraNode.position = SCNVector3(x: cameraDistance * 0.7, y: cameraDistance * 0.5, z: cameraDistance)
+        let baseX = cameraDistance * 0.7
+        let baseY = cameraDistance * 0.5
+        let baseZ = cameraDistance
+        
+        // 회전 변환 적용
+        let rotatedX = baseX * cos(angleOffset) - baseZ * sin(angleOffset)
+        let rotatedZ = baseX * sin(angleOffset) + baseZ * cos(angleOffset)
+        
+        cameraNode.position = SCNVector3(x: rotatedX, y: baseY, z: rotatedZ)
         cameraNode.look(at: SCNVector3(center))
+        
+        print("📷 Camera positioned at unique angle for \(proteinId): \(angleOffset * 180 / .pi)°")
         
         return cameraNode
     }
     
     private func chainColor(for chain: String) -> UIColor {
-        switch chain {
-        case "A": return .systemBlue
-        case "B": return .systemGreen
-        case "C": return .systemOrange
-        case "D": return .systemRed
-        case "E": return .systemPurple
-        case "F": return .systemPink
-        case "G": return .systemCyan
-        case "H": return .systemMint
-        default: return .systemGray
-        }
+        // PDB ID와 체인 ID를 조합하여 고유한 색상 생성
+        let combinedHash = abs((proteinId + chain).hashValue)
+        let colors: [UIColor] = [
+            .systemBlue, .systemGreen, .systemOrange, .systemRed,
+            .systemPurple, .systemPink, .systemCyan, .systemMint,
+            .systemIndigo, .systemTeal, .systemBrown, .systemYellow
+        ]
+        
+        let baseColor = colors[combinedHash % colors.count]
+        
+        // 명도와 채도도 약간씩 다르게 조정
+        let brightness = 0.8 + Float(combinedHash % 40) / 100.0 // 0.8 ~ 1.2
+        let saturation = 0.7 + Float(combinedHash % 30) / 100.0 // 0.7 ~ 1.0
+        
+        return baseColor.withAlphaComponent(CGFloat(saturation))
     }
     
     private func length(_ vector: SIMD3<Float>) -> Float {
