@@ -18,7 +18,7 @@ struct ProteinStructurePreview: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
-            } else if let error = error {
+            } else if error != nil {
                 // 에러 시 에러 정보 표시
                 VStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle")
@@ -30,8 +30,23 @@ struct ProteinStructurePreview: View {
                         .foregroundColor(.red)
                 }
             } else if let structure = structure {
-                // 2D 단백질 구조 다이어그램
-                ProteinStructure2D(structure: structure)
+                // 2D 단백질 구조 다이어그램 (테스트 버전)
+                VStack(spacing: 4) {
+                    Text("✅ Loaded")
+                        .font(.caption2)
+                        .foregroundColor(.green)
+                    
+                    Text("\(structure.atoms.count) atoms")
+                        .font(.caption2)
+                        .foregroundColor(.primary)
+                    
+                    Text("Chains: \(structure.atoms.map { $0.chain }.uniqued().sorted().joined(separator: ", "))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .padding(8)
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
             } else {
                 // 데이터 없을 때 기본 아이콘 표시
                 Image(systemName: "cube.box")
@@ -79,29 +94,39 @@ struct ProteinStructure2D: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color(.systemGray6))
             
-            // 체인별 정보 표시
-            VStack(spacing: 6) {
-                // 체인별 색상과 이름 표시
-                HStack(spacing: 6) {
-                    ForEach(Array(structure.atoms.map { $0.chain }.uniqued().sorted()), id: \.self) { chain in
-                        VStack(spacing: 2) {
+            // 디버깅 정보 추가
+            VStack(spacing: 4) {
+                // 체인 정보
+                let chains = structure.atoms.map { $0.chain }.uniqued().sorted()
+                Text("Chains: \(chains.joined(separator: ", "))")
+                    .font(.caption2)
+                    .foregroundColor(.primary)
+                
+                // 체인별 색상 표시
+                HStack(spacing: 4) {
+                    ForEach(chains, id: \.self) { chain in
+                        HStack(spacing: 2) {
                             Circle()
                                 .fill(chainColor(for: chain))
-                                .frame(width: 12, height: 12)
+                                .frame(width: 8, height: 8)
                             
-                            Text("Chain \(chain)")
+                            Text(chain)
                                 .font(.caption2)
                                 .foregroundColor(.primary)
                         }
                     }
                 }
                 
-                // 원자 수 요약
+                // 원자 수
                 Text("\(structure.atoms.count) atoms")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
-            .padding(8)
+            .padding(4)
+        }
+        .onAppear {
+            print("🔍 ProteinStructure2D appeared with \(structure.atoms.count) atoms")
+            print("🔍 Chains found: \(structure.atoms.map { $0.chain }.uniqued().sorted())")
         }
     }
     
