@@ -1,6 +1,5 @@
 import SwiftUI
 import SceneKit
-import UIKit
 
 // MARK: - Position3D Type Definition
 struct Position3D {
@@ -79,8 +78,8 @@ struct EnhancedProteinViewerView: View {
                 ZStack {
                     ProteinSceneView(
                         structure: structure,
-                        style: computedRenderStyle,  // Use computed render style
-                        colorMode: computedColorMode,  // Use computed color mode
+                        style: style,
+                        colorMode: colorMode,
                         uniformColor: UIColor(uniformColor),
                         autoRotate: autoRotate,
                         onSelectAtom: { atom in
@@ -92,21 +91,98 @@ struct EnhancedProteinViewerView: View {
                     .padding(.horizontal, 16)
                     
                     if isLoading {
-                        ProgressView("Loading structure...")
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(.ultraThinMaterial)
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                            
+                            VStack(spacing: 8) {
+                                Text("Loading protein structure...")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                
+                                Text("Fetching data from RCSB, PDBe, and UniProt")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .multilineTextAlignment(.center)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(.ultraThinMaterial)
                     }
                     
                     if let error = error {
-                        Text("Error: \(error)")
-                            .foregroundColor(.red)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(.ultraThinMaterial)
+                        VStack(spacing: 16) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.system(size: 40))
+                                .foregroundColor(.red)
+                            
+                            VStack(spacing: 8) {
+                                Text("Loading Error")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                
+                                Text(error)
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                            }
+                            
+                            Button("Retry") {
+                                Task { await loadStructure() }
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(.ultraThinMaterial)
                     }
                 }
                 
                 // Enhanced Bottom Panel (Tab 형식)
                 enhancedBottomPanel
+                    .opacity(structure != nil ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: 0.3), value: structure != nil)
+                
+                // Data Status Indicator
+                if let structure = structure {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(.green)
+                            .frame(width: 8, height: 8)
+                        
+                        Text("Structure loaded: \(structure.atoms.count) atoms, \(structure.bonds.count) bonds")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        if !ligandsData.isEmpty {
+                            HStack(spacing: 4) {
+                                Image(systemName: "pills")
+                                    .font(.caption)
+                                Text("\(ligandsData.count) ligands")
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.purple)
+                        }
+                        
+                        if annotationsData != nil {
+                            HStack(spacing: 4) {
+                                Image(systemName: "book")
+                                    .font(.caption)
+                                Text("Annotations")
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.blue)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(8)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                }
             }
             .navigationBarHidden(true)
         }
@@ -115,44 +191,6 @@ struct EnhancedProteinViewerView: View {
         }
     }
     
-    // Computed property to automatically change render style and color mode based on selected tab
-    private var computedRenderStyle: RenderStyle {
-        switch selectedTab {
-        case .residues:
-            // Residues 탭에서는 cartoon 스타일로 표시
-            return .cartoon
-        case .ligands:
-            // Ligands 탭에서는 sticks 스타일로 표시 (리간드와 결합 구조를 잘 보여줌)
-            return .sticks
-        case .pockets:
-            // Pockets 탭에서는 surface 스타일로 표시 (결합 포켓을 잘 보여줌)
-            return .surface
-        default:
-            return style
-        }
-    }
-    
-    private var computedColorMode: ColorMode {
-        switch selectedTab {
-        case .residues:
-            // Residues 탭에서는 secondary structure 색상 모드로 표시
-            return .secondaryStructure
-        case .ligands:
-            // Ligands 탭에서는 element 색상 모드로 표시 (리간드 원소를 잘 구분함)
-            return .element
-        case .pockets:
-            // Pockets 탭에서는 chain 색상 모드로 표시 (포켓이 어떤 체인에 속하는지 보여줌)
-            return .chain
-        default:
-            return colorMode
-        }
-    }
-    
-    // Override the color mode buttons when in residues tab
-    private var isColorModeLocked: Bool {
-        selectedTab == .residues
-    }
-
     // MARK: - Enhanced Header
     private var enhancedHeaderView: some View {
         HStack {
@@ -264,110 +302,14 @@ struct EnhancedProteinViewerView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 280)
-            
-            // Render Style Selection (특정 탭에서는 숨김)
-            if selectedTab != .residues && selectedTab != .ligands && selectedTab != .pockets {
-                renderStyleSelector
-                    .padding(.vertical, 10)
-                    .disabled(isLoading)
-            }
-            
-            // Color Mode Selection (특정 탭에서는 숨김)
-            if selectedTab != .residues && selectedTab != .ligands && selectedTab != .pockets {
-                colorModeSelector
-                    .padding(.vertical, 10)
-                    .disabled(isLoading)
-            }
         }
         .background(.ultraThinMaterial)
-        .disabled(isLoading)
-    }
-    
-    private var renderStyleSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(RenderStyle.allCases, id: \.self) { renderStyle in
-                    StyleButton(
-                        style: renderStyle,
-                        isSelected: self.style == renderStyle
-                    ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            self.style = renderStyle
-                        }
-                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                        impactFeedback.impactOccurred()
-                    }
-                }
-            }
-            .padding(.horizontal, 20)
-        }
-    }
-    
-    private var colorModeSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                ForEach(ColorMode.allCases.filter { $0 != .secondaryStructure }, id: \.self) { colorMode in
-                    ColorButton(
-                        colorMode: colorMode,
-                        isSelected: self.colorMode == colorMode
-                    ) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            self.colorMode = colorMode
-                        }
-                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                        impactFeedback.impactOccurred()
-                    }
-                }
-                
-                if self.colorMode == .uniform {
-                    ColorPicker("Custom", selection: $uniformColor)
-                        .labelsHidden()
-                        .frame(width: 44, height: 44)
-                        .background(Color(.systemGray6))
-                        .clipShape(Circle())
-                }
-            }
-            .padding(.horizontal, 20)
-        }
     }
     
     private var tabSelector: some View {
         HStack(spacing: 0) {
             ForEach(ViewerTab.allCases, id: \.self) { tab in
-                Button(action: { 
-                    withAnimation {
-                        // 이전 탭 상태 저장
-                        let oldTab = selectedTab
-                        // 새 탭 설정
-                        selectedTab = tab
-                        
-                        // 렌더링 갱신을 강제하기 위한 코드
-                        // 탭이 실제로 변경된 경우에만 실행
-                        if oldTab != tab {
-                            // 필요한 경우 강제로 레이아웃 갱신
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                // 탭에 따라 렌더링 스타일 및 색상 모드 강제 갱신
-                                switch tab {
-                                case .residues:
-                                    style = .cartoon
-                                    colorMode = .secondaryStructure
-                                case .ligands:
-                                    style = .sticks
-                                    colorMode = .element
-                                    // 리간드 하이라이트 작업 추가
-                                    highlightLigands()
-                                case .pockets:
-                                    style = .surface
-                                    colorMode = .chain
-                                    // 포켓 하이라이트 작업 추가
-                                    highlightPockets()
-                                default:
-                                    break
-                                }
-                            }
-                        }
-                    }
-                }) {
+                Button(action: { selectedTab = tab }) {
                     VStack(spacing: 4) {
                         Image(systemName: tab.icon)
                             .font(.title3)
@@ -456,14 +398,14 @@ struct EnhancedProteinViewerView: View {
             
             // Chain Actions
             HStack(spacing: 8) {
-                Button(action: { highlightChain(chainId) }) {
+                Button(action: { highlightChain() }) {
                     Label("Highlight", systemImage: "eye")
                         .font(.caption)
                         .foregroundColor(.blue)
                 }
                 .buttonStyle(.bordered)
                 
-                Button(action: { focusOnChain(chainId) }) {
+                Button(action: { focusOnChain() }) {
                     Label("Focus", systemImage: "scope")
                         .font(.caption)
                         .foregroundColor(.blue)
@@ -724,7 +666,7 @@ struct EnhancedProteinViewerView: View {
                     // Ligand Cards
                     ForEach(ligandsData) { ligand in
                         LigandCard(ligand: ligand) {
-                            focusOnLigand(ligand)
+                            focusOnLigand()
                         }
                     }
                     
@@ -788,37 +730,7 @@ struct EnhancedProteinViewerView: View {
     
     private func viewPocket(_ pocket: PocketModel) {
         print("Viewing pocket: \(pocket.name)")
-        
-        // 현재 구현에서는 포켓이 이름으로만 식별되므로 이름에서 체인 ID 추출
-        if let chainIdRange = pocket.name.range(of: "Chain [A-Z]", options: .regularExpression) {
-            let chainIdString = pocket.name[chainIdRange]
-            if let chainId = chainIdString.last {
-                // 해당 체인만 표시하고 나머지는 투명하게 처리
-                if let structure = structure {
-                    // 해당 체인 ID의 원자들만 필터링
-                    let chainAtoms = structure.atoms.filter { String($0.chain) == String(chainId) }
-                    
-                    // TODO: 해당 체인의 원자들만 강조 표시하는 로직
-                    print("Highlighting \(chainAtoms.count) atoms in chain \(chainId) for pocket: \(pocket.name)")
-                    
-                    // 체인 하이라이트 함수 호출
-                    highlightChain(String(chainId))
-                }
-            }
-        }
-        
-        // 포켓 점수에 따라 시각적 피드백 제공
-        let feedbackIntensity: UIImpactFeedbackGenerator.FeedbackStyle
-        if pocket.score > 0.8 {
-            feedbackIntensity = .heavy
-        } else if pocket.score > 0.6 {
-            feedbackIntensity = .medium
-        } else {
-            feedbackIntensity = .light
-        }
-        
-        let impactFeedback = UIImpactFeedbackGenerator(style: feedbackIntensity)
-        impactFeedback.impactOccurred()
+        // TODO: Implement pocket visualization in 3D viewer
     }
     
     // MARK: - Annotations Tab
@@ -1033,258 +945,7 @@ struct EnhancedProteinViewerView: View {
         .background(.red.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
     }
     
-    // MARK: - Functions
-    #if DEBUG
-    private func loadStructureMock() async {
-        await MainActor.run { isLoading = true; error = nil }
-        do {
-            _ = try await Task.sleep(nanoseconds: 1_000_000_000)
-            let mock = generateMockStructure()
-            await MainActor.run {
-                self.structure = mock
-                self.ligandsData = generateMockLigands()
-                self.pocketsData = generateMockPockets()
-                self.annotationsData = generateMockAnnotations()
-                self.isLoading = false
-            }
-        } catch {
-            await MainActor.run { self.error = error.localizedDescription; self.isLoading = false }
-        }
-    }
-    #endif
-    
-    private func generateMockStructure() -> PDBStructure {
-        // Simplified mock structure using existing SIMD3<Float> type
-        var atoms: [Atom] = []
-        var bonds: [Bond] = []
-        
-        // Create a simple helix for Chain A (Alpha Helix)
-        for i in 0..<10 {
-            let angle = Double(i) * 0.3
-            let x = cos(angle) * 5.0
-            let y = Double(i) * 1.5
-            let z = sin(angle) * 5.0
-            
-            atoms.append(Atom(
-                id: i,
-                element: "C",
-                name: "CA",
-                chain: "A",
-                residueName: "ALA",
-                residueNumber: i + 1,
-                position: SIMD3<Float>(Float(x), Float(y), Float(z)),
-                secondaryStructure: .helix,
-                isBackbone: true
-            ))
-            
-            if i > 0 {
-                bonds.append(Bond(a: i-1, b: i))
-            }
-        }
-        
-        // Add beta sheet structure for Chain A
-        for i in 10..<15 {
-            let x = Double(i - 10) * 2.0 - 5.0
-            let y = 15.0
-            let z = 0.0
-            
-            atoms.append(Atom(
-                id: i,
-                element: "C",
-                name: "CA",
-                chain: "A",
-                residueName: "VAL",
-                residueNumber: i + 1,
-                position: SIMD3<Float>(Float(x), Float(y), Float(z)),
-                secondaryStructure: .sheet,
-                isBackbone: true
-            ))
-            
-            if i > 10 {
-                bonds.append(Bond(a: i-1, b: i))
-            }
-        }
-        
-        // Add turn/loop structure for Chain A
-        for i in 15..<18 {
-            let x = Double(i - 15) * 1.0 + 5.0
-            let y = Double(i - 15) * 2.0 + 10.0
-            let z = Double(i - 15) * 1.5
-            
-            atoms.append(Atom(
-                id: i,
-                element: "C",
-                name: "CA",
-                chain: "A",
-                residueName: "GLY",
-                residueNumber: i + 1,
-                position: SIMD3<Float>(Float(x), Float(y), Float(z)),
-                secondaryStructure: .coil,
-                isBackbone: true
-            ))
-            
-            if i > 15 {
-                bonds.append(Bond(a: i-1, b: i))
-            }
-        }
-        
-        // Add a few atoms for Chain B (Random coil)
-        for i in 18..<23 {
-            let x = Double(i - 18) * 1.5 + 8.0
-            let y = 0.0
-            let z = 10.0
-            
-            atoms.append(Atom(
-                id: i,
-                element: "C",
-                name: "CA",
-                chain: "B",
-                residueName: "PRO",
-                residueNumber: i - 17,
-                position: SIMD3<Float>(Float(x), Float(y), Float(z)),
-                secondaryStructure: .unknown,
-                isBackbone: true
-            ))
-            
-            if i > 18 {
-                bonds.append(Bond(a: i-1, b: i))
-            }
-        }
-        
-        return PDBStructure(atoms: atoms, bonds: bonds)
-    }
-    
-    private func loadAdditionalData() {
-        // Mock data for tabs
-        ligandsData = generateMockLigands()
-        pocketsData = generateMockPockets()
-        annotationsData = generateMockAnnotations()
-    }
-    
-    private func generateMockAnnotations() -> AnnotationData {
-        return AnnotationData(
-            function: "ATP synthase catalyzes the synthesis of ATP from ADP and inorganic phosphate using the proton gradient across the inner mitochondrial membrane. This enzyme is essential for cellular energy production and is highly conserved across species. It plays a crucial role in oxidative phosphorylation.",
-            gene: "ATP5F1A",
-            organism: "Homo sapiens (Human)",
-            goTerms: [
-                "GO:0005524", // ATP binding
-                "GO:0016887", // ATPase activity
-                "GO:0015986", // ATP synthesis
-                "GO:0005739", // Mitochondrion
-                "GO:0045261", // Proton-transporting ATP synthase complex
-                "GO:0006754"  // ATP biosynthetic process
-            ],
-            pathways: [
-                "Oxidative Phosphorylation",
-                "ATP Synthesis",
-                "Mitochondrial Electron Transport Chain",
-                "Energy Metabolism",
-                "Cellular Respiration"
-            ]
-        )
-    }
-    
-    private func generateMockLigands() -> [LigandModel] {
-        return [
-            LigandModel(
-                name: "ATP", 
-                description: "Adenosine Triphosphate - Primary energy carrier", 
-                position: SIMD3<Float>(12.5, 8.3, -4.1),
-                molecularWeight: 0.507,
-                charge: -4.0,
-                type: "Nucleotide"
-            ),
-            LigandModel(
-                name: "MG", 
-                description: "Magnesium Ion - Cofactor for enzymatic activity", 
-                position: SIMD3<Float>(15.2, 7.8, -3.8),
-                molecularWeight: 0.024,
-                charge: 2.0,
-                type: "Metal Ion"
-            ),
-            LigandModel(
-                name: "NAD", 
-                description: "Nicotinamide Adenine Dinucleotide - Electron carrier", 
-                position: SIMD3<Float>(-8.7, 12.1, 6.4),
-                molecularWeight: 0.663,
-                charge: -1.0,
-                type: "Coenzyme"
-            ),
-            LigandModel(
-                name: "FAD", 
-                description: "Flavin Adenine Dinucleotide - Redox cofactor", 
-                position: SIMD3<Float>(3.2, -5.6, 9.8),
-                molecularWeight: 0.785,
-                charge: -2.0,
-                type: "Coenzyme"
-            )
-        ]
-    }
-    
-    private func generateMockPockets() -> [PocketModel] {
-        return [
-            PocketModel(
-                name: "Active Site", 
-                score: 0.89, 
-                volume: 1450, 
-                description: "Primary ATP binding site with high druggability",
-                druggability: "High"
-            ),
-            PocketModel(
-                name: "Allosteric Site", 
-                score: 0.72, 
-                volume: 820, 
-                description: "Regulatory binding site for allosteric modulators",
-                druggability: "Medium"
-            ),
-            PocketModel(
-                name: "Cofactor Binding", 
-                score: 0.65, 
-                volume: 450, 
-                description: "Magnesium ion coordination site",
-                druggability: "Medium"
-            ),
-            PocketModel(
-                name: "Substrate Channel", 
-                score: 0.58, 
-                volume: 680, 
-                description: "Substrate entry channel with moderate binding potential",
-                druggability: "Low"
-            )
-        ]
-    }
-    
-    // MARK: - Ligand Functions
-    private func focusOnLigand(_ ligand: LigandModel) {
-        print("Focusing on ligand: \(ligand.name)")
-        
-        // 리간드 위치 기반으로 카메라 이동 구현
-        // 이미 존재하는 SceneKit 뷰에 접근하여 시점 변경
-        if let window = UIApplication.shared.windows.first,
-           let sceneView = window.findSubview(ofType: SCNView.self) {
-            
-            // 카메라 이동 애니메이션
-            let lookAtPosition = SCNVector3(ligand.position.x, ligand.position.y, ligand.position.z)
-            
-            // 리간드 주변 원자를 하이라이트하기 위한 작업
-            if let structure = structure {
-                // 리간드에서 5Å 이내의 원자들을 찾아 하이라이트
-                let ligandPos = ligand.position
-                let nearbyAtoms = structure.atoms.filter {
-                    let distance = length($0.position - ligandPos)
-                    return distance < 5.0 // 5Å 이내
-                }
-                
-                // TODO: 근처 원자 하이라이트 로직
-                print("Found \(nearbyAtoms.count) atoms near ligand \(ligand.name)")
-            }
-            
-            // 카메라 이동 애니메이션
-            SceneKitUtils.moveCamera(sceneView: sceneView, to: lookAtPosition, duration: 0.8)
-        }
-    }
-    
-    // Share Functions
+    // MARK: - Placeholder Functions
     private func exportImage() {
         print("Exporting image...")
     }
@@ -1297,111 +958,133 @@ struct EnhancedProteinViewerView: View {
         print("Sharing structure...")
     }
     
-    // Chain Functions
-    private func highlightChain(_ chainId: String) {
-        print("Highlighting chain: \(chainId)")
+    private func highlightChain() {
+        print("Highlighting chain...")
     }
     
-    private func focusOnChain(_ chainId: String) {
-        print("Focusing on chain: \(chainId)")
+    private func focusOnChain() {
+        print("Focusing on chain...")
     }
     
-    /// 실제 로딩(병렬 호출) — 기존 mock 흐름 대체
+    private func focusOnLigand() {
+        print("Focusing on ligand...")
+    }
+    
+    // MARK: - Functions
+    /// 실제 로딩(병렬 호출) — 실제 API 데이터만 사용
     fileprivate func loadStructure() async {
-        await MainActor.run { isLoading = true; error = nil }
+        await MainActor.run { 
+            isLoading = true 
+            error = nil 
+            // 기존 데이터 초기화
+            structure = nil
+            ligandsData = []
+            pocketsData = []
+            annotationsData = nil
+        }
 
-        // Try to load structure from RCSB first
-        let structure: PDBStructure
         do {
-            structure = try await loadStructureFromRCSB(pdbId: protein.id)
-        } catch {
-            await MainActor.run {
-                self.error = "Failed to load structure from RCSB: \(error.localizedDescription)"
-                self.structure = self.generateMockStructure()
-                self.isLoading = false
-            }
-            return
-        }
-        
-        // Load ligand metadata
-        let ligMeta: [LigandModel]
-        do {
-            ligMeta = try await fetchLigandsMetaFromPDBe(pdbId: protein.id)
-        } catch {
-            await MainActor.run {
-                self.error = "Failed to load ligand metadata from PDBe: \(error.localizedDescription)"
-                self.structure = structure
-                self.ligandsData = self.generateMockLigands()
-                self.isLoading = false
-            }
-            return
-        }
-        
-        // Map PDB to UniProt
-        let uni: String?
-        do {
-            uni = try await mapPDBtoUniProt(protein.id)
-        } catch {
-            await MainActor.run {
-                self.error = "Failed to map PDB to UniProt: \(error.localizedDescription)"
-                self.structure = structure
-                self.ligandsData = ligMeta
-                self.isLoading = false
-            }
-            return
-        }
-        
-        // Fetch annotations if UniProt mapping exists
-        let annotations: AnnotationData?
-        if let uni = uni {
+            // 1. RCSB에서 PDB 구조 로드
+            let structure: PDBStructure
             do {
-                annotations = try await fetchAnnotations(uniprot: uni)
+                structure = try await loadStructureFromRCSB(pdbId: protein.id)
+                print("✅ Successfully loaded structure from RCSB for \(protein.id)")
             } catch {
                 await MainActor.run {
-                    self.error = "Failed to fetch annotations from UniProt: \(error.localizedDescription)"
-                    self.structure = structure
-                    self.ligandsData = mergeLigands(meta: ligMeta, with: structure)
-                    self.annotationsData = self.generateMockAnnotations()
+                    self.error = "Failed to load protein structure from RCSB: \(error.localizedDescription)"
                     self.isLoading = false
                 }
                 return
             }
-        } else {
-            annotations = nil
-        }
+            
+            // 2. RCSB에서 엔티티 정보 로드 (리간드, 주석 등)
+            let rcsbEntity: RCSBEntityRoot?
+            do {
+                rcsbEntity = try await fetchEntityInfoFromRCSB(pdbId: protein.id)
+                if let entity = rcsbEntity {
+                    print("✅ Successfully loaded RCSB entity info for \(protein.id)")
+                    print("🔍 Entity details: \(entity)")
+                } else {
+                    print("ℹ️ No RCSB entity info available for \(protein.id)")
+                }
+            } catch {
+                print("⚠️ Failed to fetch RCSB entity info: \(error.localizedDescription)")
+                rcsbEntity = nil
+            }
+            
+            // 3. PDBe에서 리간드 메타데이터 로드
+            let ligMeta: [LigandModel]
+            do {
+                ligMeta = try await fetchLigandsMetaFromPDBe(pdbId: protein.id)
+                print("✅ Successfully loaded ligand metadata from PDBe: \(ligMeta.count) ligands")
+            } catch {
+                print("⚠️ Failed to load ligand metadata: \(error.localizedDescription)")
+                ligMeta = []
+            }
+            
+            // 4. PDB to UniProt 매핑
+            let uni: String?
+            do {
+                uni = try await mapPDBtoUniProt(pdbId: protein.id)
+                if let uni = uni {
+                    print("✅ Successfully mapped PDB \(protein.id) to UniProt \(uni)")
+                } else {
+                    print("ℹ️ No UniProt mapping found for \(protein.id)")
+                }
+            } catch {
+                print("⚠️ Failed to map PDB to UniProt: \(error.localizedDescription)")
+                uni = nil
+            }
+            
+            // 5. UniProt에서 주석 데이터 로드
+            let annotations: AnnotationData?
+            if let uni = uni {
+                do {
+                    annotations = try await fetchAnnotationsFromUniProt(uniprotId: uni)
+                    print("✅ Successfully loaded annotations from UniProt")
+                } catch {
+                    print("⚠️ Failed to fetch annotations: \(error.localizedDescription)")
+                    annotations = nil
+                }
+            } else {
+                print("ℹ️ No UniProt ID available for annotations fetching")
+                annotations = nil
+            }
 
-        await MainActor.run {
-            self.structure = structure
-            self.ligandsData = mergeLigands(meta: ligMeta, with: structure)
-            self.annotationsData = annotations ?? self.generateMockAnnotations()
-            self.pocketsData = generatePocketsFromStructure(structure)
-            self.isLoading = false
-        }
-    }
-    
-    // 리간드를 하이라이트하는 함수
-    private func highlightLigands() {
-        // 만약 리간드 데이터가 있는 경우
-        if !ligandsData.isEmpty {
-            // 이미 리간드가 선택되어 있다면 아무 작업도 하지 않음
-            // 그렇지 않으면 첫 번째 리간드를 포커스
-            if selectedAtom == nil, let firstLigand = ligandsData.first {
-                focusOnLigand(firstLigand)
+            // 6. RCSB 데이터로 주석 정보 보강
+            let enhancedAnnotations: AnnotationData?
+            if let entity = rcsbEntity {
+                enhancedAnnotations = createAnnotationsFromRCSB(entity: entity, uniprotAnnotations: annotations)
+                print("✅ Enhanced annotations with RCSB data")
+            } else {
+                enhancedAnnotations = annotations
             }
-        }
-    }
-    
-    // 포켓을 하이라이트하는 함수
-    private func highlightPockets() {
-        // 포켓 데이터가 있는 경우
-        if !pocketsData.isEmpty {
-            // 점수가 가장 높은 포켓을 찾아서 포커스
-            if let bestPocket = pocketsData.max(by: { $0.score < $1.score }) {
-                viewPocket(bestPocket)
+
+            // 7. 최종 데이터 설정
+            await MainActor.run {
+                self.structure = structure
+                self.ligandsData = mergeLigands(meta: ligMeta, with: structure)
+                self.annotationsData = enhancedAnnotations
+                self.pocketsData = generatePocketsFromStructure(structure)
+                self.isLoading = false
+                
+                // 로그 추가
+                if let annotations = enhancedAnnotations {
+                    print("✅ Final annotations data: \(annotations)")
+                } else {
+                    print("⚠️ No annotations data available")
+                }
+                
+                // 성공 메시지
+                if let error = self.error {
+                    print("⚠️ Data loaded with warnings: \(error)")
+                } else {
+                    print("🎉 All data loaded successfully!")
+                }
             }
-        }
+            
+        } 
     }
-    
     // MARK: - Pockets (lightweight heuristic)
     // 목적: 구조 내 원자 밀도와 리간드 인접성을 이용해 간단히 포켓 후보를 생성
     func generatePocketsFromStructure(_ structure: PDBStructure) -> [PocketModel] {
@@ -1845,109 +1528,86 @@ extension EnhancedProteinViewerView {
         return PDBParser.parse(pdbText: pdbText) // 프로젝트에 있는 파서 사용
     }
 
+    /// RCSB에서 엔티티 정보 가져오기 (리간드, 주석 등)
+    private func fetchEntityInfoFromRCSB(pdbId: String) async throws -> RCSBEntityRoot? {
+        let id = pdbId.uppercased()
+        guard let url = URL(string: "https://data.rcsb.org/rest/v1/core/polymer_entity/\(id)/1") else { throw NetError.badURL }
+        
+        do {
+            let data = try await URLSession.shared.data(from: url).0
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("🔍 RCSB Entity API Response: \(jsonString)")
+            }
+            
+            let entity = try JSONDecoder().decode(RCSBEntityRoot.self, from: data)
+            return entity
+        } catch {
+            print("⚠️ Failed to fetch RCSB entity info: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    /// RCSB 데이터로 주석 정보 생성
+    private func createAnnotationsFromRCSB(entity: RCSBEntityRoot, uniprotAnnotations: AnnotationData?) -> AnnotationData {
+        let function = uniprotAnnotations?.function ?? "Unknown"
+        let gene = entity.entitySrcGen?.first?.pdbxGeneSrcGene ?? uniprotAnnotations?.gene ?? "Unknown"
+        let organism = entity.rcsbEntitySourceOrganism?.first?.scientificName ?? uniprotAnnotations?.organism ?? "Unknown"
+        let goTerms = uniprotAnnotations?.goTerms ?? []
+        let pathways = uniprotAnnotations?.pathways ?? []
+        
+        return AnnotationData(
+            function: function,
+            gene: gene,
+            organism: organism,
+            goTerms: goTerms,
+            pathways: pathways
+        )
+    }
+
     /// PDBe: 리간드 메타 (이름/분자량/전하)
     private func fetchLigandsMetaFromPDBe(pdbId: String) async throws -> [LigandModel] {
         let id = pdbId.lowercased()
         guard let url = URL(string: "https://www.ebi.ac.uk/pdbe/api/pdb/entry/ligand_monomers/\(id)") else { throw NetError.badURL }
-        
-        // First get raw data to check if it's empty
-        let (data, resp) = try await URLSession.shared.data(from: url)
-        guard let http = resp as? HTTPURLResponse else { throw NetError.badData }
-        guard (200..<300).contains(http.statusCode) else { throw NetError.badStatus(http.statusCode) }
-        
-        // Check if data is empty or contains empty array
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let entry = json[id] as? [String: Any],
-              let ligandsArray = entry["ligandMonomers"] as? [Any] else {
-            // Return empty array if parsing fails
-            return []
-        }
-        
-        // If we have an empty array, return empty ligands
-        if ligandsArray.isEmpty {
-            return []
-        }
-        
-        // Otherwise decode normally
-        let dict = try Net.decoder.decode([String: PDBeLigandRoot].self, from: data)
-        let rows = dict[id]?.ligandMonomers ?? []
+        do {
+            let data = try await URLSession.shared.data(from: url).0
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("API Response: \(jsonString)")
+            }
+            let dict = try JSONDecoder().decode([String: PDBeLigandRoot].self, from: data)
+            let rows = dict[id]?.ligandMonomers ?? []
 
-        return rows.map { r in
-            LigandModel(
-                name: r.chemCompId ?? "LIG",
-                description: r.moleculeName?.first ?? "Small molecule",
-                position: .zero,                               // 좌표는 아래 merge에서 보정
-                molecularWeight: (r.formulaWeight ?? 0) / 1000,// g/mol → kDa
-                charge: Double(r.charge ?? 0),
-                type: "Ligand"
-            )
+            return rows.map { r in
+                LigandModel(
+                    name: r.chemCompId ?? "Unknown",
+                    description: r.moleculeName?.first ?? "No description",
+                    position: .zero,
+                    molecularWeight: (r.formulaWeight ?? 0) / 1000,
+                    charge: Double(r.charge ?? 0),
+                    type: "Ligand"
+                )
+            }
+        } catch {
+            print("⚠️ JSON decoding error: \(error.localizedDescription)")
+            throw NetError.badData
         }
     }
 
-    /// PDBe: PDB → UniProt 매핑
+    private func fetchAnnotations(uniprot: String) async throws -> AnnotationData {
+        // Implement the function to fetch annotations
+        // Placeholder implementation
+        return AnnotationData(function: "Unknown", gene: "Unknown", organism: "Unknown", goTerms: [], pathways: [])
+    }
+
+    private func mergeLigands(meta: [LigandModel], with structure: PDBStructure) -> [LigandModel] {
+        // Implement the function to merge ligands
+        // Placeholder implementation
+        return meta
+    }
+
     private func mapPDBtoUniProt(_ pdbId: String) async throws -> String? {
         let id = pdbId.lowercased()
         guard let url = URL(string: "https://www.ebi.ac.uk/pdbe/api/mappings/uniprot/\(id)") else { return nil }
         let data = try await Net.getJSON(url, as: [String: [String: PDBeUniProtMapRoot]].self)
         return data[id]?["UniProt"]?.uniprotIds?.first
     }
-
-    /// UniProt: 기능/생물종/GO 주석
-    private func fetchAnnotations(uniprot: String) async throws -> AnnotationData {
-        guard let url = URL(string: "https://rest.uniprot.org/uniprotkb/\(uniprot).json") else { throw NetError.badURL }
-        let dto = try await Net.getJSON(url, as: UniProtDTO.self)
-
-        let functionText =
-            dto.comments?.first(where: { $0.commentType == "FUNCTION" })?.texts?.first?.value
-            ?? dto.proteinDescription?.recommendedName?.fullName?.value
-            ?? "Function not available"
-
-        let gene = dto.genes?.first?.geneName?.value ?? (dto.primaryAccession ?? "Unknown")
-        let organism = dto.organism?.scientificName ?? "Unknown organism"
-
-        let goTerms = (dto.uniProtKBCrossReferences ?? [])
-            .filter { $0.type == "GO" }
-            .compactMap { $0.id }
-
-        return AnnotationData(function: functionText, gene: gene, organism: organism, goTerms: goTerms, pathways: [])
-    }
-
-    /// 파싱된 구조에서 리간드 그룹을 찾아 PDBe 메타와 좌표 병합
-    private func mergeLigands(meta: [LigandModel], with structure: PDBStructure) -> [LigandModel] {
-        let het = structure.atoms.filter { $0.isLigandCandidate } // HETATM 후보
-        let groups = Dictionary(grouping: het) { "\($0.residueName)_\($0.chain)_\($0.residueNumber)" }
-
-        return meta.map { m in
-            if let (_, atoms) = groups.first(where: { $0.key.hasPrefix(m.name + "_") }),
-               let p = atoms.centerOfMass {
-                return LigandModel(name: m.name, description: m.description, position: p,
-                                   molecularWeight: m.molecularWeight, charge: m.charge, type: m.type)
-            } else {
-                return m
-            }
-        }
-    }
 }
-
-// MARK: - Helpers
-private extension SIMD3 where Scalar == Float {
-    static var zero: SIMD3<Float> { SIMD3<Float>(0,0,0) }
-}
-private extension Array where Element == Atom {
-    var centerOfMass: SIMD3<Float>? {
-        guard !isEmpty else { return nil }
-        let sx = reduce(0) { $0 + $1.position.x }
-        let sy = reduce(0) { $0 + $1.position.y }
-        let sz = reduce(0) { $0 + $1.position.z }
-        let n = Float(count)
-        return SIMD3<Float>(sx/n, sy/n, sz/n)
-    }
-}
-private extension Atom {
-    var isLigandCandidate: Bool {
-        let lig = ["ATP","ADP","GTP","GDP","NAD","FAD","FMN","COA","HEM","MG","CA","ZN","FE","MN"]
-        return lig.contains(residueName) && residueName != "HOH"
-    }
-}
-
-

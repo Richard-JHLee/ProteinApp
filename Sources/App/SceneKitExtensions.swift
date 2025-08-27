@@ -1,5 +1,4 @@
 import SceneKit
-import UIKit
 
 // MARK: - SceneKit Extensions
 
@@ -22,23 +21,6 @@ extension SCNVector3 {
             return SCNVector3(0, 0, 0)
         }
         return SCNVector3(x / len, y / len, z / len)
-    }
-}
-
-// MARK: - UIView Extensions for finding subviews
-extension UIView {
-    func findSubview<T: UIView>(ofType type: T.Type) -> T? {
-        if let view = self as? T {
-            return view
-        }
-        
-        for subview in subviews {
-            if let found = subview.findSubview(ofType: type) {
-                return found
-            }
-        }
-        
-        return nil
     }
 }
 
@@ -121,43 +103,6 @@ struct SceneKitUtils {
         }
         
         return material
-    }
-    
-    static func moveCamera(sceneView: SCNView, to position: SCNVector3, duration: TimeInterval = 1.0) {
-        guard let camera = sceneView.pointOfView else { return }
-        
-        // 목표 위치와 현재 카메라 위치 사이의 거리 계산
-        let currentPosition = camera.position
-        let distance = sqrt(
-            pow(position.x - currentPosition.x, 2) +
-            pow(position.y - currentPosition.y, 2) +
-            pow(position.z - currentPosition.z, 2)
-        )
-        
-        // 거리에 따라 카메라 줌 조정
-        let idealDistance = Float(min(max(distance * 2.0, 5.0), 30.0))
-        
-        // 카메라가 보는 방향으로 이동할 위치 계산
-        let cameraDirection = SCNVector3(0, 0, idealDistance)
-        let rotatedDirection = camera.convertPosition(cameraDirection, to: nil)
-        let targetCameraPosition = SCNVector3(
-            position.x + rotatedDirection.x,
-            position.y + rotatedDirection.y,
-            position.z + rotatedDirection.z
-        )
-        
-        // 애니메이션 생성
-        SCNTransaction.begin()
-        SCNTransaction.animationDuration = duration
-        SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        
-        // 카메라가 위치를 바라보도록 설정
-        camera.look(at: position)
-        
-        // 카메라 위치 이동
-        camera.position = targetCameraPosition
-        
-        SCNTransaction.commit()
     }
 }
 
