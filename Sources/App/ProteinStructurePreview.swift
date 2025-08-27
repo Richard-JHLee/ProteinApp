@@ -1,5 +1,4 @@
 import SwiftUI
-import SceneKit
 
 struct ProteinStructurePreview: View {
     let proteinId: String
@@ -19,7 +18,7 @@ struct ProteinStructurePreview: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
-            } else if error != nil {
+            } else if let error = error {
                 // 에러 시 에러 정보 표시
                 VStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle")
@@ -31,14 +30,8 @@ struct ProteinStructurePreview: View {
                         .foregroundColor(.red)
                 }
             } else if let structure = structure {
-                // 3D 구조를 2D 이미지로 렌더링 (성능 문제 시 2D 대안 제공)
-                if structure.atoms.count > 3000 {
-                    // 원자 수가 많을 때는 2D 다이어그램 표시
-                    ProteinStructure2D(structure: structure)
-                } else {
-                    // 원자 수가 적을 때는 3D 렌더링
-                    ProteinStructureImage(structure: structure)
-                }
+                // 2D 단백질 구조 다이어그램
+                ProteinStructure2D(structure: structure)
             } else {
                 // 데이터 없을 때 기본 아이콘 표시
                 Image(systemName: "cube.box")
@@ -76,145 +69,7 @@ struct ProteinStructurePreview: View {
     }
 }
 
-// 3D 구조를 2D 이미지로 렌더링하는 뷰
-struct ProteinStructureImage: UIViewRepresentable {
-    let structure: PDBStructure
-    
-    func makeUIView(context: Context) -> SCNView {
-        let sceneView = SCNView()
-        sceneView.backgroundColor = UIColor.systemBackground
-        sceneView.scene = createScene()
-        sceneView.allowsCameraControl = false
-        sceneView.isUserInteractionEnabled = false
-        
-        // 카드 크기에 맞는 카메라 설정
-        sceneView.pointOfView = createCamera()
-        
-        return sceneView
-    }
-    
-    func updateUIView(_ uiView: SCNView, context: Context) {
-        // 업데이트 시 새로운 씬 생성
-        uiView.scene = createScene()
-    }
-    
-    private func createScene() -> SCNScene {
-        let scene = SCNScene()
-        
-        // 단백질 구조 생성
-        let proteinNode = createProteinNode()
-        scene.rootNode.addChildNode(proteinNode)
-        
-        // 조명 설정
-        let lightNode = SCNNode()
-        lightNode.light = SCNLight()
-        lightNode.light?.type = .omni
-        lightNode.position = SCNVector3(x: 0, y: 10, z: 10)
-        scene.rootNode.addChildNode(lightNode)
-        
-        // 환경 조명
-        let ambientLightNode = SCNNode()
-        ambientLightNode.light = SCNLight()
-        ambientLightNode.light?.type = .ambient
-        ambientLightNode.light?.color = UIColor.systemGray5
-        scene.rootNode.addChildNode(ambientLightNode)
-        
-        return scene
-    }
-    
-    private func createProteinNode() -> SCNNode {
-        let proteinNode = SCNNode()
-        
-        // 체인별로 그룹핑
-        let chains = Dictionary(grouping: structure.atoms, by: { $0.chain })
-        
-        for (chainId, atoms) in chains {
-            let chainNode = SCNNode()
-            
-            // 체인별 색상 설정
-            let chainColor: UIColor
-            switch chainId {
-            case "A": chainColor = .systemBlue
-            case "B": chainColor = .systemGreen
-            case "C": chainColor = .systemOrange
-            case "D": chainColor = .systemRed
-            case "E": chainColor = .systemPurple
-            default: chainColor = .systemGray
-            }
-            
-            // 원자들을 구체로 표현 (극한 성능 최적화)
-            let atomCount = atoms.count
-            let maxAtoms = 500 // 더 적극적인 샘플링
-            
-            if atomCount > maxAtoms {
-                // 원자 수가 많을 때는 더 적극적으로 샘플링
-                let step = max(1, atomCount / maxAtoms)
-                var addedAtoms = 0
-                
-                for i in stride(from: 0, to: atomCount, by: step) {
-                    if addedAtoms >= maxAtoms { break }
-                    
-                    let atom = atoms[i]
-                    let sphere = SCNSphere(radius: 0.5)
-                    let material = SCNMaterial()
-                    material.diffuse.contents = chainColor
-                    material.specular.contents = UIColor.white
-                    material.shininess = 0.3
-                    sphere.materials = [material]
-                    
-                    let atomNode = SCNNode(geometry: sphere)
-                    atomNode.position = SCNVector3(atom.position)
-                    chainNode.addChildNode(atomNode)
-                    addedAtoms += 1
-                }
-                
-                print("🔧 Chain \(chainId): \(atomCount) atoms → \(addedAtoms) rendered (sampled)")
-            } else {
-                // 원자 수가 적을 때는 모든 원자 표시
-                for atom in atoms {
-                    let sphere = SCNSphere(radius: 0.3)
-                    let material = SCNMaterial()
-                    material.diffuse.contents = chainColor
-                    material.specular.contents = UIColor.white
-                    material.shininess = 0.5
-                    sphere.materials = [material]
-                    
-                    let atomNode = SCNNode(geometry: sphere)
-                    atomNode.position = SCNVector3(atom.position)
-                    chainNode.addChildNode(atomNode)
-                }
-                
-                print("🔧 Chain \(chainId): \(atomCount) atoms rendered (full)")
-            }
-            
-            proteinNode.addChildNode(chainNode)
-        }
-        
-        return proteinNode
-    }
-    
-    private func createCamera() -> SCNNode {
-        let camera = SCNCamera()
-        camera.fieldOfView = 45 // 더 좁은 시야각으로 집중
-        
-        let cameraNode = SCNNode()
-        cameraNode.camera = camera
-        
-        // 단백질을 중앙에 보도록 조정
-        let bounds = structure.atoms.map { $0.position }
-        let center = bounds.reduce(SIMD3<Float>(0,0,0)) { $0 + $1 } / Float(bounds.count)
-        let maxDistance = bounds.map { length($0 - center) }.max() ?? 10
-        
-        // 카메라를 단백질 주변에 배치하여 전체 구조를 볼 수 있도록
-        let cameraDistance = maxDistance * 2.5
-        cameraNode.position = SCNVector3(x: cameraDistance * 0.7, y: cameraDistance * 0.5, z: cameraDistance)
-        cameraNode.look(at: SCNVector3(center))
-        
-        return cameraNode
-    }
-}
-
-// MARK: - 2D Protein Structure Diagram
+// MARK: - 2D Protein Structure Diagram (Lightweight)
 struct ProteinStructure2D: View {
     let structure: PDBStructure
     
@@ -224,13 +79,27 @@ struct ProteinStructure2D: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color(.systemGray6))
             
-            // 체인별 2D 다이어그램
-            VStack(spacing: 4) {
-                ForEach(Array(structure.atoms.prefix(100)), id: \.id) { atom in
-                    Circle()
-                        .fill(chainColor(for: atom.chain))
-                        .frame(width: 3, height: 3)
+            // 체인별 정보 표시
+            VStack(spacing: 6) {
+                // 체인별 색상과 이름 표시
+                HStack(spacing: 6) {
+                    ForEach(Array(structure.atoms.map { $0.chain }.uniqued().sorted()), id: \.self) { chain in
+                        VStack(spacing: 2) {
+                            Circle()
+                                .fill(chainColor(for: chain))
+                                .frame(width: 12, height: 12)
+                            
+                            Text("Chain \(chain)")
+                                .font(.caption2)
+                                .foregroundColor(.primary)
+                        }
+                    }
                 }
+                
+                // 원자 수 요약
+                Text("\(structure.atoms.count) atoms")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
             .padding(8)
         }
@@ -243,6 +112,9 @@ struct ProteinStructure2D: View {
         case "C": return .orange
         case "D": return .red
         case "E": return .purple
+        case "F": return .pink
+        case "G": return .cyan
+        case "H": return .mint
         default: return .gray
         }
     }
@@ -287,6 +159,10 @@ private func loadStructureFromRCSB(pdbId: String) async throws -> PDBStructure {
     }
 }
 
-private func length(_ vector: SIMD3<Float>) -> Float {
-    return sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z)
+// MARK: - Extensions
+extension Array where Element: Hashable {
+    func uniqued() -> [Element] {
+        var seen = Set<Element>()
+        return filter { seen.insert($0).inserted }
+    }
 }
