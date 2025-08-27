@@ -332,13 +332,19 @@ struct EnhancedProteinViewerView: View {
                             .foregroundColor(.secondary)
                     }
                     
-                    // Category
-                    Text(protein.category.rawValue)
-                        .font(.caption.weight(.medium))
-                        .foregroundColor(protein.category.color)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(protein.category.color.opacity(0.1), in: Capsule())
+                    // Category with dynamic icon
+                    HStack(spacing: 4) {
+                        Image(systemName: protein.dynamicIcon)
+                            .font(.caption)
+                            .foregroundColor(protein.dynamicColor)
+                        
+                        Text(protein.category.rawValue)
+                            .font(.caption.weight(.medium))
+                            .foregroundColor(protein.dynamicColor)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(protein.dynamicColor.opacity(0.1), in: Capsule())
                 }
             }
             

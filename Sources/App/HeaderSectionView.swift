@@ -8,7 +8,7 @@ struct HeaderSectionView: View {
             VStack(spacing: 12) {
                 // 상단: 아이콘과 단백질 이름
                 HStack(alignment: .center, spacing: 16) {
-                    GradientIcon(systemName: protein.category.icon,
+                    GradientIcon(systemName: protein.dynamicIcon,
                                  base: protein.category.color)
                         .frame(width: 64, height: 64)
 

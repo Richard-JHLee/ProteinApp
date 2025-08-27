@@ -210,6 +210,81 @@ struct ProteinInfo: Identifiable, Hashable {
     var displayName: String {
         "\(name) (\(id.uppercased()))"
     }
+    
+    // PDB 구조 기반 동적 이미지 생성
+    var dynamicIcon: String {
+        // PDB ID의 문자들을 분석하여 고유한 아이콘 생성
+        let chars = Array(id.uppercased())
+        let firstChar = chars.first ?? "A"
+        let lastChar = chars.last ?? "A"
+        let middleChar = chars.count > 2 ? chars[1] : "A"
+        
+        // 첫 번째 문자 기반 기본 카테고리
+        let baseIcon: String
+        switch firstChar {
+        case "1", "2", "3": baseIcon = "building.2"      // 구조적 단백질
+        case "4", "5", "6": baseIcon = "scissors"        // 효소
+        case "7", "8", "9": baseIcon = "shield"          // 방어 단백질
+        case "A", "B", "C": baseIcon = "car"             // 운반 단백질
+        case "D", "E", "F": baseIcon = "antenna.radiowaves.left.and.right" // 호르몬
+        case "G", "H", "I": baseIcon = "archivebox"      // 저장 단백질
+        case "J", "K", "L": baseIcon = "wifi"            // 수용체
+        case "M", "N", "O": baseIcon = "bubble.left.and.bubble.right" // 막단백질
+        case "P", "Q", "R": baseIcon = "gear"            // 모터 단백질
+        case "S", "T", "U": baseIcon = "network"         // 신호 전달
+        case "V", "W", "X": baseIcon = "wrench.and.screwdriver" // 챠퍼론
+        case "Y", "Z": baseIcon = "arrow.triangle.2.circlepath" // 대사
+        default: baseIcon = category.icon
+        }
+        
+        // 마지막 문자로 세부 분류
+        let detailIcon: String
+        switch lastChar {
+        case "A", "1": detailIcon = "circle.fill"        // 단일체
+        case "B", "2": detailIcon = "circle.lefthalf.filled" // 이량체
+        case "C", "3": detailIcon = "triangle.fill"      // 삼량체
+        case "D", "4": detailIcon = "square.fill"        // 사량체
+        case "E", "5": detailIcon = "pentagon.fill"      // 오량체
+        case "F", "6": detailIcon = "hexagon.fill"       // 육량체
+        case "G", "7": detailIcon = "septagon.fill"      // 칠량체
+        case "H", "8": detailIcon = "octagon.fill"       // 팔량체
+        case "I", "9": detailIcon = "nonagon.fill"       // 구량체
+        case "J", "0": detailIcon = "decagon.fill"       // 십량체
+        default: detailIcon = "circle"
+        }
+        
+        // 중간 문자로 특별한 특징 추가
+        let specialIcon: String
+        switch middleChar {
+        case "A", "1": specialIcon = "atom"              // 원자 수준
+        case "B", "2": specialIcon = "dna"               // DNA 결합
+        case "C", "3": specialIcon = "leaf"              // 식물성
+        case "D", "4": specialIcon = "brain"             // 신경계
+        case "E", "5": specialIcon = "heart"             // 심혈관계
+        case "F", "6": specialIcon = "lungs"             // 호흡계
+        case "G", "7": specialIcon = "eye"               // 시각계
+        case "H", "8": specialIcon = "ear"               // 청각계
+        case "I", "9": specialIcon = "hand.raised"       // 수동적
+        case "J", "0": specialIcon = "bolt"              // 활성적
+        default: specialIcon = "molecule"
+        }
+        
+        // PDB ID 길이에 따라 아이콘 선택
+        if id.count >= 4 {
+            return specialIcon // 특별한 특징
+        } else if id.count >= 3 {
+            return detailIcon  // 세부 분류
+        } else {
+            return baseIcon    // 기본 카테고리
+        }
+    }
+    
+    // PDB ID 기반 색상 생성
+    var dynamicColor: Color {
+        let hash = abs(id.hashValue)
+        let colors: [Color] = [.blue, .green, .orange, .red, .purple, .pink, .cyan, .mint, .indigo, .teal]
+        return colors[hash % colors.count]
+    }
 }
 
 enum ProteinCategory: String, CaseIterable, Identifiable {
@@ -4057,9 +4132,9 @@ struct ProteinRowCard: View {
                         .frame(width: 60, height: 60)
                     
                     // Category icon instead of 3D
-                    Image(systemName: protein.category.icon)
-                        .font(.title2)
-                        .foregroundColor(protein.category.color)
+                                            Image(systemName: protein.dynamicIcon)
+                            .font(.title2)
+                            .foregroundColor(protein.dynamicColor)
                         .scaleEffect(1.2)
                 }
                 .overlay(
@@ -4100,9 +4175,9 @@ struct ProteinRowCard: View {
                         .multilineTextAlignment(.leading)
                     
                     HStack {
-                        Label(protein.category.rawValue, systemImage: protein.category.icon)
+                        Label(protein.category.rawValue, systemImage: protein.dynamicIcon)
                             .font(.caption2)
-                            .foregroundColor(protein.category.color)
+                            .foregroundColor(protein.dynamicColor)
                         Spacer()
                     }
                 }
