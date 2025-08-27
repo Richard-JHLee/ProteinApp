@@ -1,6 +1,11 @@
 import Foundation
 import simd
 
+// Helper function for vector length
+private func length(_ vector: SIMD3<Float>) -> Float {
+    return sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z)
+}
+
 enum SecondaryStructure: String {
     case helix = "H"
     case sheet = "S" 

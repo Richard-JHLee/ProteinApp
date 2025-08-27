@@ -1,6 +1,65 @@
 import SwiftUI
 import SceneKit
 
+// MARK: - RCSB API DTOs
+struct RCSBEntityRoot: Decodable {
+    let entityPoly: EntityPoly?
+    let entitySrcGen: [EntitySrcGen]?
+    let rcsbEntitySourceOrganism: [EntitySourceOrganism]?
+    let rcsbEntityHostOrganism: [EntityHostOrganism]?
+    let rcsbPolymerEntity: RCSBPolymerEntity?
+    let rcsbGeneName: [RCSBGeneName]?
+    let rcsbPolymerEntityAnnotation: [RCSBAnnotation]?
+}
+
+struct EntityPoly: Decodable {
+    let pdbxDescription: String?
+    let pdbxFormula: String?
+    let pdbxDetails: String?
+    let type: String?
+}
+
+struct EntitySrcGen: Decodable {
+    let pdbxGeneSrcGene: String?
+    let pdbxGeneSrcScientificName: String?
+    let pdbxGeneSrcCommonName: String?
+}
+
+struct EntitySourceOrganism: Decodable {
+    let scientificName: String?
+    let commonName: String?
+    let ncbiTaxonomyId: Int?
+}
+
+struct EntityHostOrganism: Decodable {
+    let scientificName: String?
+    let commonName: String?
+    let ncbiTaxonomyId: Int?
+}
+
+struct RCSBPolymerEntity: Decodable {
+    let pdbxDescription: String?
+    let rcsbMacromolecularNamesCombined: [RCSBMacromolecularName]?
+}
+
+struct RCSBMacromolecularName: Decodable {
+    let name: String?
+    let provenanceCode: String?
+    let provenanceSource: String?
+}
+
+struct RCSBGeneName: Decodable {
+    let value: String?
+    let provenanceSource: String?
+}
+
+struct RCSBAnnotation: Decodable {
+    let annotationId: String?
+    let name: String?
+    let type: String?
+    let provenanceSource: String?
+}
+
 // MARK: - Position3D Type Definition
 struct Position3D {
     let x: Double
@@ -1056,8 +1115,23 @@ struct EnhancedProteinViewerView: View {
             if let entity = rcsbEntity {
                 enhancedAnnotations = createAnnotationsFromRCSB(entity: entity, uniprotAnnotations: annotations)
                 print("✅ Enhanced annotations with RCSB data")
+                print("🔍 Final annotations data:")
+                print("  - Function: \(enhancedAnnotations?.function ?? "Unknown")")
+                print("  - Gene: \(enhancedAnnotations?.gene ?? "Unknown")")
+                print("  - Organism: \(enhancedAnnotations?.organism ?? "Unknown")")
+                print("  - GO Terms: \(enhancedAnnotations?.goTerms.count ?? 0)")
+                print("  - Pathways: \(enhancedAnnotations?.pathways.count ?? 0)")
             } else {
                 enhancedAnnotations = annotations
+                print("ℹ️ Using UniProt annotations only")
+                if let annotations = annotations {
+                    print("🔍 UniProt annotations:")
+                    print("  - Function: \(annotations.function)")
+                    print("  - Gene: \(annotations.gene)")
+                    print("  - Organism: \(annotations.organism)")
+                    print("  - GO Terms: \(annotations.goTerms.count)")
+                    print("  - Pathways: \(annotations.pathways.count)")
+                }
             }
 
             // 7. 최종 데이터 설정
@@ -1156,7 +1230,7 @@ struct LigandModel: Identifiable {
     let id = UUID()
     let name: String
     let description: String
-    let position: SIMD3<Float>
+    var position: SIMD3<Float>
     let molecularWeight: Double // in kDa
     let charge: Double
     let type: String
@@ -1549,11 +1623,55 @@ extension EnhancedProteinViewerView {
 
     /// RCSB 데이터로 주석 정보 생성
     private func createAnnotationsFromRCSB(entity: RCSBEntityRoot, uniprotAnnotations: AnnotationData?) -> AnnotationData {
-        let function = uniprotAnnotations?.function ?? "Unknown"
-        let gene = entity.entitySrcGen?.first?.pdbxGeneSrcGene ?? uniprotAnnotations?.gene ?? "Unknown"
-        let organism = entity.rcsbEntitySourceOrganism?.first?.scientificName ?? uniprotAnnotations?.organism ?? "Unknown"
-        let goTerms = uniprotAnnotations?.goTerms ?? []
-        let pathways = uniprotAnnotations?.pathways ?? []
+        // Protein Function - RCSB에서 우선 추출
+        var function = "Unknown"
+        if let rcsbDesc = entity.rcsbPolymerEntity?.pdbxDescription, !rcsbDesc.isEmpty {
+            function = rcsbDesc
+        } else if let entityDesc = entity.entityPoly?.pdbxDescription, !entityDesc.isEmpty {
+            function = entityDesc
+        } else if let uniprotFunction = uniprotAnnotations?.function, uniprotFunction != "Unknown" {
+            function = uniprotFunction
+        }
+        
+        // Gene Information - RCSB에서 우선 추출
+        var gene = "Unknown"
+        if let rcsbGene = entity.rcsbGeneName?.first?.value, !rcsbGene.isEmpty {
+            gene = rcsbGene
+        } else if let srcGene = entity.entitySrcGen?.first?.pdbxGeneSrcGene, !srcGene.isEmpty {
+            gene = srcGene
+        } else if let uniprotGene = uniprotAnnotations?.gene, uniprotGene != "Unknown" {
+            gene = uniprotGene
+        }
+        
+        // Organism Information - RCSB에서 우선 추출
+        var organism = "Unknown"
+        if let sourceOrg = entity.rcsbEntitySourceOrganism?.first?.scientificName, !sourceOrg.isEmpty {
+            organism = sourceOrg
+        } else if let uniprotOrg = uniprotAnnotations?.organism, uniprotOrg != "Unknown" {
+            organism = uniprotOrg
+        }
+        
+        // GO Terms and Pathways - UniProt에서 가져오되, RCSB 주석도 추가
+        var goTerms = uniprotAnnotations?.goTerms ?? []
+        var pathways = uniprotAnnotations?.pathways ?? []
+        
+        // RCSB에서 GO terms 추출
+        if let annotations = entity.rcsbPolymerEntityAnnotation {
+            for annotation in annotations {
+                if annotation.type == "GO", let id = annotation.annotationId {
+                    if !goTerms.contains(id) {
+                        goTerms.append(id)
+                    }
+                }
+            }
+        }
+        
+        print("🔍 RCSB Data Summary:")
+        print("  - Function: \(function)")
+        print("  - Gene: \(gene)")
+        print("  - Organism: \(organism)")
+        print("  - GO Terms: \(goTerms.count)")
+        print("  - Pathways: \(pathways.count)")
         
         return AnnotationData(
             function: function,
@@ -1592,19 +1710,103 @@ extension EnhancedProteinViewerView {
         }
     }
 
-    private func fetchAnnotations(uniprot: String) async throws -> AnnotationData {
-        // Implement the function to fetch annotations
-        // Placeholder implementation
-        return AnnotationData(function: "Unknown", gene: "Unknown", organism: "Unknown", goTerms: [], pathways: [])
+    private func fetchAnnotationsFromUniProt(uniprotId: String) async throws -> AnnotationData {
+        guard let url = URL(string: "https://rest.uniprot.org/uniprotkb/\(uniprotId)") else { throw NetError.badURL }
+        
+        do {
+            let data = try await URLSession.shared.data(from: url).0
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("🔍 UniProt API Response: \(jsonString)")
+            }
+            
+            let uniprot = try JSONDecoder().decode(UniProtDTO.self, from: data)
+            
+            let function = uniprot.proteinDescription?.recommendedName?.fullName?.value ?? "Unknown"
+            let gene = uniprot.genes?.first?.geneName?.value ?? "Unknown"
+            let organism = uniprot.organism?.scientificName ?? "Unknown"
+            
+            // GO terms and pathways from cross-references
+            var goTerms: [String] = []
+            var pathways: [String] = []
+            
+            if let crossRefs = uniprot.uniProtKBCrossReferences {
+                for ref in crossRefs {
+                    if ref.type == "GO" {
+                        if let id = ref.id {
+                            goTerms.append(id)
+                        }
+                    } else if ref.type == "KEGG" {
+                        if let id = ref.id {
+                            pathways.append(id)
+                        }
+                    }
+                }
+            }
+            
+            print("🔍 UniProt Data Extracted:")
+            print("  - Function: \(function)")
+            print("  - Gene: \(gene)")
+            print("  - Organism: \(organism)")
+            print("  - GO Terms: \(goTerms.count)")
+            print("  - Pathways: \(pathways.count)")
+            
+            return AnnotationData(
+                function: function,
+                gene: gene,
+                organism: organism,
+                goTerms: goTerms,
+                pathways: pathways
+            )
+        } catch {
+            print("⚠️ Failed to fetch UniProt annotations: \(error.localizedDescription)")
+            throw NetError.badData
+        }
     }
 
     private func mergeLigands(meta: [LigandModel], with structure: PDBStructure) -> [LigandModel] {
-        // Implement the function to merge ligands
-        // Placeholder implementation
-        return meta
+        var mergedLigands = meta
+        
+        // PDB 구조에서 HETATM 레코드로 리간드 위치 정보 추출
+        let hetatoms = structure.atoms.filter { atom in
+            // HETATM은 보통 리간드 원자들
+            !["ATOM"].contains(atom.name) && atom.residueName != "HOH" && atom.residueName != "WAT"
+        }
+        
+        // 리간드별로 그룹핑
+        let ligandGroups = Dictionary(grouping: hetatoms) { atom in
+            "\(atom.chain)_\(atom.residueName)_\(atom.residueNumber)"
+        }
+        
+        // 메타데이터와 위치 정보 결합
+        for (key, atoms) in ligandGroups {
+            if let existingLigand = mergedLigands.first(where: { $0.name == atoms.first?.residueName }) {
+                // 기존 리간드에 위치 정보 추가
+                let center = atoms.reduce(SIMD3<Float>(0,0,0)) { $0 + $1.position } / Float(atoms.count)
+                
+                if let index = mergedLigands.firstIndex(where: { $0.name == atoms.first?.residueName }) {
+                    // SIMD3<Float> 타입으로 직접 할당
+                    mergedLigands[index].position = center
+                }
+            } else {
+                // 새로운 리간드 생성
+                let center = atoms.reduce(SIMD3<Float>(0,0,0)) { $0 + $1.position } / Float(atoms.count)
+                
+                let newLigand = LigandModel(
+                    name: atoms.first?.residueName ?? "Unknown",
+                    description: "Ligand from PDB structure",
+                    position: center,
+                    molecularWeight: 0.0, // PDB에서는 분자량 정보가 없음
+                    charge: 0.0,
+                    type: "Ligand"
+                )
+                mergedLigands.append(newLigand)
+            }
+        }
+        
+        return mergedLigands
     }
 
-    private func mapPDBtoUniProt(_ pdbId: String) async throws -> String? {
+    private func mapPDBtoUniProt(pdbId: String) async throws -> String? {
         let id = pdbId.lowercased()
         guard let url = URL(string: "https://www.ebi.ac.uk/pdbe/api/mappings/uniprot/\(id)") else { return nil }
         let data = try await Net.getJSON(url, as: [String: [String: PDBeUniProtMapRoot]].self)
