@@ -1622,6 +1622,23 @@ private struct PDBeLigand: Decodable {
     let charge: Int?
 }
 
+// 새로운 PDBe 리간드 API 구조체
+private struct PDBeLigandNew: Decodable {
+    let chainId: String?
+    let chemCompId: String?
+    let chemCompName: String?
+    let weight: Double?
+    let entityId: Int?
+    
+    enum CodingKeys: String, CodingKey {
+        case chainId = "chain_id"
+        case chemCompId = "chem_comp_id"
+        case chemCompName = "chem_comp_name"
+        case weight
+        case entityId = "entity_id"
+    }
+}
+
 private struct PDBeUniProtMapRoot: Decodable { let uniprotIds: [String]? }
 
 private struct UniProtDTO: Decodable {
@@ -1723,12 +1740,18 @@ extension EnhancedProteinViewerView {
         var goTerms = uniprotAnnotations?.goTerms ?? []
         let pathways = uniprotAnnotations?.pathways ?? []
         
-        // RCSB에서 GO terms 추출
+        // RCSB에서 GO terms와 InterPro 추출
         if let annotations = entity.rcsbPolymerEntityAnnotation {
             for annotation in annotations {
                 if annotation.type == "GO", let id = annotation.annotationId {
                     if !goTerms.contains(id) {
                         goTerms.append(id)
+                    }
+                }
+                // InterPro도 pathways에 추가 (도메인 정보)
+                if annotation.type == "InterPro", let id = annotation.annotationId {
+                    if !pathways.contains(id) {
+                        pathways.append(id)
                     }
                 }
             }
@@ -1757,18 +1780,20 @@ extension EnhancedProteinViewerView {
         do {
             let data = try await URLSession.shared.data(from: url).0
             if let jsonString = String(data: data, encoding: .utf8) {
-                print("API Response: \(jsonString)")
+                print("🔍 PDBe Ligand API Response: \(jsonString)")
             }
-            let dict = try JSONDecoder().decode([String: PDBeLigandRoot].self, from: data)
-            let rows = dict[id]?.ligandMonomers ?? []
+            
+            // 새로운 JSON 구조에 맞춰 파싱
+            let dict = try JSONDecoder().decode([String: [PDBeLigandNew]].self, from: data)
+            let rows = dict[id] ?? []
 
             return rows.map { r in
                 LigandModel(
                     name: r.chemCompId ?? "Unknown",
-                    description: r.moleculeName?.first ?? "No description",
+                    description: r.chemCompName ?? "No description",
                     position: .zero,
-                    molecularWeight: (r.formulaWeight ?? 0) / 1000,
-                    charge: Double(r.charge ?? 0),
+                    molecularWeight: (r.weight ?? 0) / 1000,
+                    charge: 0.0, // PDBe API에서는 전하 정보가 없음
                     type: "Ligand"
                 )
             }
@@ -1878,7 +1903,26 @@ extension EnhancedProteinViewerView {
     private func mapPDBtoUniProt(pdbId: String) async throws -> String? {
         let id = pdbId.lowercased()
         guard let url = URL(string: "https://www.ebi.ac.uk/pdbe/api/mappings/uniprot/\(id)") else { return nil }
-        let data = try await Net.getJSON(url, as: [String: [String: PDBeUniProtMapRoot]].self)
-        return data[id]?["UniProt"]?.uniprotIds?.first
+        
+        do {
+            let responseData = try await URLSession.shared.data(from: url).0
+            if let jsonString = String(data: responseData, encoding: .utf8) {
+                print("🔍 PDBe UniProt Mapping API Response: \(jsonString)")
+            }
+            
+            let mappingData = try JSONDecoder().decode([String: [String: PDBeUniProtMapRoot]].self, from: responseData)
+            let uniprotId = mappingData[id]?["UniProt"]?.uniprotIds?.first
+            
+            if let uniprotId = uniprotId {
+                print("✅ Found UniProt mapping: \(pdbId) → \(uniprotId)")
+            } else {
+                print("ℹ️ No UniProt mapping found for \(pdbId)")
+            }
+            
+            return uniprotId
+        } catch {
+            print("⚠️ Failed to map PDB to UniProt: \(error.localizedDescription)")
+            return nil
+        }
     }
 }
