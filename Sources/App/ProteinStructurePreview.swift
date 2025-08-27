@@ -10,15 +10,26 @@ struct ProteinStructurePreview: View {
     var body: some View {
         Group {
             if isLoading {
-                // 로딩 중일 때는 기본 아이콘 표시
-                Image(systemName: "cube.box")
-                    .font(.title2)
-                    .foregroundColor(.secondary)
+                // 로딩 중일 때는 진행 상황 표시
+                VStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    
+                    Text("Loading...")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
             } else if error != nil {
-                // 에러 시 기본 아이콘 표시
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.title2)
-                    .foregroundColor(.red)
+                // 에러 시 에러 정보 표시
+                VStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                    
+                    Text("Error")
+                        .font(.caption2)
+                        .foregroundColor(.red)
+                }
             } else if let structure = structure {
                 // 3D 구조를 2D 이미지로 렌더링
                 ProteinStructureImage(structure: structure)
@@ -125,18 +136,40 @@ struct ProteinStructureImage: UIViewRepresentable {
             default: chainColor = .systemGray
             }
             
-            // 원자들을 구체로 표현
-            for atom in atoms {
-                let sphere = SCNSphere(radius: 0.3)
-                let material = SCNMaterial()
-                material.diffuse.contents = chainColor
-                material.specular.contents = UIColor.white
-                material.shininess = 0.5
-                sphere.materials = [material]
-                
-                let atomNode = SCNNode(geometry: sphere)
-                atomNode.position = SCNVector3(atom.position)
-                chainNode.addChildNode(atomNode)
+            // 원자들을 구체로 표현 (성능 최적화)
+            let atomCount = atoms.count
+            let maxAtoms = 1000 // 성능을 위해 최대 원자 수 제한
+            
+            if atomCount > maxAtoms {
+                // 원자 수가 많을 때는 샘플링하여 표시
+                let step = atomCount / maxAtoms
+                for i in stride(from: 0, to: atomCount, by: step) {
+                    let atom = atoms[i]
+                    let sphere = SCNSphere(radius: 0.4)
+                    let material = SCNMaterial()
+                    material.diffuse.contents = chainColor
+                    material.specular.contents = UIColor.white
+                    material.shininess = 0.5
+                    sphere.materials = [material]
+                    
+                    let atomNode = SCNNode(geometry: sphere)
+                    atomNode.position = SCNVector3(atom.position)
+                    chainNode.addChildNode(atomNode)
+                }
+            } else {
+                // 원자 수가 적을 때는 모든 원자 표시
+                for atom in atoms {
+                    let sphere = SCNSphere(radius: 0.3)
+                    let material = SCNMaterial()
+                    material.diffuse.contents = chainColor
+                    material.specular.contents = UIColor.white
+                    material.shininess = 0.5
+                    sphere.materials = [material]
+                    
+                    let atomNode = SCNNode(geometry: sphere)
+                    atomNode.position = SCNVector3(atom.position)
+                    chainNode.addChildNode(atomNode)
+                }
             }
             
             proteinNode.addChildNode(chainNode)
@@ -147,18 +180,19 @@ struct ProteinStructureImage: UIViewRepresentable {
     
     private func createCamera() -> SCNNode {
         let camera = SCNCamera()
-        camera.fieldOfView = 60
+        camera.fieldOfView = 45 // 더 좁은 시야각으로 집중
         
         let cameraNode = SCNNode()
         cameraNode.camera = camera
-        cameraNode.position = SCNVector3(x: 0, y: 0, z: 15)
         
         // 단백질을 중앙에 보도록 조정
         let bounds = structure.atoms.map { $0.position }
         let center = bounds.reduce(SIMD3<Float>(0,0,0)) { $0 + $1 } / Float(bounds.count)
         let maxDistance = bounds.map { length($0 - center) }.max() ?? 10
         
-        cameraNode.position = SCNVector3(x: 0, y: 0, z: maxDistance * 2)
+        // 카메라를 단백질 주변에 배치하여 전체 구조를 볼 수 있도록
+        let cameraDistance = maxDistance * 2.5
+        cameraNode.position = SCNVector3(x: cameraDistance * 0.7, y: cameraDistance * 0.5, z: cameraDistance)
         cameraNode.look(at: SCNVector3(center))
         
         return cameraNode
