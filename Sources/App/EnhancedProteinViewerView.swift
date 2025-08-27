@@ -125,6 +125,7 @@ struct EnhancedProteinViewerView: View {
     
     @State private var structure: PDBStructure?
     @State private var isLoading = false
+    @State private var loadingProgress = ""
     @State private var error: String?
     
     // Viewer States
@@ -205,10 +206,18 @@ struct EnhancedProteinViewerView: View {
                                     .font(.headline)
                                     .foregroundColor(.white)
                                 
-                                Text("Fetching data from RCSB, PDBe, and UniProt")
-                                    .font(.caption)
-                                    .foregroundColor(.white.opacity(0.8))
-                                    .multilineTextAlignment(.center)
+                                if !loadingProgress.isEmpty {
+                                    Text(loadingProgress)
+                                        .font(.subheadline)
+                                        .foregroundColor(.white.opacity(0.9))
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal)
+                                } else {
+                                    Text("Fetching data from RCSB, PDBe, and UniProt")
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.8))
+                                        .multilineTextAlignment(.center)
+                                }
                             }
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1086,6 +1095,7 @@ struct EnhancedProteinViewerView: View {
     fileprivate func loadStructure() async {
         await MainActor.run { 
             isLoading = true 
+            loadingProgress = "Initializing..."
             error = nil 
             // 기존 데이터 초기화
             structure = nil
@@ -1096,6 +1106,7 @@ struct EnhancedProteinViewerView: View {
 
         do {
             // 1. RCSB에서 PDB 구조 로드
+            await MainActor.run { loadingProgress = "Loading 3D structure from RCSB..." }
             let structure: PDBStructure
             do {
                 structure = try await loadStructureFromRCSB(pdbId: protein.id)
@@ -1104,11 +1115,13 @@ struct EnhancedProteinViewerView: View {
                 await MainActor.run {
                     self.error = "Failed to load protein structure from RCSB: \(error.localizedDescription)"
                     self.isLoading = false
+                    self.loadingProgress = ""
                 }
                 return
             }
             
             // 2. RCSB에서 엔티티 정보 로드 (리간드, 주석 등)
+            await MainActor.run { loadingProgress = "Fetching protein annotations from RCSB..." }
             let rcsbEntity: RCSBEntityRoot?
             do {
                 rcsbEntity = try await fetchEntityInfoFromRCSB(pdbId: protein.id)
@@ -1124,6 +1137,7 @@ struct EnhancedProteinViewerView: View {
             }
             
             // 3. PDBe에서 리간드 메타데이터 로드
+            await MainActor.run { loadingProgress = "Loading ligand information from PDBe..." }
             let ligMeta: [LigandModel]
             do {
                 ligMeta = try await fetchLigandsMetaFromPDBe(pdbId: protein.id)
@@ -1134,6 +1148,7 @@ struct EnhancedProteinViewerView: View {
             }
             
             // 4. PDB to UniProt 매핑
+            await MainActor.run { loadingProgress = "Mapping PDB to UniProt database..." }
             let uni: String?
             do {
                 uni = try await mapPDBtoUniProt(pdbId: protein.id)
@@ -1148,8 +1163,8 @@ struct EnhancedProteinViewerView: View {
             }
             
             // 5. UniProt에서 주석 데이터 로드
-            let annotations: AnnotationData?
             if let uni = uni {
+                await MainActor.run { loadingProgress = "Fetching protein annotations from UniProt..." }
                 do {
                     annotations = try await fetchAnnotationsFromUniProt(uniprotId: uni)
                     print("✅ Successfully loaded annotations from UniProt")
@@ -1163,6 +1178,7 @@ struct EnhancedProteinViewerView: View {
             }
 
             // 6. RCSB 데이터로 주석 정보 보강
+            await MainActor.run { loadingProgress = "Processing and combining annotation data..." }
             let enhancedAnnotations: AnnotationData?
             if let entity = rcsbEntity {
                 enhancedAnnotations = createAnnotationsFromRCSB(entity: entity, uniprotAnnotations: annotations)
@@ -1193,6 +1209,7 @@ struct EnhancedProteinViewerView: View {
                 self.annotationsData = enhancedAnnotations
                 self.pocketsData = generatePocketsFromStructure(structure)
                 self.isLoading = false
+                self.loadingProgress = ""
                 
                 // 로그 추가
                 if let annotations = enhancedAnnotations {
