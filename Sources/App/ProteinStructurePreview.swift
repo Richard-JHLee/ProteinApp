@@ -96,9 +96,12 @@ struct ProteinStructurePreview: View {
         print("🎨 Starting offscreen rendering...")
         
         // 백그라운드 스레드에서 렌더링
-        let image = await Task.detached(priority: .userInitiated) {
-            return createProteinImage(structure: structure)
-        }.value
+        let image = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let result = createProteinImage(structure: structure)
+                continuation.resume(returning: result)
+            }
+        }
         
         await MainActor.run {
             self.renderedImage = image
