@@ -10,6 +10,16 @@ struct RCSBEntityRoot: Decodable {
     let rcsbPolymerEntity: RCSBPolymerEntity?
     let rcsbGeneName: [RCSBGeneName]?
     let rcsbPolymerEntityAnnotation: [RCSBAnnotation]?
+    
+    enum CodingKeys: String, CodingKey {
+        case entityPoly = "entity_poly"
+        case entitySrcGen = "entity_src_gen"
+        case rcsbEntitySourceOrganism = "rcsb_entity_source_organism"
+        case rcsbEntityHostOrganism = "rcsb_entity_host_organism"
+        case rcsbPolymerEntity = "rcsb_polymer_entity"
+        case rcsbGeneName = "rcsb_gene_name"
+        case rcsbPolymerEntityAnnotation = "rcsb_polymer_entity_annotation"
+    }
 }
 
 struct EntityPoly: Decodable {
@@ -17,12 +27,25 @@ struct EntityPoly: Decodable {
     let pdbxFormula: String?
     let pdbxDetails: String?
     let type: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case pdbxDescription = "pdbx_description"
+        case pdbxFormula = "pdbx_formula"
+        case pdbxDetails = "pdbx_details"
+        case type
+    }
 }
 
 struct EntitySrcGen: Decodable {
     let pdbxGeneSrcGene: String?
     let pdbxGeneSrcScientificName: String?
     let pdbxGeneSrcCommonName: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case pdbxGeneSrcGene = "pdbx_gene_src_gene"
+        case pdbxGeneSrcScientificName = "pdbx_gene_src_scientific_name"
+        case pdbxGeneSrcCommonName = "pdbx_gene_src_common_name"
+    }
 }
 
 struct EntitySourceOrganism: Decodable {
@@ -40,17 +63,33 @@ struct EntityHostOrganism: Decodable {
 struct RCSBPolymerEntity: Decodable {
     let pdbxDescription: String?
     let rcsbMacromolecularNamesCombined: [RCSBMacromolecularName]?
+    
+    enum CodingKeys: String, CodingKey {
+        case pdbxDescription = "pdbx_description"
+        case rcsbMacromolecularNamesCombined = "rcsb_macromolecular_names_combined"
+    }
 }
 
 struct RCSBMacromolecularName: Decodable {
     let name: String?
     let provenanceCode: String?
     let provenanceSource: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case name
+        case provenanceCode = "provenance_code"
+        case provenanceSource = "provenance_source"
+    }
 }
 
 struct RCSBGeneName: Decodable {
     let value: String?
     let provenanceSource: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case value
+        case provenanceSource = "provenance_source"
+    }
 }
 
 struct RCSBAnnotation: Decodable {
@@ -58,6 +97,13 @@ struct RCSBAnnotation: Decodable {
     let name: String?
     let type: String?
     let provenanceSource: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case annotationId = "annotation_id"
+        case name
+        case type
+        case provenanceSource = "provenance_source"
+    }
 }
 
 // MARK: - Position3D Type Definition
@@ -1623,37 +1669,53 @@ extension EnhancedProteinViewerView {
 
     /// RCSB 데이터로 주석 정보 생성
     private func createAnnotationsFromRCSB(entity: RCSBEntityRoot, uniprotAnnotations: AnnotationData?) -> AnnotationData {
+        print("🔍 RCSB Entity Debug Info:")
+        print("  - entityPoly: \(entity.entityPoly != nil)")
+        print("  - entitySrcGen: \(entity.entitySrcGen?.count ?? 0)")
+        print("  - rcsbEntitySourceOrganism: \(entity.rcsbEntitySourceOrganism?.count ?? 0)")
+        print("  - rcsbPolymerEntity: \(entity.rcsbPolymerEntity != nil)")
+        print("  - rcsbGeneName: \(entity.rcsbGeneName?.count ?? 0)")
+        print("  - rcsbPolymerEntityAnnotation: \(entity.rcsbPolymerEntityAnnotation?.count ?? 0)")
+        
         // Protein Function - RCSB에서 우선 추출
         var function = "Unknown"
         if let rcsbDesc = entity.rcsbPolymerEntity?.pdbxDescription, !rcsbDesc.isEmpty {
             function = rcsbDesc
+            print("✅ Found RCSB function: \(rcsbDesc)")
         } else if let entityDesc = entity.entityPoly?.pdbxDescription, !entityDesc.isEmpty {
             function = entityDesc
+            print("✅ Found entity function: \(entityDesc)")
         } else if let uniprotFunction = uniprotAnnotations?.function, uniprotFunction != "Unknown" {
             function = uniprotFunction
+            print("✅ Using UniProt function: \(uniprotFunction)")
         }
         
         // Gene Information - RCSB에서 우선 추출
         var gene = "Unknown"
         if let rcsbGene = entity.rcsbGeneName?.first?.value, !rcsbGene.isEmpty {
             gene = rcsbGene
+            print("✅ Found RCSB gene: \(rcsbGene)")
         } else if let srcGene = entity.entitySrcGen?.first?.pdbxGeneSrcGene, !srcGene.isEmpty {
             gene = srcGene
+            print("✅ Found entity gene: \(srcGene)")
         } else if let uniprotGene = uniprotAnnotations?.gene, uniprotGene != "Unknown" {
             gene = uniprotGene
+            print("✅ Using UniProt gene: \(uniprotGene)")
         }
         
         // Organism Information - RCSB에서 우선 추출
         var organism = "Unknown"
         if let sourceOrg = entity.rcsbEntitySourceOrganism?.first?.scientificName, !sourceOrg.isEmpty {
             organism = sourceOrg
+            print("✅ Found RCSB organism: \(sourceOrg)")
         } else if let uniprotOrg = uniprotAnnotations?.organism, uniprotOrg != "Unknown" {
             organism = uniprotOrg
+            print("✅ Using UniProt organism: \(uniprotOrg)")
         }
         
         // GO Terms and Pathways - UniProt에서 가져오되, RCSB 주석도 추가
         var goTerms = uniprotAnnotations?.goTerms ?? []
-        var pathways = uniprotAnnotations?.pathways ?? []
+        let pathways = uniprotAnnotations?.pathways ?? []
         
         // RCSB에서 GO terms 추출
         if let annotations = entity.rcsbPolymerEntityAnnotation {
@@ -1778,8 +1840,9 @@ extension EnhancedProteinViewerView {
         }
         
         // 메타데이터와 위치 정보 결합
-        for (key, atoms) in ligandGroups {
-            if let existingLigand = mergedLigands.first(where: { $0.name == atoms.first?.residueName }) {
+        for (_, atoms) in ligandGroups {
+            if mergedLigands
+                .first(where: { $0.name == atoms.first?.residueName }) != nil {
                 // 기존 리간드에 위치 정보 추가
                 let center = atoms.reduce(SIMD3<Float>(0,0,0)) { $0 + $1.position } / Float(atoms.count)
                 
