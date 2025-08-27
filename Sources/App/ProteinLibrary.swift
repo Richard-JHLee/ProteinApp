@@ -257,16 +257,16 @@ struct ProteinInfo: Identifiable, Hashable {
         let specialIcon: String
         switch middleChar {
         case "A", "1": specialIcon = "atom"              // 원자 수준
-        case "B", "2": specialIcon = "dna"               // DNA 결합
+        case "B", "2": specialIcon = "helix"             // DNA 결합
         case "C", "3": specialIcon = "leaf"              // 식물성
-        case "D", "4": specialIcon = "brain"             // 신경계
-        case "E", "5": specialIcon = "heart"             // 심혈관계
-        case "F", "6": specialIcon = "lungs"             // 호흡계
-        case "G", "7": specialIcon = "eye"               // 시각계
-        case "H", "8": specialIcon = "ear"               // 청각계
-        case "I", "9": specialIcon = "hand.raised"       // 수동적
-        case "J", "0": specialIcon = "bolt"              // 활성적
-        default: specialIcon = "molecule"
+        case "D", "4": specialIcon = "brain.head.profile" // 신경계
+        case "E", "5": specialIcon = "heart.fill"        // 심혈관계
+        case "F", "6": specialIcon = "lungs.fill"        // 호흡계
+        case "G", "7": specialIcon = "eye.fill"          // 시각계
+        case "H", "8": specialIcon = "ear.fill"          // 청각계
+        case "I", "9": specialIcon = "hand.raised.fill"  // 수동적
+        case "J", "0": specialIcon = "bolt.fill"         // 활성적
+        default: specialIcon = "atom"
         }
         
         // PDB ID 길이에 따라 아이콘 선택

@@ -62,7 +62,7 @@ struct MainInfoSectionView: View {
                     LinkRow(
                         title: "View on UniProt",
                         subtitle: "Protein sequence & function",
-                        systemImage: "database",
+                        systemImage: "externaldrive.fill",
                         tint: .green
                     ) {
                         // TODO: UniProt 링크
