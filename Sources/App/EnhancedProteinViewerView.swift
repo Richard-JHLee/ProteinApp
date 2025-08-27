@@ -257,37 +257,70 @@ struct EnhancedProteinViewerView: View {
                     .opacity(structure != nil ? 1.0 : 0.0)
                     .animation(.easeInOut(duration: 0.3), value: structure != nil)
                 
-                // Data Status Indicator
+                // Data Status Indicator - 현재 선택된 탭에 따라 동적 표시
                 if let structure = structure {
                     HStack(spacing: 8) {
                         Circle()
                             .fill(.green)
                             .frame(width: 8, height: 8)
                         
-                        Text("Structure loaded: \(structure.atoms.count) atoms, \(structure.bonds.count) bonds")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        // 탭별 맞춤 정보 표시
+                        switch selectedTab {
+                        case .chains:
+                            Text("Structure loaded: \(structure.atoms.count) atoms, \(structure.bonds.count) bonds")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        case .residues:
+                            let residueCount = Set(structure.atoms.map { $0.residue }).count
+                            Text("Residues: \(residueCount) unique amino acids")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        case .ligands:
+                            Text("Ligands: \(ligandsData.count) molecules")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        case .pockets:
+                            Text("Pockets: \(pocketsData.count) binding sites")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        case .annotations:
+                            if let annotations = annotationsData {
+                                Text("Annotations: \(annotations.goTerms.count) GO terms, \(annotations.pathways.count) pathways")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text("Annotations: No data available")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
                         
                         Spacer()
                         
-                        if !ligandsData.isEmpty {
-                            HStack(spacing: 4) {
-                                Image(systemName: "pills")
-                                    .font(.caption)
-                                Text("\(ligandsData.count) ligands")
-                                    .font(.caption)
+                        // 현재 탭과 관련된 추가 정보만 표시
+                        switch selectedTab {
+                        case .ligands:
+                            if !ligandsData.isEmpty {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "pills")
+                                        .font(.caption)
+                                    Text("\(ligandsData.count) ligands")
+                                        .font(.caption)
+                                }
+                                .foregroundColor(.purple)
                             }
-                            .foregroundColor(.purple)
-                        }
-                        
-                        if annotationsData != nil {
-                            HStack(spacing: 4) {
-                                Image(systemName: "book")
+                        case .annotations:
+                            if annotationsData != nil {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "book")
+                                        .font(.caption)
+                                    Text("Annotations")
                                     .font(.caption)
-                                Text("Annotations")
-                                    .font(.caption)
+                                }
+                                .foregroundColor(.blue)
                             }
-                            .foregroundColor(.blue)
+                        default:
+                            EmptyView()
                         }
                     }
                     .padding(.horizontal, 16)
