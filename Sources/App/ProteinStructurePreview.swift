@@ -54,7 +54,7 @@ struct ProteinStructurePreview: View {
                 .cornerRadius(8)
             } else {
                 // 데이터 없을 때 기본 아이콘 표시
-                Image(systemName: "cube.box")
+                Image(systemName: "cube.box.fill")
                     .font(.title2)
                     .foregroundColor(.secondary)
             }
@@ -68,6 +68,12 @@ struct ProteinStructurePreview: View {
         Task {
             do {
                 print("🔄 Loading structure for \(proteinId)...")
+                
+                // PDB ID 유효성 검사
+                guard isValidPDBId(proteinId) else {
+                    throw NSError(domain: "PDBError", code: 4, userInfo: [NSLocalizedDescriptionKey: "Invalid PDB ID: \(proteinId)"])
+                }
+                
                 let loadedStructure = try await loadStructureFromRCSB(pdbId: proteinId)
                 print("✅ Successfully loaded structure for \(proteinId): \(loadedStructure.atoms.count) atoms")
                 
@@ -95,7 +101,7 @@ struct ProteinStructurePreview: View {
     private func renderProteinImage(structure: PDBStructure) async {
         print("🎨 Starting offscreen rendering...")
         
-        // 백그라운드 스레드에서 렌더링
+        // 백그라운드 스레드에서 렌더링 (타임아웃 설정)
         let image = await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 let result = createProteinImage(structure: structure)
@@ -160,20 +166,20 @@ struct ProteinStructurePreview: View {
             // 체인별 색상 설정
             let chainColor = chainColor(for: chainId)
             
-            // 성능 최적화: 원자 수 제한
+            // 성능 최적화: 원자 수 제한 (더 적극적으로)
             let atomCount = atoms.count
-            let maxAtoms = min(500, atomCount)
+            let maxAtoms = min(300, atomCount) // 500 → 300으로 감소
             let step = max(1, atomCount / maxAtoms)
             
-            for i in stride(from: 0, to: atomCount, by: step) {
-                if chainNode.childNodes.count >= maxAtoms { break }
-                
-                let atom = atoms[i]
-                let sphere = SCNSphere(radius: 0.4)
+            // 원자 샘플링을 더 효율적으로
+            let sampledAtoms = stride(from: 0, to: atomCount, by: step).prefix(maxAtoms).map { atoms[$0] }
+            
+            for atom in sampledAtoms {
+                let sphere = SCNSphere(radius: 0.3) // 0.4 → 0.3으로 감소
                 let material = SCNMaterial()
                 material.diffuse.contents = chainColor
                 material.specular.contents = UIColor.white
-                material.shininess = 0.3
+                material.shininess = 0.2 // 0.3 → 0.2로 감소
                 sphere.materials = [material]
                 
                 let atomNode = SCNNode(geometry: sphere)
@@ -182,7 +188,7 @@ struct ProteinStructurePreview: View {
             }
             
             proteinNode.addChildNode(chainNode)
-            print("🔧 Chain \(chainId): \(atomCount) atoms → \(chainNode.childNodes.count) rendered")
+            print("🔧 Chain \(chainId): \(atomCount) atoms → \(sampledAtoms.count) rendered")
         }
         
         return proteinNode
@@ -245,6 +251,15 @@ struct ProteinStructurePreview: View {
 }
 
 // MARK: - Helper Functions
+
+private func isValidPDBId(_ pdbId: String) -> Bool {
+    // PDB ID 형식 검사: 4자리 영문자+숫자 조합
+    let pattern = "^[0-9][A-Z0-9]{3}$"
+    let regex = try! NSRegularExpression(pattern: pattern)
+    let range = NSRange(location: 0, length: pdbId.utf16.count)
+    return regex.firstMatch(in: pdbId, options: [], range: range) != nil
+}
+
 private func loadStructureFromRCSB(pdbId: String) async throws -> PDBStructure {
     let url = URL(string: "https://files.rcsb.org/download/\(pdbId.uppercased()).pdb")!
     
@@ -256,8 +271,10 @@ private func loadStructureFromRCSB(pdbId: String) async throws -> PDBStructure {
         // HTTP 응답 상태 확인
         if let httpResponse = response as? HTTPURLResponse {
             print("📡 HTTP Status: \(httpResponse.statusCode)")
-            if httpResponse.statusCode != 200 {
-                throw NSError(domain: "PDBError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode): Failed to download PDB file"])
+            if httpResponse.statusCode == 404 {
+                throw NSError(domain: "PDBError", code: 404, userInfo: [NSLocalizedDescriptionKey: "PDB ID '\(pdbId)' not found. Please check if the ID is correct."])
+            } else if httpResponse.statusCode != 200 {
+                throw NSError(domain: "PDBError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode): Failed to download PDB file for '\(pdbId)'"])
             }
         }
         
