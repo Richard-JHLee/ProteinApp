@@ -271,7 +271,7 @@ struct EnhancedProteinViewerView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         case .residues:
-                            let residueCount = Set(structure.atoms.map { $0.residue }).count
+                            let residueCount = Set(structure.atoms.map { "\($0.residueName)\($0.residueNumber)" }).count
                             Text("Residues: \(residueCount) unique amino acids")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
