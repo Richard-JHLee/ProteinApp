@@ -1163,6 +1163,7 @@ struct EnhancedProteinViewerView: View {
             }
             
             // 5. UniProt에서 주석 데이터 로드
+            var annotations: AnnotationData?
             if let uni = uni {
                 await MainActor.run { loadingProgress = "Fetching protein annotations from UniProt..." }
                 do {
