@@ -4131,10 +4131,16 @@ struct ProteinRowCard: View {
                         )
                         .frame(width: 60, height: 60)
                     
-                    // 3D Protein Structure Preview
-                    ProteinStructurePreview(proteinId: protein.id)
-                        .frame(width: 60, height: 60)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    // 3D Protein Structure Preview (임시 비활성화)
+                    // ProteinStructurePreview(proteinId: protein.id)
+                    //     .frame(width: 60, height: 60)
+                    //     .clipShape(RoundedRectangle(cornerRadius: 8))
+                    
+                    // 임시로 기본 아이콘 사용
+                    Image(systemName: protein.dynamicIcon)
+                        .font(.title2)
+                        .foregroundColor(protein.dynamicColor)
+                        .scaleEffect(1.2)
                 }
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)

@@ -37,15 +37,22 @@ struct ProteinStructurePreview: View {
     private func loadStructure() {
         Task {
             do {
+                print("🔄 Loading structure for \(proteinId)...")
                 let loadedStructure = try await loadStructureFromRCSB(pdbId: proteinId)
+                print("✅ Successfully loaded structure for \(proteinId): \(loadedStructure.atoms.count) atoms")
+                
                 await MainActor.run {
                     self.structure = loadedStructure
                     self.isLoading = false
+                    self.error = nil
                 }
             } catch {
+                print("❌ Failed to load structure for \(proteinId): \(error.localizedDescription)")
+                
                 await MainActor.run {
                     self.error = error.localizedDescription
                     self.isLoading = false
+                    self.structure = nil
                 }
             }
         }
@@ -161,13 +168,40 @@ struct ProteinStructureImage: UIViewRepresentable {
 // MARK: - Helper Functions
 private func loadStructureFromRCSB(pdbId: String) async throws -> PDBStructure {
     let url = URL(string: "https://files.rcsb.org/download/\(pdbId.uppercased()).pdb")!
-    let data = try await URLSession.shared.data(from: url).0
     
-    guard let pdbString = String(data: data, encoding: .utf8) else {
-        throw NSError(domain: "PDBError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to decode PDB data"])
+    print("🌐 Fetching PDB file from: \(url)")
+    
+    do {
+        let (data, response) = try await URLSession.shared.data(from: url)
+        
+        // HTTP 응답 상태 확인
+        if let httpResponse = response as? HTTPURLResponse {
+            print("📡 HTTP Status: \(httpResponse.statusCode)")
+            if httpResponse.statusCode != 200 {
+                throw NSError(domain: "PDBError", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode): Failed to download PDB file"])
+            }
+        }
+        
+        print("📦 Downloaded \(data.count) bytes")
+        
+        guard let pdbString = String(data: data, encoding: .utf8) else {
+            throw NSError(domain: "PDBError", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to decode PDB data as UTF-8"])
+        }
+        
+        print("📝 PDB content length: \(pdbString.count) characters")
+        
+        let structure = PDBParser.parse(pdbText: pdbString)
+        print("🔬 Parsed structure: \(structure.atoms.count) atoms, \(structure.bonds.count) bonds")
+        
+        return structure
+        
+    } catch let urlError as URLError {
+        print("🌐 Network error: \(urlError.localizedDescription)")
+        throw NSError(domain: "PDBError", code: 3, userInfo: [NSLocalizedDescriptionKey: "Network error: \(urlError.localizedDescription)"])
+    } catch {
+        print("❌ Unexpected error: \(error.localizedDescription)")
+        throw error
     }
-    
-            return PDBParser.parse(pdbText: pdbString)
 }
 
 private func length(_ vector: SIMD3<Float>) -> Float {

@@ -252,10 +252,38 @@ struct EnhancedProteinViewerView: View {
                     }
                 }
                 
-                // Enhanced Bottom Panel (Tab 형식)
-                enhancedBottomPanel
-                    .opacity(structure != nil ? 1.0 : 0.0)
-                    .animation(.easeInOut(duration: 0.3), value: structure != nil)
+                // Enhanced Bottom Panel (Tab 형식) - 로딩 중에도 표시
+                if isLoading {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        
+                        Text("Loading protein structure...")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        if !loadingProgress.isEmpty {
+                            Text(loadingProgress)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                        
+                        Button("Retry") {
+                            Task { await loadStructure() }
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: 280)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(12)
+                    .padding(.horizontal, 16)
+                } else {
+                    enhancedBottomPanel
+                        .opacity(structure != nil ? 1.0 : 0.0)
+                        .animation(.easeInOut(duration: 0.3), value: structure != nil)
+                }
                 
                 // Data Status Indicator - 현재 선택된 탭에 따라 동적 표시
                 if let structure = structure {
