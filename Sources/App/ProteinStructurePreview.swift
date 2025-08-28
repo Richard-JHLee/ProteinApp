@@ -470,8 +470,11 @@ struct ProteinStructurePreview: View {
                 let normalizedDirection = SCNVector3(direction.x / length, direction.y / length, direction.z / length)
                 let rotation = calculateRotation(from: SCNVector3(0, 1, 0), to: normalizedDirection)
                 
+                // 실린더를 SCNNode로 감싸서 변환 적용
+                let cylinderNode = SCNNode(geometry: cylinder)
+                
                 // 실린더를 올바른 방향으로 회전
-                cylinder.transform = SCNMatrix4MakeRotation(rotation.w, rotation.x, rotation.y, rotation.z)
+                cylinderNode.transform = SCNMatrix4MakeRotation(rotation.w, rotation.x, rotation.y, rotation.z)
                 
                 // 중점 위치로 이동
                 let midPoint = SCNVector3(
@@ -479,9 +482,11 @@ struct ProteinStructurePreview: View {
                     (start.y + end.y) / 2,
                     (start.z + end.z) / 2
                 )
-                cylinder.transform = SCNMatrix4Mult(cylinder.transform, SCNMatrix4MakeTranslation(midPoint.x, midPoint.y, midPoint.z))
+                cylinderNode.transform = SCNMatrix4Mult(cylinderNode.transform, SCNMatrix4MakeTranslation(midPoint.x, midPoint.y, midPoint.z))
                 
-                geometries.append(cylinder)
+                // 변환된 노드를 지오메트리로 변환
+                let transformedGeometry = cylinderNode.geometry
+                geometries.append(transformedGeometry)
             }
         }
         
