@@ -26,6 +26,45 @@ struct ProteinStructurePreview: View {
         }
     }
     
+    // 렌더링 품질 설정
+    struct RenderQuality {
+        let maxAtoms: Int
+        let imageSize: CGSize
+        let antialiasingMode: SCNAntialiasingMode
+        let sphereRadius: CGFloat
+        let segmentCount: Int
+        
+        static func low(for atomCount: Int) -> RenderQuality {
+            RenderQuality(
+                maxAtoms: min(100, atomCount),
+                imageSize: CGSize(width: 120, height: 120),
+                antialiasingMode: .none,
+                sphereRadius: 0.5,
+                segmentCount: 8
+            )
+        }
+        
+        static func medium(for atomCount: Int) -> RenderQuality {
+            RenderQuality(
+                maxAtoms: min(300, atomCount),
+                imageSize: CGSize(width: 180, height: 180),
+                antialiasingMode: .multisampling2X,
+                sphereRadius: 0.4,
+                segmentCount: 12
+            )
+        }
+        
+        static func high(for atomCount: Int) -> RenderQuality {
+            RenderQuality(
+                maxAtoms: min(500, atomCount),
+                imageSize: CGSize(width: 240, height: 240),
+                antialiasingMode: .multisampling4X,
+                sphereRadius: 0.3,
+                segmentCount: 16
+            )
+        }
+    }
+    
     var body: some View {
         Group {
             if isLoading {
@@ -117,16 +156,29 @@ struct ProteinStructurePreview: View {
     // MARK: - 2-5단계: 체계적 렌더링 시스템
     private func renderProteinImage(structure: PDBStructure) async {
         print("🎨 Starting systematic rendering for \(proteinId)...")
+        print("🔧 Structure size: \(structure.atoms.count) atoms, \(structure.bonds.count) bonds")
+        
+        // 타임아웃 설정 (30초)
+        let timeoutTask = Task {
+            try await Task.sleep(nanoseconds: 30_000_000_000) // 30초
+            print("⏰ Rendering timeout for \(proteinId)")
+            return UIImage()
+        }
         
         // 백그라운드에서 렌더링
         let image = await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .utility).async {
                 autoreleasepool {
+                    print("🎨 Rendering in background thread...")
                     let result = createSystematicProteinImage(structure: structure)
+                    print("✅ Background rendering completed")
                     continuation.resume(returning: result)
                 }
             }
         }
+        
+        // 타임아웃 태스크 취소
+        timeoutTask.cancel()
         
         await MainActor.run {
             self.renderedImage = image
@@ -138,11 +190,15 @@ struct ProteinStructurePreview: View {
     private func createSystematicProteinImage(structure: PDBStructure) -> UIImage {
         print("🎨 Starting systematic image creation...")
         
+        // 구조 크기에 따른 렌더링 품질 조정
+        let renderQuality = determineRenderQuality(for: structure.atoms.count)
+        print("🔧 Render quality: \(renderQuality)")
+        
         // 1. SceneKit 씬 생성
         let scene = SCNScene()
         
-        // 2. 체인/2차 구조별로 분할된 노드 생성
-        let proteinNode = createStructuredProteinNode(structure: structure)
+        // 2. 체인/2차 구조별로 분할된 노드 생성 (점진적 렌더링)
+        let proteinNode = createStructuredProteinNode(structure: structure, quality: renderQuality)
         scene.rootNode.addChildNode(proteinNode)
         
         // 3. 조명 및 카메라 설정
@@ -155,16 +211,17 @@ struct ProteinStructurePreview: View {
         renderer.scene = scene
         renderer.pointOfView = cameraNode
         
-        // 5. 고품질 이미지 생성
-        let size = CGSize(width: 240, height: 240) // 4x for high quality
-        let image = renderer.snapshot(atTime: 0, with: size, antialiasingMode: .multisampling4X)
+        // 5. 고품질 이미지 생성 (품질에 따라 조정)
+        let size = renderQuality.imageSize
+        let antialiasing = renderQuality.antialiasingMode
+        let image = renderer.snapshot(atTime: 0, with: size, antialiasingMode: antialiasing)
         
-        print("✅ Systematic image creation completed")
+        print("✅ Systematic image creation completed with quality: \(renderQuality)")
         return image
     }
     
     // MARK: - 2단계: 체인/2차 구조별 분할된 노드 생성
-    private func createStructuredProteinNode(structure: PDBStructure) -> SCNNode {
+    private func createStructuredProteinNode(structure: PDBStructure, quality: RenderQuality) -> SCNNode {
         let proteinNode = SCNNode()
         
         // 1. 체인별로 그룹핑
@@ -183,7 +240,8 @@ struct ProteinStructurePreview: View {
                 let ssNode = createSecondaryStructureNode(
                     atoms: ssAtoms,
                     structureType: ssType,
-                    chainId: chainId
+                    chainId: chainId,
+                    quality: quality
                 )
                 chainNode.addChildNode(ssNode)
             }
@@ -194,36 +252,33 @@ struct ProteinStructurePreview: View {
         return proteinNode
     }
     
-    // MARK: - 2차 구조별 노드 생성 (All-atom + Ribbon)
+    // MARK: - 2차 구조별 노드 생성 (All-atom만 사용)
     private func createSecondaryStructureNode(
         atoms: [Atom],
         structureType: SecondaryStructure,
-        chainId: String
+        chainId: String,
+        quality: RenderQuality
     ) -> SCNNode {
         let ssNode = SCNNode()
         ssNode.name = "\(chainId)_\(structureType)"
         
-        // 1. All-atom 표현: 구체 인스턴싱
-        let atomNode = createAllAtomRepresentation(atoms: atoms, structureType: structureType)
+        // All-atom 표현만 사용 (리본 제거로 성능 향상)
+        let atomNode = createAllAtomRepresentation(atoms: atoms, structureType: structureType, quality: quality)
         ssNode.addChildNode(atomNode)
-        
-        // 2. 2차 구조 리본: Cα 스플라인 → 리본 메쉬
-        let ribbonNode = createRibbonRepresentation(atoms: atoms, structureType: structureType)
-        ssNode.addChildNode(ribbonNode)
         
         return ssNode
     }
     
     // MARK: - All-atom 표현: 구체 인스턴싱
-    private func createAllAtomRepresentation(atoms: [Atom], structureType: SecondaryStructure) -> SCNNode {
+    private func createAllAtomRepresentation(atoms: [Atom], structureType: SecondaryStructure, quality: RenderQuality) -> SCNNode {
         let atomNode = SCNNode()
         atomNode.name = "atoms_\(structureType)"
         
-        // 3단계: 블루노이즈/그리드 샘플링으로 원자 감산
-        let sampledAtoms = sampleAtomsWithBlueNoise(atoms: atoms, targetCount: min(200, atoms.count))
+        // 3단계: 블루노이즈/그리드 샘플링으로 원자 감산 (품질에 따라 조정)
+        let sampledAtoms = sampleAtomsWithBlueNoise(atoms: atoms, targetCount: min(quality.maxAtoms, atoms.count))
         
         for atom in sampledAtoms {
-            let sphere = createOptimizedAtomSphere(atom: atom, structureType: structureType)
+            let sphere = createOptimizedAtomSphere(atom: atom, structureType: structureType, quality: quality)
             let individualAtomNode = SCNNode(geometry: sphere)
             individualAtomNode.position = SCNVector3(atom.position)
             individualAtomNode.name = "atom_\(atom.id)"
@@ -233,27 +288,8 @@ struct ProteinStructurePreview: View {
         return atomNode
     }
     
-    // MARK: - 2차 구조 리본: Cα 스플라인 → 리본 메쉬
-    private func createRibbonRepresentation(atoms: [Atom], structureType: SecondaryStructure) -> SCNNode {
-        let ribbonNode = SCNNode()
-        ribbonNode.name = "ribbon_\(structureType)"
-        
-        // Cα 원자만 추출 (백본)
-        let caAtoms = atoms.filter { $0.name == "CA" }
-        
-        guard caAtoms.count >= 3 else { return ribbonNode }
-        
-        // 스플라인 곡선 생성
-        let spline = createSplineFromAtoms(caAtoms)
-        
-        // 리본 메쉬 생성
-        let ribbonMesh = createRibbonMesh(from: spline, structureType: structureType)
-        
-        let ribbonGeometryNode = SCNNode(geometry: ribbonMesh)
-        ribbonNode.addChildNode(ribbonGeometryNode)
-        
-        return ribbonNode
-    }
+    // MARK: - 2차 구조 리본 (제거됨 - 성능 향상을 위해)
+    // 복잡한 리본 메쉬는 제거하고 단순한 구체 렌더링만 사용
     
     // MARK: - 3단계: 블루노이즈/그리드 샘플링
     private func sampleAtomsWithBlueNoise(atoms: [Atom], targetCount: Int) -> [Atom] {
@@ -275,25 +311,10 @@ struct ProteinStructurePreview: View {
     }
     
     // MARK: - 최적화된 원자 구체 생성
-    private func createOptimizedAtomSphere(atom: Atom, structureType: SecondaryStructure) -> SCNSphere {
-        let radius: CGFloat
-        let segmentCount: Int
-        
-        // 2차 구조별로 렌더링 품질 조정
-        switch structureType {
-        case .helix:
-            radius = 0.4
-            segmentCount = 16
-        case .sheet:
-            radius = 0.35
-            segmentCount = 14
-        case .coil:
-            radius = 0.3
-            segmentCount = 12
-        case .unknown:
-            radius = 0.25
-            segmentCount = 10
-        }
+    private func createOptimizedAtomSphere(atom: Atom, structureType: SecondaryStructure, quality: RenderQuality) -> SCNSphere {
+        // 품질에 따라 반지름과 세그먼트 수 조정
+        let radius = quality.sphereRadius
+        let segmentCount = quality.segmentCount
         
         let sphere = SCNSphere(radius: radius)
         sphere.segmentCount = segmentCount
@@ -331,205 +352,12 @@ struct ProteinStructurePreview: View {
         return material
     }
     
-    // MARK: - Cα 스플라인 생성
-    private func createSplineFromAtoms(_ caAtoms: [Atom]) -> [SCNVector3] {
-        var splinePoints: [SCNVector3] = []
-        
-        for atom in caAtoms {
-            splinePoints.append(SCNVector3(atom.position))
-        }
-        
-        // 스플라인 보간 (간단한 선형 보간)
-        return interpolateSpline(points: splinePoints, segments: caAtoms.count * 2)
-    }
+    // MARK: - 스플라인 관련 함수들 (제거됨 - 성능 향상을 위해)
     
-    // MARK: - 스플라인 보간
-    private func interpolateSpline(points: [SCNVector3], segments: Int) -> [SCNVector3] {
-        guard points.count >= 2 else { return points }
-        
-        var interpolated: [SCNVector3] = []
-        
-        for i in 0..<(points.count - 1) {
-            let start = points[i]
-            let end = points[i + 1]
-            
-            for j in 0..<segments {
-                let t = Float(j) / Float(segments)
-                let interpolatedPoint = SCNVector3(
-                    start.x + (end.x - start.x) * t,
-                    start.y + (end.y - start.y) * t,
-                    start.z + (end.z - start.z) * t
-                )
-                interpolated.append(interpolatedPoint)
-            }
-        }
-        
-        return interpolated
-    }
+    // MARK: - 리본 메쉬 생성 (제거됨 - 성능 향상을 위해)
     
-    // MARK: - 리본 메쉬 생성
-    private func createRibbonMesh(from spline: [SCNVector3], structureType: SecondaryStructure) -> SCNGeometry {
-        guard spline.count >= 2 else { return SCNGeometry() }
-        
-        // 간단한 실린더 기반 리본 (실제로는 더 복잡한 메쉬 생성 필요)
-        let radius: CGFloat
-        let height: CGFloat
-        
-        switch structureType {
-        case .helix:
-            radius = 0.3
-            height = 0.8
-        case .sheet:
-            radius = 0.25
-            height = 0.6
-        case .coil:
-            radius = 0.2
-            height = 0.4
-        case .unknown:
-            radius = 0.15
-            height = 0.3
-        }
-        
-        // 각 스플라인 포인트에 실린더 생성
-        let ribbonNode = SCNNode()
-        
-        for i in 0..<(spline.count - 1) {
-            let start = spline[i]
-            let end = spline[i + 1]
-            
-            let cylinder = SCNCylinder(radius: radius, height: height)
-            let material = createStructureMaterial(structureType: structureType)
-            cylinder.materials = [material]
-            
-            let cylinderNode = SCNNode(geometry: cylinder)
-            
-            // 두 점 사이의 중점과 방향 계산
-            let midPoint = SCNVector3(
-                (start.x + end.x) / 2,
-                (start.y + end.y) / 2,
-                (start.z + end.z) / 2
-            )
-            
-            cylinderNode.position = midPoint
-            
-            // 방향 벡터 계산
-            let direction = SCNVector3(end.x - start.x, end.y - start.y, end.z - start.z)
-            let length = sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z)
-            
-            if length > 0.001 {
-                let normalizedDirection = SCNVector3(direction.x / length, direction.y / length, direction.z / length)
-                let rotation = calculateRotation(from: SCNVector3(0, 1, 0), to: normalizedDirection)
-                cylinderNode.rotation = rotation
-            }
-            
-            ribbonNode.addChildNode(cylinderNode)
-        }
-        
-        // 실제 리본 지오메트리 생성
-        return createCompositeRibbonGeometry(from: spline, structureType: structureType)
-    }
-    
-    // MARK: - 복합 리본 지오메트리 생성
-    private func createCompositeRibbonGeometry(from spline: [SCNVector3], structureType: SecondaryStructure) -> SCNGeometry {
-        guard spline.count >= 2 else { return SCNGeometry() }
-        
-        // 여러 실린더를 하나의 복합 지오메트리로 결합
-        var geometries: [SCNGeometry] = []
-        
-        for i in 0..<(spline.count - 1) {
-            let start = spline[i]
-            let end = spline[i + 1]
-            
-            let radius: CGFloat
-            let height: CGFloat
-            
-            switch structureType {
-            case .helix:
-                radius = 0.3
-                height = 0.8
-            case .sheet:
-                radius = 0.25
-                height = 0.6
-            case .coil:
-                radius = 0.2
-                height = 0.4
-            case .unknown:
-                radius = 0.15
-                height = 0.3
-            }
-            
-            let cylinder = SCNCylinder(radius: radius, height: height)
-            let material = createStructureMaterial(structureType: structureType)
-            cylinder.materials = [material]
-            
-            // 실린더를 올바른 위치와 방향으로 변환
-            let direction = SCNVector3(end.x - start.x, end.y - start.y, end.z - start.z)
-            let length = sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z)
-            
-            if length > 0.001 {
-                let normalizedDirection = SCNVector3(direction.x / length, direction.y / length, direction.z / length)
-                let rotation = calculateRotation(from: SCNVector3(0, 1, 0), to: normalizedDirection)
-                
-                // 실린더를 SCNNode로 감싸서 변환 적용
-                let cylinderNode = SCNNode(geometry: cylinder)
-                
-                // 실린더를 올바른 방향으로 회전
-                cylinderNode.transform = SCNMatrix4MakeRotation(rotation.w, rotation.x, rotation.y, rotation.z)
-                
-                // 중점 위치로 이동
-                let midPoint = SCNVector3(
-                    (start.x + end.x) / 2,
-                    (start.y + end.y) / 2,
-                    (start.z + end.z) / 2
-                )
-                cylinderNode.transform = SCNMatrix4Mult(cylinderNode.transform, SCNMatrix4MakeTranslation(midPoint.x, midPoint.y, midPoint.z))
-                
-                // 변환된 노드를 지오메트리로 변환 (옵셔널 안전 처리)
-                if let transformedGeometry = cylinderNode.geometry {
-                    geometries.append(transformedGeometry)
-                }
-            }
-        }
-        
-        // 복합 지오메트리 생성 (여러 실린더를 하나로 결합)
-        if geometries.count == 1 {
-            return geometries[0]
-        } else if geometries.count > 1 {
-            // SCNNode를 사용하여 복합 지오메트리 생성
-            let compositeNode = SCNNode()
-            for geometry in geometries {
-                let node = SCNNode(geometry: geometry)
-                compositeNode.addChildNode(node)
-            }
-            
-            // 복합 노드를 지오메트리로 변환 (간단한 박스로 대체)
-            let boundingBox = compositeNode.boundingBox
-            let box = SCNBox(
-                width: CGFloat(boundingBox.max.x - boundingBox.min.x),
-                height: CGFloat(boundingBox.max.y - boundingBox.min.y),
-                length: CGFloat(boundingBox.max.z - boundingBox.min.z),
-                chamferRadius: 0.1
-            )
-            box.materials = [createStructureMaterial(structureType: structureType)]
-            return box
-        }
-        
-        return SCNGeometry()
-    }
-    
-    // MARK: - 회전 계산 헬퍼
-    private func calculateRotation(from: SCNVector3, to: SCNVector3) -> SCNVector4 {
-        let cross = SCNVector3(
-            from.y * to.z - from.z * to.y,
-            from.z * to.x - from.x * to.z,
-            from.x * to.y - from.y * to.x
-        )
-        
-        let dot = from.x * to.x + from.y * to.y + from.z * to.z
-        let angle = acos(max(-1, min(1, dot)))
-        
-        return SCNVector4(cross.x, cross.y, cross.z, angle)
-    }
+    // MARK: - 리본 관련 함수들 (제거됨 - 성능 향상을 위해)
+    // 복잡한 실린더 메쉬, 회전 계산 함수들을 모두 제거
     
     // MARK: - 4단계: 고급 조명 시스템
     private func setupAdvancedLighting(scene: SCNScene) {
@@ -606,6 +434,20 @@ struct ProteinStructurePreview: View {
         print("📷 Advanced camera positioned at unique angle for \(proteinId): \(angleOffset * 180 / .pi)°")
         
         return cameraNode
+    }
+    
+    // MARK: - 렌더링 품질 결정
+    private func determineRenderQuality(for atomCount: Int) -> RenderQuality {
+        if atomCount > 8000 {
+            print("🔧 Large structure detected (\(atomCount) atoms) → Using LOW quality")
+            return .low(for: atomCount)
+        } else if atomCount > 4000 {
+            print("🔧 Medium structure detected (\(atomCount) atoms) → Using MEDIUM quality")
+            return .medium(for: atomCount)
+        } else {
+            print("🔧 Small structure detected (\(atomCount) atoms) → Using HIGH quality")
+            return .high(for: atomCount)
+        }
     }
     
     // MARK: - 벡터 길이 계산 헬퍼
