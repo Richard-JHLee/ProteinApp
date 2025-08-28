@@ -1272,9 +1272,9 @@ struct EnhancedProteinViewerView: View {
 
             // 7. 최종 데이터 설정
             await MainActor.run {
-                self.ligandsData = mergeLigands(meta: ligMeta, with: self.structure ?? structure)
+                self.ligandsData = mergeLigands(meta: ligMeta, with: self.structure!)
                 self.annotationsData = enhancedAnnotations
-                self.pocketsData = generatePocketsFromStructure(self.structure ?? structure)
+                self.pocketsData = generatePocketsFromStructure(self.structure!)
                 self.isLoading = false
                 self.loadingProgress = ""
                 
@@ -1319,8 +1319,8 @@ struct EnhancedProteinViewerView: View {
             
             // 해당 체인의 결합만 유지
             let chainBonds = originalStructure.bonds.filter { bond in
-                chainAtoms.contains { $0.id == bond.atom1Id } && 
-                chainAtoms.contains { $0.id == bond.atom2Id }
+                chainAtoms.contains { $0.id == bond.a } && 
+                chainAtoms.contains { $0.id == bond.b }
             }
             optimizedBonds.append(contentsOf: chainBonds)
         }
@@ -1332,8 +1332,8 @@ struct EnhancedProteinViewerView: View {
             
             // 결합도 다시 필터링
             optimizedBonds = optimizedBonds.filter { bond in
-                optimizedAtoms.contains { $0.id == bond.atom1Id } && 
-                optimizedAtoms.contains { $0.id == bond.atom2Id }
+                optimizedAtoms.contains { $0.id == bond.a } && 
+                optimizedAtoms.contains { $0.id == bond.b }
             }
         }
         
@@ -1341,9 +1341,7 @@ struct EnhancedProteinViewerView: View {
         
         return PDBStructure(
             atoms: optimizedAtoms,
-            bonds: optimizedBonds,
-            title: originalStructure.title,
-            secondaryStructures: originalStructure.secondaryStructures
+            bonds: optimizedBonds
         )
     }
     
