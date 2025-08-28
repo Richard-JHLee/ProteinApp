@@ -1173,11 +1173,10 @@ struct EnhancedProteinViewerView: View {
                 structure = try await loadStructureFromRCSB(pdbId: protein.id)
                 print("✅ Successfully loaded structure from RCSB for \(protein.id)")
                 
-                // 원자 그룹화 및 최적화
-                let optimizedStructure = optimizeStructureForRendering(structure)
-                print("🔧 Structure optimized: \(structure.atoms.count) atoms → \(optimizedStructure.atoms.count) groups")
+                // 원본 구조 그대로 사용 (렌더링 최적화는 ProteinSceneView에서 처리)
+                print("🔧 Using original structure: \(structure.atoms.count) atoms")
                 
-                await MainActor.run { self.structure = optimizedStructure }
+                await MainActor.run { self.structure = structure }
             } catch {
                 await MainActor.run {
                     self.error = "Failed to load protein structure from RCSB: \(error.localizedDescription)"
@@ -1296,76 +1295,44 @@ struct EnhancedProteinViewerView: View {
         } 
     }
     
-    /// 원자 그룹화를 통한 렌더링 최적화
+    /// 원자 그룹화를 통한 렌더링 최적화 (비활성화됨)
+    /// ProteinSceneView에서 렌더링 최적화를 처리하므로 이 함수는 사용하지 않음
     private func optimizeStructureForRendering(_ originalStructure: PDBStructure) -> PDBStructure {
-        let maxAtoms = 500 // 최대 원자 수 제한
-        let maxGroups = 100 // 최대 그룹 수 제한
-        
-        if originalStructure.atoms.count <= maxAtoms {
-            print("🔧 Structure already optimized (\(originalStructure.atoms.count) atoms)")
-            return originalStructure
-        }
-        
-        print("🔧 Optimizing structure: \(originalStructure.atoms.count) atoms → target: \(maxAtoms)")
-        
-        // 1. 체인별로 그룹화
-        let chainGroups = Dictionary(grouping: originalStructure.atoms) { $0.chain }
-        var optimizedAtoms: [Atom] = []
-        var optimizedBonds: [Bond] = []
-        
-        for (chainId, atoms) in chainGroups {
-            let chainAtoms = optimizeChainAtoms(atoms, maxAtoms: maxAtoms / chainGroups.count)
-            optimizedAtoms.append(contentsOf: chainAtoms)
-            
-            // 해당 체인의 결합만 유지
-            let chainBonds = originalStructure.bonds.filter { bond in
-                chainAtoms.contains { $0.id == bond.a } && 
-                chainAtoms.contains { $0.id == bond.b }
-            }
-            optimizedBonds.append(contentsOf: chainBonds)
-        }
-        
-        // 2. 전체 원자 수가 여전히 많으면 추가 최적화
-        if optimizedAtoms.count > maxAtoms {
-            print("🔧 Further optimization needed: \(optimizedAtoms.count) atoms")
-            optimizedAtoms = furtherOptimizeAtoms(optimizedAtoms, maxAtoms: maxAtoms)
-            
-            // 결합도 다시 필터링
-            optimizedBonds = optimizedBonds.filter { bond in
-                optimizedAtoms.contains { $0.id == bond.a } && 
-                optimizedAtoms.contains { $0.id == bond.b }
-            }
-        }
-        
-        print("🔧 Optimization complete: \(originalStructure.atoms.count) → \(optimizedAtoms.count) atoms")
-        
-        return PDBStructure(
-            atoms: optimizedAtoms,
-            bonds: optimizedBonds
-        )
+        // 최적화 비활성화: 원본 구조 그대로 반환
+        print("🔧 Structure optimization disabled: using original structure")
+        return originalStructure
     }
     
     /// 체인별 원자 최적화
     private func optimizeChainAtoms(_ atoms: [Atom], maxAtoms: Int) -> [Atom] {
         if atoms.count <= maxAtoms {
+            print("🔧 Chain atoms already within limit: \(atoms.count) atoms")
             return atoms
         }
         
+        print("🔧 Chain optimization: \(atoms.count) atoms → target: \(maxAtoms)")
+        
         // 1. 2차 구조별로 그룹화
         let structureGroups = Dictionary(grouping: atoms) { $0.secondaryStructure }
+        print("🔧 Secondary structure groups: \(structureGroups.mapValues { $0.count })")
+        
         var optimizedAtoms: [Atom] = []
         
-        for (_, structureAtoms) in structureGroups {
-            let groupSize = max(1, maxAtoms / structureGroups.count)
+        for (structure, structureAtoms) in structureGroups {
+            let groupSize = max(50, maxAtoms / structureGroups.count) // 그룹당 최소 50개 보장
+            print("🔧 Structure \(structure): \(structureAtoms.count) atoms → target: \(groupSize)")
+            
             let sampledAtoms = sampleAtomsFromGroup(structureAtoms, targetCount: groupSize)
             optimizedAtoms.append(contentsOf: sampledAtoms)
         }
         
         // 2. 여전히 많으면 균등 샘플링
         if optimizedAtoms.count > maxAtoms {
+            print("🔧 Further sampling needed: \(optimizedAtoms.count) → \(maxAtoms)")
             optimizedAtoms = sampleAtomsEvenly(optimizedAtoms, targetCount: maxAtoms)
         }
         
+        print("🔧 Chain optimization result: \(atoms.count) → \(optimizedAtoms.count) atoms")
         return optimizedAtoms
     }
     

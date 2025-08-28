@@ -126,10 +126,24 @@ struct ProteinSceneView: UIViewRepresentable {
     }
     
     private func addSpheresRepresentation(_ s: PDBStructure, to scene: SCNScene) {
-        // 렌더링 최적화: 원자 수에 따라 구체 크기와 세그먼트 수 조정
+        // 렌더링 최적화: 원자 수에 따라 구체 크기와 세그먼트 수를 더 세밀하게 조정
         let atomCount = s.atoms.count
-        let atomRadius: CGFloat = atomCount > 1000 ? 1.2 : 0.8
-        let segmentCount: Int = atomCount > 1000 ? 16 : 24
+        let atomRadius: CGFloat
+        let segmentCount: Int
+        
+        if atomCount > 3000 {
+            atomRadius = 1.5
+            segmentCount = 12
+        } else if atomCount > 2000 {
+            atomRadius = 1.3
+            segmentCount = 16
+        } else if atomCount > 1000 {
+            atomRadius = 1.1
+            segmentCount = 20
+        } else {
+            atomRadius = 0.8
+            segmentCount = 24
+        }
         
         print("🔧 Rendering \(atomCount) atoms with radius \(atomRadius), segments \(segmentCount)")
         
