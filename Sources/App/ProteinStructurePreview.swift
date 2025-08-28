@@ -484,9 +484,10 @@ struct ProteinStructurePreview: View {
                 )
                 cylinderNode.transform = SCNMatrix4Mult(cylinderNode.transform, SCNMatrix4MakeTranslation(midPoint.x, midPoint.y, midPoint.z))
                 
-                // 변환된 노드를 지오메트리로 변환
-                let transformedGeometry = cylinderNode.geometry
-                geometries.append(transformedGeometry)
+                // 변환된 노드를 지오메트리로 변환 (옵셔널 안전 처리)
+                if let transformedGeometry = cylinderNode.geometry {
+                    geometries.append(transformedGeometry)
+                }
             }
         }
         
