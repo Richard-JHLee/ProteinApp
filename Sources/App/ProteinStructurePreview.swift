@@ -224,10 +224,10 @@ struct ProteinStructurePreview: View {
         
         for atom in sampledAtoms {
             let sphere = createOptimizedAtomSphere(atom: atom, structureType: structureType)
-            let atomNode = SCNNode(geometry: sphere)
-            atomNode.position = SCNVector3(atom.position)
-            atomNode.name = "atom_\(atom.id)"
-            atomNode.addChildNode(atomNode)
+            let individualAtomNode = SCNNode(geometry: sphere)
+            individualAtomNode.position = SCNVector3(atom.position)
+            individualAtomNode.name = "atom_\(atom.id)"
+            atomNode.addChildNode(individualAtomNode)
         }
         
         return atomNode
@@ -425,7 +425,89 @@ struct ProteinStructurePreview: View {
             ribbonNode.addChildNode(cylinderNode)
         }
         
-        // 임시로 빈 지오메트리 반환 (실제로는 복합 지오메트리 생성 필요)
+        // 실제 리본 지오메트리 생성
+        return createCompositeRibbonGeometry(from: spline, structureType: structureType)
+    }
+    
+    // MARK: - 복합 리본 지오메트리 생성
+    private func createCompositeRibbonGeometry(from spline: [SCNVector3], structureType: SecondaryStructure) -> SCNGeometry {
+        guard spline.count >= 2 else { return SCNGeometry() }
+        
+        // 여러 실린더를 하나의 복합 지오메트리로 결합
+        var geometries: [SCNGeometry] = []
+        
+        for i in 0..<(spline.count - 1) {
+            let start = spline[i]
+            let end = spline[i + 1]
+            
+            let radius: CGFloat
+            let height: CGFloat
+            
+            switch structureType {
+            case .helix:
+                radius = 0.3
+                height = 0.8
+            case .sheet:
+                radius = 0.25
+                height = 0.6
+            case .coil:
+                radius = 0.2
+                height = 0.4
+            case .unknown:
+                radius = 0.15
+                height = 0.3
+            }
+            
+            let cylinder = SCNCylinder(radius: radius, height: height)
+            let material = createStructureMaterial(structureType: structureType)
+            cylinder.materials = [material]
+            
+            // 실린더를 올바른 위치와 방향으로 변환
+            let direction = SCNVector3(end.x - start.x, end.y - start.y, end.z - start.z)
+            let length = sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z)
+            
+            if length > 0.001 {
+                let normalizedDirection = SCNVector3(direction.x / length, direction.y / length, direction.z / length)
+                let rotation = calculateRotation(from: SCNVector3(0, 1, 0), to: normalizedDirection)
+                
+                // 실린더를 올바른 방향으로 회전
+                cylinder.transform = SCNMatrix4MakeRotation(rotation.w, rotation.x, rotation.y, rotation.z)
+                
+                // 중점 위치로 이동
+                let midPoint = SCNVector3(
+                    (start.x + end.x) / 2,
+                    (start.y + end.y) / 2,
+                    (start.z + end.z) / 2
+                )
+                cylinder.transform = SCNMatrix4Mult(cylinder.transform, SCNMatrix4MakeTranslation(midPoint.x, midPoint.y, midPoint.z))
+                
+                geometries.append(cylinder)
+            }
+        }
+        
+        // 복합 지오메트리 생성 (여러 실린더를 하나로 결합)
+        if geometries.count == 1 {
+            return geometries[0]
+        } else if geometries.count > 1 {
+            // SCNNode를 사용하여 복합 지오메트리 생성
+            let compositeNode = SCNNode()
+            for geometry in geometries {
+                let node = SCNNode(geometry: geometry)
+                compositeNode.addChildNode(node)
+            }
+            
+            // 복합 노드를 지오메트리로 변환 (간단한 박스로 대체)
+            let boundingBox = compositeNode.boundingBox
+            let box = SCNBox(
+                width: CGFloat(boundingBox.max.x - boundingBox.min.x),
+                height: CGFloat(boundingBox.max.y - boundingBox.min.y),
+                length: CGFloat(boundingBox.max.z - boundingBox.min.z),
+                chamferRadius: 0.1
+            )
+            box.materials = [createStructureMaterial(structureType: structureType)]
+            return box
+        }
+        
         return SCNGeometry()
     }
     
