@@ -126,10 +126,16 @@ struct ProteinSceneView: UIViewRepresentable {
     }
     
     private func addSpheresRepresentation(_ s: PDBStructure, to scene: SCNScene) {
-        let atomRadius: CGFloat = 0.8
+        // 렌더링 최적화: 원자 수에 따라 구체 크기와 세그먼트 수 조정
+        let atomCount = s.atoms.count
+        let atomRadius: CGFloat = atomCount > 1000 ? 1.2 : 0.8
+        let segmentCount: Int = atomCount > 1000 ? 16 : 24
+        
+        print("🔧 Rendering \(atomCount) atoms with radius \(atomRadius), segments \(segmentCount)")
+        
         for atom in s.atoms {
             let sphere = SCNSphere(radius: atomRadius)
-            sphere.segmentCount = 24
+            sphere.segmentCount = segmentCount
             let mat = SceneKitUtils.createEnhancedMaterial(color: colorFor(atom: atom))
             sphere.materials = [mat]
             let node = SCNNode(geometry: sphere)
@@ -140,12 +146,17 @@ struct ProteinSceneView: UIViewRepresentable {
     }
     
     private func addSticksRepresentation(_ s: PDBStructure, to scene: SCNScene) {
-        let atomRadius: CGFloat = 0.3
-        let bondRadius: CGFloat = 0.15
+        // 렌더링 최적화: 원자 수에 따라 구체 크기와 세그먼트 수 조정
+        let atomCount = s.atoms.count
+        let atomRadius: CGFloat = atomCount > 1000 ? 0.4 : 0.3
+        let bondRadius: CGFloat = atomCount > 1000 ? 0.2 : 0.15
+        let segmentCount: Int = atomCount > 1000 ? 16 : 20
+        
+        print("🔧 Rendering \(atomCount) atoms in sticks mode with radius \(atomRadius), segments \(segmentCount)")
         
         for atom in s.atoms {
             let sphere = SCNSphere(radius: atomRadius)
-            sphere.segmentCount = 20
+            sphere.segmentCount = segmentCount
             let mat = SceneKitUtils.createEnhancedMaterial(color: colorFor(atom: atom))
             sphere.materials = [mat]
             let node = SCNNode(geometry: sphere)
@@ -171,9 +182,18 @@ struct ProteinSceneView: UIViewRepresentable {
         let backboneAtoms = s.atoms.filter { $0.isBackbone && $0.name == "CA" }
         let chainGroups = Dictionary(grouping: backboneAtoms) { $0.chain }
         
+        // 렌더링 최적화: 원자 수에 따라 구체 크기와 세그먼트 수 조정
+        let atomCount = s.atoms.count
+        let atomRadius: CGFloat = atomCount > 1000 ? 0.25 : 0.2
+        let tubeRadius: CGFloat = atomCount > 1000 ? 0.4 : 0.3
+        let segmentCount: Int = atomCount > 1000 ? 12 : 16
+        
+        print("🔧 Rendering cartoon mode: \(atomCount) atoms, \(backboneAtoms.count) backbone atoms")
+        
         for (_, chainAtoms) in chainGroups {
             let sortedAtoms = chainAtoms.sorted { $0.residueNumber < $1.residueNumber }
             
+            // 체인 연결선 그리기
             for i in 0..<(sortedAtoms.count - 1) {
                 let current = sortedAtoms[i]
                 let next = sortedAtoms[i + 1]
@@ -181,15 +201,16 @@ struct ProteinSceneView: UIViewRepresentable {
                 let tube = SceneKitUtils.createCylinderBetween(
                     SCNVector3(current.position.x, current.position.y, current.position.z),
                     SCNVector3(next.position.x, next.position.y, next.position.z),
-                    radius: 0.3,
+                    radius: tubeRadius,
                     color: colorFor(atom: current)
                 )
                 scene.rootNode.addChildNode(tube)
             }
             
+            // 백본 원자들 그리기
             for atom in sortedAtoms {
-                let sphere = SCNSphere(radius: 0.2)
-                sphere.segmentCount = 16
+                let sphere = SCNSphere(radius: atomRadius)
+                sphere.segmentCount = segmentCount
                 let mat = SceneKitUtils.createEnhancedMaterial(color: colorFor(atom: atom))
                 sphere.materials = [mat]
                 let node = SCNNode(geometry: sphere)

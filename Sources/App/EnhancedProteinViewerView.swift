@@ -1172,6 +1172,12 @@ struct EnhancedProteinViewerView: View {
             do {
                 structure = try await loadStructureFromRCSB(pdbId: protein.id)
                 print("✅ Successfully loaded structure from RCSB for \(protein.id)")
+                
+                // 원자 그룹화 및 최적화
+                let optimizedStructure = optimizeStructureForRendering(structure)
+                print("🔧 Structure optimized: \(structure.atoms.count) atoms → \(optimizedStructure.atoms.count) groups")
+                
+                await MainActor.run { self.structure = optimizedStructure }
             } catch {
                 await MainActor.run {
                     self.error = "Failed to load protein structure from RCSB: \(error.localizedDescription)"
@@ -1266,10 +1272,9 @@ struct EnhancedProteinViewerView: View {
 
             // 7. 최종 데이터 설정
             await MainActor.run {
-                self.structure = structure
-                self.ligandsData = mergeLigands(meta: ligMeta, with: structure)
+                self.ligandsData = mergeLigands(meta: ligMeta, with: self.structure ?? structure)
                 self.annotationsData = enhancedAnnotations
-                self.pocketsData = generatePocketsFromStructure(structure)
+                self.pocketsData = generatePocketsFromStructure(self.structure ?? structure)
                 self.isLoading = false
                 self.loadingProgress = ""
                 
@@ -1290,6 +1295,151 @@ struct EnhancedProteinViewerView: View {
             
         } 
     }
+    
+    /// 원자 그룹화를 통한 렌더링 최적화
+    private func optimizeStructureForRendering(_ originalStructure: PDBStructure) -> PDBStructure {
+        let maxAtoms = 500 // 최대 원자 수 제한
+        let maxGroups = 100 // 최대 그룹 수 제한
+        
+        if originalStructure.atoms.count <= maxAtoms {
+            print("🔧 Structure already optimized (\(originalStructure.atoms.count) atoms)")
+            return originalStructure
+        }
+        
+        print("🔧 Optimizing structure: \(originalStructure.atoms.count) atoms → target: \(maxAtoms)")
+        
+        // 1. 체인별로 그룹화
+        let chainGroups = Dictionary(grouping: originalStructure.atoms) { $0.chain }
+        var optimizedAtoms: [Atom] = []
+        var optimizedBonds: [Bond] = []
+        
+        for (chainId, atoms) in chainGroups {
+            let chainAtoms = optimizeChainAtoms(atoms, maxAtoms: maxAtoms / chainGroups.count)
+            optimizedAtoms.append(contentsOf: chainAtoms)
+            
+            // 해당 체인의 결합만 유지
+            let chainBonds = originalStructure.bonds.filter { bond in
+                chainAtoms.contains { $0.id == bond.atom1Id } && 
+                chainAtoms.contains { $0.id == bond.atom2Id }
+            }
+            optimizedBonds.append(contentsOf: chainBonds)
+        }
+        
+        // 2. 전체 원자 수가 여전히 많으면 추가 최적화
+        if optimizedAtoms.count > maxAtoms {
+            print("🔧 Further optimization needed: \(optimizedAtoms.count) atoms")
+            optimizedAtoms = furtherOptimizeAtoms(optimizedAtoms, maxAtoms: maxAtoms)
+            
+            // 결합도 다시 필터링
+            optimizedBonds = optimizedBonds.filter { bond in
+                optimizedAtoms.contains { $0.id == bond.atom1Id } && 
+                optimizedAtoms.contains { $0.id == bond.atom2Id }
+            }
+        }
+        
+        print("🔧 Optimization complete: \(originalStructure.atoms.count) → \(optimizedAtoms.count) atoms")
+        
+        return PDBStructure(
+            atoms: optimizedAtoms,
+            bonds: optimizedBonds,
+            title: originalStructure.title,
+            secondaryStructures: originalStructure.secondaryStructures
+        )
+    }
+    
+    /// 체인별 원자 최적화
+    private func optimizeChainAtoms(_ atoms: [Atom], maxAtoms: Int) -> [Atom] {
+        if atoms.count <= maxAtoms {
+            return atoms
+        }
+        
+        // 1. 2차 구조별로 그룹화
+        let structureGroups = Dictionary(grouping: atoms) { $0.secondaryStructure }
+        var optimizedAtoms: [Atom] = []
+        
+        for (structure, structureAtoms) in structureGroups {
+            let groupSize = max(1, maxAtoms / structureGroups.count)
+            let sampledAtoms = sampleAtomsFromGroup(structureAtoms, targetCount: groupSize)
+            optimizedAtoms.append(contentsOf: sampledAtoms)
+        }
+        
+        // 2. 여전히 많으면 균등 샘플링
+        if optimizedAtoms.count > maxAtoms {
+            optimizedAtoms = sampleAtomsEvenly(optimizedAtoms, targetCount: maxAtoms)
+        }
+        
+        return optimizedAtoms
+    }
+    
+    /// 그룹에서 원자 샘플링 (2차 구조 유지)
+    private func sampleAtomsFromGroup(_ atoms: [Atom], targetCount: Int) -> [Atom] {
+        if atoms.count <= targetCount {
+            return atoms
+        }
+        
+        // 균등 간격으로 샘플링하여 전체 구조를 대표
+        let step = Double(atoms.count) / Double(targetCount)
+        var sampledAtoms: [Atom] = []
+        
+        for i in 0..<targetCount {
+            let index = Int(Double(i) * step)
+            if index < atoms.count {
+                sampledAtoms.append(atoms[index])
+            }
+        }
+        
+        return sampledAtoms
+    }
+    
+    /// 균등 샘플링
+    private func sampleAtomsEvenly(_ atoms: [Atom], targetCount: Int) -> [Atom] {
+        if atoms.count <= targetCount {
+            return atoms
+        }
+        
+        let step = Double(atoms.count) / Double(targetCount)
+        var sampledAtoms: [Atom] = []
+        
+        for i in 0..<targetCount {
+            let index = Int(Double(i) * step)
+            if index < atoms.count {
+                sampledAtoms.append(atoms[index])
+            }
+        }
+        
+        return sampledAtoms
+    }
+    
+    /// 추가 원자 최적화
+    private func furtherOptimizeAtoms(_ atoms: [Atom], maxAtoms: Int) -> [Atom] {
+        if atoms.count <= maxAtoms {
+            return atoms
+        }
+        
+        // 1. 중요도 기반 샘플링 (2차 구조가 있는 원자 우선)
+        let importantAtoms = atoms.filter { $0.secondaryStructure != .unknown }
+        let regularAtoms = atoms.filter { $0.secondaryStructure == .unknown }
+        
+        let importantCount = min(importantAtoms.count, maxAtoms / 2)
+        let regularCount = maxAtoms - importantCount
+        
+        var optimizedAtoms: [Atom] = []
+        
+        // 중요 원자들 추가
+        if importantCount > 0 {
+            let sampledImportant = sampleAtomsEvenly(importantAtoms, targetCount: importantCount)
+            optimizedAtoms.append(contentsOf: sampledImportant)
+        }
+        
+        // 일반 원자들 추가
+        if regularCount > 0 && regularAtoms.count > 0 {
+            let sampledRegular = sampleAtomsEvenly(regularAtoms, targetCount: regularCount)
+            optimizedAtoms.append(contentsOf: sampledRegular)
+        }
+        
+        return optimizedAtoms
+    }
+
     // MARK: - Pockets (lightweight heuristic)
     // 목적: 구조 내 원자 밀도와 리간드 인접성을 이용해 간단히 포켓 후보를 생성
     func generatePocketsFromStructure(_ structure: PDBStructure) -> [PocketModel] {
