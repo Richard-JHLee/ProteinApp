@@ -1355,7 +1355,7 @@ struct EnhancedProteinViewerView: View {
         let structureGroups = Dictionary(grouping: atoms) { $0.secondaryStructure }
         var optimizedAtoms: [Atom] = []
         
-        for (structure, structureAtoms) in structureGroups {
+        for (_, structureAtoms) in structureGroups {
             let groupSize = max(1, maxAtoms / structureGroups.count)
             let sampledAtoms = sampleAtomsFromGroup(structureAtoms, targetCount: groupSize)
             optimizedAtoms.append(contentsOf: sampledAtoms)
