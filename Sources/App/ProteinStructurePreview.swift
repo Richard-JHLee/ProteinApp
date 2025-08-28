@@ -37,12 +37,13 @@ struct ProteinStructurePreview: View {
                     autoRotate: false, // 카드에서는 자동 회전 비활성화
                     onSelectAtom: { _ in } // 카드에서는 원자 선택 비활성화
                 )
-                .frame(width: 60, height: 60)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .frame(width: 120, height: 120) // 크기를 2배로 증가
+                .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color(.systemGray4), lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color(.systemGray4), lineWidth: 1)
                 )
+                .background(Color(.systemGray6)) // 배경색 추가로 렌더링 영역 명확화
             } else {
                 Image(systemName: "cube.box.fill")
                     .font(.title2)
