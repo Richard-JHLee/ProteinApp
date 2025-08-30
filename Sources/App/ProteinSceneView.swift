@@ -2,6 +2,92 @@ import SwiftUI
 import SceneKit
 import UIKit
 
+// MARK: - Geometry Cache for Performance Optimization
+final class GeometryCache {
+    static let shared = GeometryCache()
+    private var sphereHi = [CGFloat: SCNSphere]()   // 반경→구
+    private var materialByColor = [UIColor: SCNMaterial]()
+    
+    func sphere(radius: CGFloat, segments: Int = 16) -> SCNSphere {
+        if let s = sphereHi[radius] { return s }
+        let s = SCNSphere(radius: radius)
+        s.segmentCount = segments
+        sphereHi[radius] = s
+        return s
+    }
+    
+    func material(color: UIColor) -> SCNMaterial {
+        if let m = materialByColor[color] { return m }
+        let m = SCNMaterial()
+        m.lightingModel = .blinn
+        m.diffuse.contents = color
+        m.specular.contents = UIColor.white
+        materialByColor[color] = m
+        return m
+    }
+    
+    func sphereWithLOD(radius r: CGFloat, baseColor: UIColor) -> SCNGeometry {
+        // 고/중/저 분할 구 준비
+        let hi = SCNSphere(radius: r)
+        hi.segmentCount = 32
+        let md = SCNSphere(radius: r)
+        md.segmentCount = 16
+        let lo = SCNSphere(radius: r)
+        lo.segmentCount = 8
+        
+        // 같은 머티리얼 공유
+        let mat = SCNMaterial()
+        mat.lightingModel = .blinn
+        mat.diffuse.contents = baseColor
+        [hi, md, lo].forEach { $0.firstMaterial = mat }
+        
+        // 화면상 반지름이 특정 값 이하로 작아지면 더 저렴한 메쉬로
+        let lods = [
+            SCNLevelOfDetail(geometry: hi, screenSpaceRadius: 40),
+            SCNLevelOfDetail(geometry: md, screenSpaceRadius: 20),
+            SCNLevelOfDetail(geometry: lo, screenSpaceRadius: 8)
+        ]
+        
+        // 어떤 지오메트리에 LOD를 달든 '같은 지오메트리 공유'가 핵심
+        let g = SCNSphere(radius: r)
+        g.levelsOfDetail = lods
+        g.firstMaterial = mat
+        return g
+    }
+    
+    func cylinderWithLOD(radius r: CGFloat, height h: CGFloat, baseColor: UIColor) -> SCNGeometry {
+        // 본드(실린더)도 동일하게 segmentCount를 16→8→6 등으로 줄인 3단계
+        let hi = SCNCylinder(radius: r, height: h)
+        hi.radialSegmentCount = 16
+        let md = SCNCylinder(radius: r, height: h)
+        md.radialSegmentCount = 8
+        let lo = SCNCylinder(radius: r, height: h)
+        lo.radialSegmentCount = 6
+        
+        // 같은 머티리얼 공유
+        let mat = SCNMaterial()
+        mat.lightingModel = .blinn
+        mat.diffuse.contents = baseColor
+        [hi, md, lo].forEach { $0.firstMaterial = mat }
+        
+        let lods = [
+            SCNLevelOfDetail(geometry: hi, screenSpaceRadius: 30),
+            SCNLevelOfDetail(geometry: md, screenSpaceRadius: 15),
+            SCNLevelOfDetail(geometry: lo, screenSpaceRadius: 6)
+        ]
+        
+        let g = SCNCylinder(radius: r, height: h)
+        g.levelsOfDetail = lods
+        g.firstMaterial = mat
+        return g
+    }
+    
+    func clearCache() {
+        sphereHi.removeAll()
+        materialByColor.removeAll()
+    }
+}
+
 enum RenderStyle: String, CaseIterable { 
     case spheres = "Spheres"
     case sticks = "Sticks" 
@@ -41,30 +127,7 @@ struct ProteinSceneView: UIViewRepresentable {
     let uniformColor: UIColor
     let autoRotate: Bool
     var onSelectAtom: ((Atom) -> Void)? = nil
-    
-    // Material cache for better performance
-    private static var materialCache: [String: SCNMaterial] = [:]
-    private static let materialCacheLock = NSLock()
-    
-    static func getCachedMaterial(for key: String, create: () -> SCNMaterial) -> SCNMaterial {
-        materialCacheLock.lock()
-        defer { materialCacheLock.unlock() }
-        
-        if let cached = materialCache[key] {
-            return cached
-        }
-        
-        let newMaterial = create()
-        materialCache[key] = newMaterial
-        return newMaterial
-    }
-    
-    static func clearMaterialCache() {
-        materialCacheLock.lock()
-        materialCache.removeAll()
-        materialCacheLock.unlock()
-    }
-    
+
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView()
         view.scene = SCNScene()
@@ -179,30 +242,30 @@ struct ProteinSceneView: UIViewRepresentable {
     
     private func createAtomNode(atom: Atom, style: RenderStyle, colorMode: ColorMode, uniformColor: UIColor) -> SCNNode {
         let node = SCNNode()
+        let color = getAtomColor(atom: atom, colorMode: colorMode, uniformColor: uniformColor)
         
         switch style {
         case .spheres:
-            let sphere = SCNSphere(radius: getAtomRadius(atom: atom))
-            sphere.firstMaterial?.diffuse.contents = getAtomColor(atom: atom, colorMode: colorMode, uniformColor: uniformColor)
-            sphere.firstMaterial?.specular.contents = UIColor.white
-            sphere.firstMaterial?.shininess = 0.8
-            node.geometry = sphere
+            let radius = getAtomRadius(atom: atom)
+            let geometry = GeometryCache.shared.sphereWithLOD(radius: radius, baseColor: color)
+            node.geometry = geometry
             
         case .sticks:
-            let sphere = SCNSphere(radius: 0.1)
-            sphere.firstMaterial?.diffuse.contents = getAtomColor(atom: atom, colorMode: colorMode, uniformColor: uniformColor)
-            node.geometry = sphere
+            let geometry = GeometryCache.shared.sphereWithLOD(radius: 0.1, baseColor: color)
+            node.geometry = geometry
             
         case .cartoon:
-            let sphere = SCNSphere(radius: 0.15)
-            sphere.firstMaterial?.diffuse.contents = getAtomColor(atom: atom, colorMode: colorMode, uniformColor: uniformColor)
-            node.geometry = sphere
+            let geometry = GeometryCache.shared.sphereWithLOD(radius: 0.15, baseColor: color)
+            node.geometry = geometry
             
         case .surface:
-            let sphere = SCNSphere(radius: getAtomRadius(atom: atom) * 1.2)
-            sphere.firstMaterial?.diffuse.contents = getAtomColor(atom: atom, colorMode: colorMode, uniformColor: uniformColor)
-            sphere.firstMaterial?.transparency = 0.3
-            node.geometry = sphere
+            let radius = getAtomRadius(atom: atom) * 1.2
+            let geometry = GeometryCache.shared.sphereWithLOD(radius: radius, baseColor: color)
+            // 투명도는 별도로 설정
+            if let material = geometry.firstMaterial {
+                material.transparency = 0.3
+            }
+            node.geometry = geometry
         }
         
         node.position = SCNVector3(atom.position.x, atom.position.y, atom.position.z)
@@ -223,13 +286,13 @@ struct ProteinSceneView: UIViewRepresentable {
         let distance = sqrt(pow(end.x - start.x, 2) + pow(end.y - start.y, 2) + pow(end.z - start.z, 2))
         let cylinder = SCNCylinder(radius: 0.05, height: CGFloat(distance))
         
-        let material = SCNMaterial()
-        material.diffuse.contents = getBondColor(atom1: atom1, atom2: atom2, colorMode: colorMode, uniformColor: uniformColor)
-        material.specular.contents = UIColor.white
-        material.shininess = 0.5
-        cylinder.materials = [material]
+        let color = getBondColor(atom1: atom1, atom2: atom2, colorMode: colorMode, uniformColor: uniformColor)
+        let distance = sqrt(pow(end.x - start.x, 2) + pow(end.y - start.y, 2) + pow(end.z - start.z, 2))
         
-        let node = SCNNode(geometry: cylinder)
+        // LOD가 적용된 실린더 지오메트리 사용
+        let geometry = GeometryCache.shared.cylinderWithLOD(radius: 0.05, height: CGFloat(distance), baseColor: color)
+        
+        let node = SCNNode(geometry: geometry)
         
         // Position and rotate cylinder
         let midPoint = SCNVector3((start.x + end.x) / 2, (start.y + end.y) / 2, (start.z + end.z) / 2)
