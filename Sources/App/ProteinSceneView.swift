@@ -410,6 +410,7 @@ struct ProteinSceneContainer: View {
     @State private var selectedUniformColor: Color = .blue
     @State private var autoRotate: Bool = false
     @State private var showControls: Bool = true
+    @State private var showInfoBar: Bool = true
     @State private var selectedChain: String? = nil
     @State private var error: String? = nil
     @State private var pdbId: String = ""
@@ -417,14 +418,8 @@ struct ProteinSceneContainer: View {
     @State private var selectedTab: InfoTabType = .overview
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Fixed Header Section (Always visible)
-            if let structure = structure, !structure.atoms.isEmpty {
-                proteinInfoHeader(structure: structure)
-                chainSelectionTabs(structure: structure)
-            }
-            
-            // Main 3D Viewer (Fixed position)
+        ZStack(alignment: .top) {
+            // Main 3D Viewer (Full screen)
             ProteinSceneView(
                 structure: structure,
                 style: selectedStyle,
@@ -438,16 +433,29 @@ struct ProteinSceneContainer: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             
-            // Selected Chain Information (Fixed position)
-            if let selectedChain = selectedChain, let structure = structure {
-                selectedChainInfoView(structure: structure, chain: selectedChain)
+            // Safe Area Fixed Header (Always on top)
+            if showInfoBar, let structure = structure, !structure.atoms.isEmpty {
+                VStack(spacing: 0) {
+                    proteinInfoHeader(structure: structure)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                    chainSelectionTabs(structure: structure)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 12)
+                }
+                .background(.ultraThinMaterial)
+                .safeAreaInset(edge: .top) {
+                    Color.clear.frame(height: 0)
+                }
             }
             
-            // Controls Section (Animated, doesn't affect layout)
+            // Controls Section (Bottom right, floating)
             VStack(spacing: 0) {
+                Spacer()
+                
                 // Toggle button (always visible)
                 controlsToggleButton
-                    .padding(.top, 16)
+                    .padding(.bottom, 16)
                 
                 // Controls content with animation
                 if showControls {
@@ -459,8 +467,8 @@ struct ProteinSceneContainer: View {
                 }
             }
             .animation(.easeInOut(duration: 0.3), value: showControls)
+            .padding(.trailing, 16)
         }
-        .padding(.top, 20)
         .background(Color(.systemBackground))
         .alert("Error", isPresented: .constant(error != nil)) {
             Button("OK") { error = nil }
@@ -472,9 +480,9 @@ struct ProteinSceneContainer: View {
     // MARK: - UI Components
     
     private func proteinInfoHeader(structure: PDBStructure) -> some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             // Main protein info
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 Text("Protein Structure")
                     .font(.title2.weight(.bold))
                     .foregroundColor(.primary)
@@ -498,6 +506,23 @@ struct ProteinSceneContainer: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                    
+                    Spacer()
+                    
+                    // 풀스크린 모드 토글 버튼
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showInfoBar.toggle()
+                        }
+                    }) {
+                        Image(systemName: showInfoBar ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.primary)
+                            .frame(width: 32, height: 32)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
+                    }
+                }
                     
                     VStack(spacing: 4) {
                         let residues = Array(Set(structure.atoms.map { $0.residueName }))
