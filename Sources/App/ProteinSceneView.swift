@@ -2,88 +2,82 @@ import SwiftUI
 import SceneKit
 import UIKit
 
-// MARK: - Geometry Cache for Performance Optimization
+// MARK: - Advanced Geometry Cache for Performance Optimization
 final class GeometryCache {
     static let shared = GeometryCache()
-    private var sphereHi = [CGFloat: SCNSphere]()   // 반경→구
-    private var materialByColor = [UIColor: SCNMaterial]()
     
-    func sphere(radius: CGFloat, segments: Int = 16) -> SCNSphere {
-        if let s = sphereHi[radius] { return s }
-        let s = SCNSphere(radius: radius)
-        s.segmentCount = segments
-        sphereHi[radius] = s
-        return s
+    // (반경, 색상HEX) → 공유 Geometry
+    private var lodSphereCache = [String: SCNGeometry]()
+    private var lodCylinderCache = [String: SCNGeometry]()
+    private var materialByColor = [UInt32: SCNMaterial]() // 빠른 키
+    
+    private func colorKey(_ c: UIColor) -> UInt32 {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        c.getRed(&r, green: &g, blue: &b, alpha: &a)
+        // 8bit RGBA → 32bit 키
+        return (UInt32(r*255)<<24) | (UInt32(g*255)<<16) | (UInt32(b*255)<<8) | UInt32(a*255)
     }
     
     func material(color: UIColor) -> SCNMaterial {
-        if let m = materialByColor[color] { return m }
+        let k = colorKey(color)
+        if let m = materialByColor[k] { return m }
         let m = SCNMaterial()
         m.lightingModel = .blinn
         m.diffuse.contents = color
         m.specular.contents = UIColor.white
-        materialByColor[color] = m
+        materialByColor[k] = m
         return m
     }
     
-    func sphereWithLOD(radius r: CGFloat, baseColor: UIColor) -> SCNGeometry {
-        // 고/중/저 분할 구 준비
-        let hi = SCNSphere(radius: r)
-        hi.segmentCount = 32
-        let md = SCNSphere(radius: r)
-        md.segmentCount = 16
-        let lo = SCNSphere(radius: r)
-        lo.segmentCount = 8
+    func lodSphere(radius r: CGFloat, color: UIColor) -> SCNGeometry {
+        let key = "S:\(r)-\(colorKey(color))"
+        if let g = lodSphereCache[key] { return g }
         
-        // 같은 머티리얼 공유
-        let mat = SCNMaterial()
-        mat.lightingModel = .blinn
-        mat.diffuse.contents = baseColor
+        let hi = SCNSphere(radius: r); hi.segmentCount = 32
+        let md = SCNSphere(radius: r); md.segmentCount = 16
+        let lo = SCNSphere(radius: r); lo.segmentCount = 8
+        
+        let mat = material(color: color)
         [hi, md, lo].forEach { $0.firstMaterial = mat }
         
-        // 화면상 반지름이 특정 값 이하로 작아지면 더 저렴한 메쉬로
-        let lods = [
+        let g = SCNSphere(radius: r)
+        g.levelsOfDetail = [
             SCNLevelOfDetail(geometry: hi, screenSpaceRadius: 40),
             SCNLevelOfDetail(geometry: md, screenSpaceRadius: 20),
-            SCNLevelOfDetail(geometry: lo, screenSpaceRadius: 8)
+            SCNLevelOfDetail(geometry: lo, screenSpaceRadius: 8),
         ]
-        
-        // 어떤 지오메트리에 LOD를 달든 '같은 지오메트리 공유'가 핵심
-        let g = SCNSphere(radius: r)
-        g.levelsOfDetail = lods
         g.firstMaterial = mat
+        lodSphereCache[key] = g
         return g
     }
     
-    func cylinderWithLOD(radius r: CGFloat, height h: CGFloat, baseColor: UIColor) -> SCNGeometry {
-        // 본드(실린더)도 동일하게 segmentCount를 16→8→6 등으로 줄인 3단계
-        let hi = SCNCylinder(radius: r, height: h)
-        hi.radialSegmentCount = 16
-        let md = SCNCylinder(radius: r, height: h)
-        md.radialSegmentCount = 8
-        let lo = SCNCylinder(radius: r, height: h)
-        lo.radialSegmentCount = 6
+    // 실린더는 높이가 개별 본드마다 달라 재사용이 어렵습니다.
+    // "단위 실린더(height=1)"를 캐시하고 각 본드는 scale.y = distance 로 해결하세요.
+    func unitLodCylinder(radius r: CGFloat, color: UIColor) -> SCNGeometry {
+        let key = "C:\(r)-\(colorKey(color))"
+        if let g = lodCylinderCache[key] { return g }
         
-        // 같은 머티리얼 공유
-        let mat = SCNMaterial()
-        mat.lightingModel = .blinn
-        mat.diffuse.contents = baseColor
+        let hi = SCNCylinder(radius: r, height: 1); hi.radialSegmentCount = 16
+        let md = SCNCylinder(radius: r, height: 1); md.radialSegmentCount = 8
+        let lo = SCNCylinder(radius: r, height: 1); lo.radialSegmentCount = 6
+        
+        let mat = material(color: color)
         [hi, md, lo].forEach { $0.firstMaterial = mat }
         
-        let lods = [
+        let g = SCNCylinder(radius: r, height: 1)
+        g.levelsOfDetail = [
             SCNLevelOfDetail(geometry: hi, screenSpaceRadius: 30),
             SCNLevelOfDetail(geometry: md, screenSpaceRadius: 15),
-            SCNLevelOfDetail(geometry: lo, screenSpaceRadius: 6)
+            SCNLevelOfDetail(geometry: lo, screenSpaceRadius: 6),
         ]
-        
-        let g = SCNCylinder(radius: r, height: h)
-        g.levelsOfDetail = lods
         g.firstMaterial = mat
+        lodCylinderCache[key] = g
         return g
     }
     
     func clearCache() {
-        sphereHi.removeAll()
+        lodSphereCache.removeAll()
+        lodCylinderCache.removeAll()
         materialByColor.removeAll()
     }
 }
@@ -135,8 +129,11 @@ struct ProteinSceneView: UIViewRepresentable {
         view.allowsCameraControl = true
         view.defaultCameraController.interactionMode = .orbitTurntable
         view.defaultCameraController.inertiaEnabled = true
-        view.antialiasingMode = .multisampling4X
+        view.antialiasingMode = .multisampling2X // 기본값을 2X로 설정
         view.preferredFramesPerSecond = 60
+        
+        // AA 동적 전환을 위한 delegate 설정
+        view.defaultCameraController.delegate = context.coordinator
         
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
         view.addGestureRecognizer(tap)
@@ -247,25 +244,25 @@ struct ProteinSceneView: UIViewRepresentable {
         switch style {
         case .spheres:
             let radius = getAtomRadius(atom: atom)
-            let geometry = GeometryCache.shared.sphereWithLOD(radius: radius, baseColor: color)
+            let geometry = GeometryCache.shared.lodSphere(radius: radius, color: color)
             node.geometry = geometry
             
         case .sticks:
-            let geometry = GeometryCache.shared.sphereWithLOD(radius: 0.1, baseColor: color)
+            let geometry = GeometryCache.shared.lodSphere(radius: 0.1, color: color)
             node.geometry = geometry
             
         case .cartoon:
-            let geometry = GeometryCache.shared.sphereWithLOD(radius: 0.15, baseColor: color)
+            let geometry = GeometryCache.shared.lodSphere(radius: 0.15, color: color)
             node.geometry = geometry
             
         case .surface:
             let radius = getAtomRadius(atom: atom) * 1.2
-            let geometry = GeometryCache.shared.sphereWithLOD(radius: radius, baseColor: color)
-            // 투명도는 별도로 설정
-            if let material = geometry.firstMaterial {
-                material.transparency = 0.3
-            }
-            node.geometry = geometry
+            let base = GeometryCache.shared.lodSphere(radius: radius, color: color)
+            let g = base.copy() as! SCNGeometry
+            let m = (base.firstMaterial?.copy() as? SCNMaterial) ?? SCNMaterial()
+            m.transparency = 0.3
+            g.firstMaterial = m
+            node.geometry = g
         }
         
         node.position = SCNVector3(atom.position.x, atom.position.y, atom.position.z)
@@ -283,27 +280,29 @@ struct ProteinSceneView: UIViewRepresentable {
         let start = SCNVector3(atom1.position.x, atom1.position.y, atom1.position.z)
         let end = SCNVector3(atom2.position.x, atom2.position.y, atom2.position.z)
         
-        let distance = sqrt(pow(end.x - start.x, 2) + pow(end.y - start.y, 2) + pow(end.z - start.z, 2))
+        let direction = SCNVector3(end.x - start.x, end.y - start.y, end.z - start.z)
+        let len = sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z)
+        guard len > 0.0001 else { return SCNNode() }
         
         let color = getBondColor(atom1: atom1, atom2: atom2, colorMode: colorMode, uniformColor: uniformColor)
         
-        // LOD가 적용된 실린더 지오메트리 사용
-        let geometry = GeometryCache.shared.cylinderWithLOD(radius: 0.05, height: CGFloat(distance), baseColor: color)
+        // 단위 LOD 실린더 공유
+        let node = SCNNode(geometry: GeometryCache.shared.unitLodCylinder(radius: 0.05, color: color))
+        node.position = SCNVector3((start.x + end.x) / 2, (start.y + end.y) / 2, (start.z + end.z) / 2)
+        node.scale = SCNVector3(1, len, 1) // height=1 → 길이를 스케일로
         
-        let node = SCNNode(geometry: geometry)
+        // 로컬 Y축(0,1,0)을 dir로 회전: 쿼터니언 생성
+        let yAxis = simd_float3(0, 1, 0)
+        let v = simd_float3(direction.x/len, direction.y/len, direction.z/len)
+        let axis = simd_normalize(simd_cross(yAxis, v))
+        let dot = simd_dot(yAxis, v)
+        let angle = acos(max(-1, min(1, dot)))
         
-        // Position and rotate cylinder
-        let midPoint = SCNVector3((start.x + end.x) / 2, (start.y + end.y) / 2, (start.z + end.z) / 2)
-        node.position = midPoint
-        
-        let direction = SCNVector3(end.x - start.x, end.y - start.y, end.z - start.z)
-        
-        // Calculate rotation to align cylinder with bond direction
-        if direction.y != 0 || direction.x != 0 {
-            let angle = atan2(sqrt(direction.x * direction.x + direction.y * direction.y), direction.z)
-            let rotationNode = SCNNode()
-            rotationNode.eulerAngles = SCNVector3(angle, 0, 0)
-            node.addChildNode(rotationNode)
+        if angle.isFinite && angle > 0.0001 {
+            node.orientation = SCNQuaternion(axis.x * sin(angle/2),
+                                           axis.y * sin(angle/2),
+                                           axis.z * sin(angle/2),
+                                           cos(angle/2))
         }
         
         return node
@@ -364,7 +363,7 @@ struct ProteinSceneView: UIViewRepresentable {
         return getChainColor(atom.chain)
     }
     
-    class Coordinator: NSObject {
+    class Coordinator: NSObject, SCNCameraControllerDelegate {
         let parent: ProteinSceneView
         
         init(parent: ProteinSceneView) {
@@ -387,6 +386,15 @@ struct ProteinSceneView: UIViewRepresentable {
                let atom = parent.structure?.atoms.first(where: { $0.id == atomId }) {
                 parent.onSelectAtom?(atom)
             }
+        }
+        
+        // MARK: - AA 동적 전환 (4×↔2×)
+        func cameraInertiaWillStart(_ cameraController: SCNCameraController) {
+            (cameraController.pointOfView?.scene?.view as? SCNView)?.antialiasingMode = .multisampling2X
+        }
+        
+        func cameraInertiaDidEnd(_ cameraController: SCNCameraController) {
+            (cameraController.pointOfView?.scene?.view as? SCNView)?.antialiasingMode = .multisampling4X
         }
     }
 }
