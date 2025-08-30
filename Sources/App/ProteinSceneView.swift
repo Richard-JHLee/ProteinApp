@@ -1,6 +1,54 @@
 import SwiftUI
 import SceneKit
 import UIKit
+import simd
+
+// MARK: - PDB Types
+enum SecondaryStructure: String {
+    case helix = "H"
+    case sheet = "S" 
+    case coil = "C"
+    case unknown = ""
+}
+
+struct Atom: Identifiable, Hashable {
+    let id: Int
+    let element: String
+    let name: String
+    let chain: String
+    let residueName: String
+    let residueNumber: Int
+    let position: SIMD3<Float>
+    let secondaryStructure: SecondaryStructure
+    let isBackbone: Bool
+    let isLigand: Bool
+    let isPocket: Bool
+}
+
+struct Bond: Hashable {
+    let a: Int
+    let b: Int
+}
+
+struct Annotation {
+    let type: AnnotationType
+    let value: String
+    let description: String
+}
+
+enum AnnotationType: String, CaseIterable {
+    case resolution = "Resolution"
+    case molecularWeight = "Molecular Weight"
+    case experimentalMethod = "Experimental Method"
+    case organism = "Organism"
+    case function = "Function"
+}
+
+struct PDBStructure {
+    let atoms: [Atom]
+    let bonds: [Bond]
+    let annotations: [Annotation]
+}
 
 // MARK: - Advanced Geometry Cache for Performance Optimization
 final class GeometryCache {
@@ -575,7 +623,7 @@ struct ProteinSceneContainer: View {
                 ligandsContent(structure: structure)
             case .pockets:
                 pocketsContent(structure: structure)
-            case .sequence:
+            case .sequences:
                 sequenceContent(structure: structure)
             case .annotations:
                 annotationsContent(structure: structure)
@@ -1388,9 +1436,32 @@ enum InfoTabType: String, CaseIterable {
         case .residues: return "atom"
         case .ligands: return "pills"
         case .pockets: return "target"
-        case .sequence: return "textformat"
+        case .sequences: return "textformat"
         case .annotations: return "note.text"
         }
+    }
+}
+
+struct StatCard: View {
+    let title: String
+    let value: String
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            Text(value)
+                .font(.title2.weight(.bold))
+                .foregroundColor(color)
+            
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
