@@ -342,18 +342,22 @@ struct ProteinSceneView: UIViewRepresentable {
         node.position = SCNVector3((start.x + end.x) / 2, (start.y + end.y) / 2, (start.z + end.z) / 2)
         node.scale = SCNVector3(1, len, 1) // height=1 → 길이를 스케일로
         
-        // 로컬 Y축(0,1,0)을 dir로 회전: 쿼터니언 생성
+        // 로컬 Y축(0,1,0)을 dir로 회전: 쿼터니언 생성 (NaN 방지)
         let yAxis = simd_float3(0, 1, 0)
-        let v = simd_float3(direction.x/len, direction.y/len, direction.z/len)
-        let axis = simd_normalize(simd_cross(yAxis, v))
+        let v = simd_normalize(simd_float3(direction.x/len, direction.y/len, direction.z/len))
+        let crossV = simd_cross(yAxis, v)
+        let axisLen = simd_length(crossV)
         let dot = simd_dot(yAxis, v)
         let angle = acos(max(-1, min(1, dot)))
         
-        if angle.isFinite && angle > 0.0001 {
+        if angle.isFinite && angle > 0.0001 && axisLen > 0.0001 {
+            let axis = crossV / axisLen
             node.orientation = SCNQuaternion(axis.x * sin(angle/2),
                                            axis.y * sin(angle/2),
                                            axis.z * sin(angle/2),
                                            cos(angle/2))
+        } else {
+            node.orientation = SCNQuaternion(0, 0, 0, 1) // 평행: 회전 없음
         }
         
         return node
@@ -427,7 +431,7 @@ struct ProteinSceneView: UIViewRepresentable {
             let location = gesture.location(in: view)
             
             let hitResults = view.hitTest(location, options: [
-                .searchMode: SCNHitTestSearchMode.closest.rawValue,
+                .searchMode: SCNHitTestSearchMode.closest,
                 .ignoreHiddenNodes: true
             ])
             
@@ -466,8 +470,8 @@ struct ProteinSceneContainer: View {
     @State private var selectedTab: InfoTabType = .overview
     
     var body: some View {
-        ZStack(alignment: .top) {
-            // Main 3D Viewer (Full screen)
+        ZStack {
+            // Main 3D Viewer (Full screen, ignores safe area)
             ProteinSceneView(
                 structure: structure,
                 style: selectedStyle,
@@ -479,23 +483,7 @@ struct ProteinSceneContainer: View {
                     print("Selected atom: \(atom.element) in chain \(atom.chain)")
                 }
             )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            
-            // Safe Area Fixed Header (Always on top)
-            if showInfoBar, let structure = structure, !structure.atoms.isEmpty {
-                VStack(spacing: 0) {
-                    proteinInfoHeader(structure: structure)
-                        .padding(.horizontal, 20)
-                        .padding(.top, 8)
-                    chainSelectionTabs(structure: structure)
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 12)
-                }
-                .background(.ultraThinMaterial)
-                .safeAreaInset(edge: .top) {
-                    Color.clear.frame(height: 0)
-                }
-            }
+            .ignoresSafeArea()
             
             // Controls Section (Bottom right, floating)
             VStack(spacing: 0) {
@@ -516,6 +504,20 @@ struct ProteinSceneContainer: View {
             }
             .animation(.easeInOut(duration: 0.3), value: showControls)
             .padding(.trailing, 16)
+        }
+        .safeAreaInset(edge: .top) {
+            if showInfoBar, let structure = structure, !structure.atoms.isEmpty {
+                VStack(spacing: 0) {
+                    proteinInfoHeader(structure: structure)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                    chainSelectionTabs(structure: structure)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 12)
+                }
+                .background(.ultraThinMaterial)
+                .overlay(Divider(), alignment: .bottom)
+            }
         }
         .background(Color(.systemBackground))
         .alert("Error", isPresented: .constant(error != nil)) {
@@ -555,6 +557,16 @@ struct ProteinSceneContainer: View {
                             .foregroundColor(.secondary)
                     }
                     
+                    VStack(spacing: 4) {
+                        let residues = Array(Set(structure.atoms.map { $0.residueName }))
+                        Text("\(residues.count)")
+                            .font(.title3.weight(.bold))
+                            .foregroundColor(.orange)
+                        Text("residues")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
                     Spacer()
                     
                     // 풀스크린 모드 토글 버튼
@@ -569,17 +581,6 @@ struct ProteinSceneContainer: View {
                             .frame(width: 32, height: 32)
                             .background(.ultraThinMaterial)
                             .clipShape(Circle())
-                    }
-                }
-                    
-                    VStack(spacing: 4) {
-                        let residues = Array(Set(structure.atoms.map { $0.residueName }))
-                        Text("\(residues.count)")
-                            .font(.title3.weight(.bold))
-                            .foregroundColor(.orange)
-                        Text("residues")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
                     }
                 }
                 .padding(.horizontal, 20)
