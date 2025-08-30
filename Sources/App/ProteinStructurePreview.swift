@@ -35,6 +35,7 @@ struct ProteinStructurePreview: View {
                     colorMode: .secondaryStructure, // 2차 구조별 색상
                     uniformColor: UIColor.systemBlue,
                     autoRotate: false, // 카드에서는 자동 회전 비활성화
+                    showInfoBar: .constant(false), // 카드에서는 정보 바 숨김
                     onSelectAtom: { _ in } // 카드에서는 원자 선택 비활성화
                 )
                 .frame(width: 120, height: 120) // 크기를 2배로 증가

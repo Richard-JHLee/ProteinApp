@@ -103,9 +103,16 @@ final class PDBParser {
             let resName = substr(s, 17..<20).trimmingCharacters(in: .whitespaces)
             let chain = substr(s, 21..<22).trimmingCharacters(in: .whitespaces)
             let resSeq = Int(substr(s, 22..<26).trimmingCharacters(in: .whitespaces)) ?? 0
-            let x = Float(substr(s, 30..<38).trimmingCharacters(in: .whitespaces)) ?? 0
-            let y = Float(substr(s, 38..<46).trimmingCharacters(in: .whitespaces)) ?? 0
-            let z = Float(substr(s, 46..<54).trimmingCharacters(in: .whitespaces)) ?? 0
+            let xStr = substr(s, 30..<38).trimmingCharacters(in: .whitespaces)
+            let yStr = substr(s, 38..<46).trimmingCharacters(in: .whitespaces)
+            let zStr = substr(s, 46..<54).trimmingCharacters(in: .whitespaces)
+            
+            guard let x = Float(xStr), x.isFinite,
+                  let y = Float(yStr), y.isFinite,
+                  let z = Float(zStr), z.isFinite else {
+                print("Warning: Invalid coordinates for atom: x=\(xStr), y=\(yStr), z=\(zStr)")
+                continue
+            }
             var element = substr(s, 76..<78).trimmingCharacters(in: .whitespaces)
             
             if element.isEmpty {
@@ -153,6 +160,23 @@ final class PDBParser {
             Annotation(type: .organism, value: "Unknown", description: "Source organism"),
             Annotation(type: .function, value: "Structural protein", description: "Protein function")
         ]
+        
+        // 최소한 하나의 원자가 있어야 함
+        guard !atoms.isEmpty else {
+            print("Error: No valid atoms found in PDB data")
+            // 기본 구조 반환
+            return PDBStructure(
+                atoms: [],
+                bonds: [],
+                annotations: [
+                    Annotation(type: .resolution, value: "N/A", description: "No structure data"),
+                    Annotation(type: .molecularWeight, value: "0 Da", description: "No atoms"),
+                    Annotation(type: .experimentalMethod, value: "N/A", description: "No data"),
+                    Annotation(type: .organism, value: "N/A", description: "No data"),
+                    Annotation(type: .function, value: "N/A", description: "No data")
+                ]
+            )
+        }
         
         return PDBStructure(atoms: atoms, bonds: bonds, annotations: annotations)
     }

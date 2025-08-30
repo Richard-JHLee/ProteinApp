@@ -3,52 +3,7 @@ import SceneKit
 import UIKit
 import simd
 
-// MARK: - PDB Types
-enum SecondaryStructure: String {
-    case helix = "H"
-    case sheet = "S" 
-    case coil = "C"
-    case unknown = ""
-}
 
-struct Atom: Identifiable, Hashable {
-    let id: Int
-    let element: String
-    let name: String
-    let chain: String
-    let residueName: String
-    let residueNumber: Int
-    let position: SIMD3<Float>
-    let secondaryStructure: SecondaryStructure
-    let isBackbone: Bool
-    let isLigand: Bool
-    let isPocket: Bool
-}
-
-struct Bond: Hashable {
-    let a: Int
-    let b: Int
-}
-
-struct Annotation {
-    let type: AnnotationType
-    let value: String
-    let description: String
-}
-
-enum AnnotationType: String, CaseIterable {
-    case resolution = "Resolution"
-    case molecularWeight = "Molecular Weight"
-    case experimentalMethod = "Experimental Method"
-    case organism = "Organism"
-    case function = "Function"
-}
-
-struct PDBStructure {
-    let atoms: [Atom]
-    let bonds: [Bond]
-    let annotations: [Annotation]
-}
 
 // MARK: - Advanced Geometry Cache for Performance Optimization
 final class GeometryCache {
@@ -168,11 +123,11 @@ struct ProteinSceneView: UIViewRepresentable {
     let colorMode: ColorMode
     let uniformColor: UIColor
     let autoRotate: Bool
+    @Binding var showInfoBar: Bool
     var onSelectAtom: ((Atom) -> Void)? = nil
 
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView()
-        view.scene = SCNScene()
         view.backgroundColor = .clear
         view.allowsCameraControl = true
         view.defaultCameraController.interactionMode = .orbitTurntable
@@ -185,7 +140,10 @@ struct ProteinSceneView: UIViewRepresentable {
         
         let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
         view.addGestureRecognizer(tap)
-        rebuild(view: view)
+        
+        // 초기 씬 설정 (라이트와 카메라 포함)
+        setupInitialScene(view: view)
+        
         return view
     }
 
@@ -208,10 +166,9 @@ struct ProteinSceneView: UIViewRepresentable {
         Coordinator(parent: self)
     }
 
-    private func rebuild(view: SCNView) {
+    private func setupInitialScene(view: SCNView) {
         let scene = SCNScene()
-        scene.rootNode.childNodes.forEach { $0.removeFromParentNode() }
-
+        
         // Professional lighting setup
         let keyLight = SCNLight()
         keyLight.type = .directional
@@ -244,13 +201,43 @@ struct ProteinSceneView: UIViewRepresentable {
         rimLightNode.position = SCNVector3(0, -20, 20)
         rimLightNode.look(at: SCNVector3(0, 0, 0))
         scene.rootNode.addChildNode(rimLightNode)
-
-        guard let structure = structure else {
-            view.scene = scene
+        
+        // 기본 카메라 설정
+        let cameraNode = SCNNode()
+        cameraNode.camera = SCNCamera()
+        cameraNode.position = SCNVector3(0, 0, 30) // 더 가까운 위치로 설정
+        cameraNode.look(at: SCNVector3(0, 0, 0))
+        scene.rootNode.addChildNode(cameraNode)
+        
+        view.scene = scene
+        view.defaultCameraController.target = SCNVector3(0, 0, 0)
+    }
+    
+    private func rebuild(view: SCNView) {
+        // 씬이 없으면 초기 설정
+        if view.scene == nil {
+            setupInitialScene(view: view)
+        }
+        
+        guard let structure = structure, !structure.atoms.isEmpty else {
+            // 구조가 없거나 원자가 없으면 protein 노드만 제거
+            view.scene?.rootNode.childNodes.forEach { node in
+                if node.name == "proteinNode" {
+                    node.removeFromParentNode()
+                }
+            }
             return
         }
-
+        
+        // 기존 protein 노드 제거 (라이트는 유지)
+        view.scene?.rootNode.childNodes.forEach { node in
+            if node.name == "proteinNode" {
+                node.removeFromParentNode()
+            }
+        }
+        
         let proteinNode = SCNNode()
+        proteinNode.name = "proteinNode" // 식별을 위한 이름 설정
         
         for atom in structure.atoms {
             let atomNode = createAtomNode(atom: atom, style: style, colorMode: colorMode, uniformColor: uniformColor)
@@ -264,10 +251,9 @@ struct ProteinSceneView: UIViewRepresentable {
             }
         }
         
-        scene.rootNode.addChildNode(proteinNode)
-        view.scene = scene
+        view.scene?.rootNode.addChildNode(proteinNode)
         
-        // Auto-fit camera
+        // Auto-fit camera (protein 노드가 변경된 후에만)
         let boundingBox = proteinNode.boundingBox
         let boundingSize = SCNVector3(
             boundingBox.max.x - boundingBox.min.x,
@@ -275,17 +261,17 @@ struct ProteinSceneView: UIViewRepresentable {
             boundingBox.max.z - boundingBox.min.z
         )
         let maxDimension = max(boundingSize.x, boundingSize.y, boundingSize.z)
-        let cameraDistance = maxDimension * 2.5
         
-        let cameraNode = SCNNode()
-        cameraNode.camera = SCNCamera()
-        cameraNode.position = SCNVector3(0, 0, cameraDistance)
-        cameraNode.look(at: SCNVector3(0, 0, 0))
-        scene.rootNode.addChildNode(cameraNode)
+        // 카메라 거리 조정 (너무 멀거나 가깝지 않게)
+        let cameraDistance = max(maxDimension * 1.5, 20.0) // 최소 20.0 거리 보장
         
+        // 기존 카메라 노드 찾기 및 위치 업데이트
+        if let existingCamera = view.scene?.rootNode.childNodes.first(where: { $0.camera != nil }) {
+            existingCamera.position = SCNVector3(0, 0, cameraDistance)
+        }
+        
+        // 카메라 컨트롤러 타겟 설정
         view.defaultCameraController.target = SCNVector3(0, 0, 0)
-        // Note: SCNCameraController doesn't have a 'distance' property
-        // The camera position is already set above
     }
     
     private func createAtomNode(atom: Atom, style: RenderStyle, colorMode: ColorMode, uniformColor: UIColor) -> SCNNode {
@@ -316,7 +302,13 @@ struct ProteinSceneView: UIViewRepresentable {
             node.geometry = g
         }
         
-        node.position = SCNVector3(atom.position.x, atom.position.y, atom.position.z)
+        // 안전장치: position 값이 유효한지 확인
+        let pos = atom.position
+        guard pos.x.isFinite && pos.y.isFinite && pos.z.isFinite else {
+            print("Warning: Invalid position for atom \(atom.id): \(pos)")
+            return SCNNode()
+        }
+        node.position = SCNVector3(pos.x, pos.y, pos.z)
         node.name = "atom_\(atom.id)"
         
         return node
@@ -328,8 +320,17 @@ struct ProteinSceneView: UIViewRepresentable {
             return SCNNode()
         }
         
-        let start = SCNVector3(atom1.position.x, atom1.position.y, atom1.position.z)
-        let end = SCNVector3(atom2.position.x, atom2.position.y, atom2.position.z)
+        // 안전장치: position 값이 유효한지 확인
+        let pos1 = atom1.position
+        let pos2 = atom2.position
+        guard pos1.x.isFinite && pos1.y.isFinite && pos1.z.isFinite &&
+              pos2.x.isFinite && pos2.y.isFinite && pos2.z.isFinite else {
+            print("Warning: Invalid position for bond between atoms \(atom1.id) and \(atom2.id)")
+            return SCNNode()
+        }
+        
+        let start = SCNVector3(pos1.x, pos1.y, pos1.z)
+        let end = SCNVector3(pos2.x, pos2.y, pos2.z)
         
         let direction = SCNVector3(end.x - start.x, end.y - start.y, end.z - start.z)
         let len = sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z)
@@ -447,10 +448,32 @@ struct ProteinSceneView: UIViewRepresentable {
         // MARK: - AA 동적 전환 (4×↔2×)
         func cameraInertiaWillStart(for cameraController: SCNCameraController) {
             currentView?.antialiasingMode = .multisampling2X
+            // 카메라 제스처 시작 시 정보 패널 자동 숨김
+            DispatchQueue.main.async {
+                self.parent.showInfoBar = false
+            }
         }
         
         func cameraInertiaDidEnd(for cameraController: SCNCameraController) {
             currentView?.antialiasingMode = .multisampling4X
+            // 카메라 제스처 종료 후 2초 뒤 정보 패널 자동 표시
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                self.parent.showInfoBar = true
+            }
+        }
+        
+        // 카메라 제스처 시작 감지
+        func cameraControllerWillBeginCameraChange(_ cameraController: SCNCameraController) {
+            DispatchQueue.main.async {
+                self.parent.showInfoBar = false
+            }
+        }
+        
+        // 카메라 제스처 종료 감지
+        func cameraControllerDidEndCameraChange(_ cameraController: SCNCameraController) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                self.parent.showInfoBar = true
+            }
         }
     }
 }
@@ -478,6 +501,7 @@ struct ProteinSceneContainer: View {
                 colorMode: selectedColorMode,
                 uniformColor: UIColor(selectedUniformColor),
                 autoRotate: autoRotate,
+                showInfoBar: $showInfoBar,
                 onSelectAtom: { atom in
                     // Handle atom selection
                     print("Selected atom: \(atom.element) in chain \(atom.chain)")
@@ -485,25 +509,21 @@ struct ProteinSceneContainer: View {
             )
             .ignoresSafeArea()
             
-            // Controls Section (Bottom right, floating)
-            VStack(spacing: 0) {
+            // Controls Section (Bottom right, fixed)
+            HStack {
                 Spacer()
-                
-                // Toggle button (always visible)
-                controlsToggleButton
-                    .padding(.bottom, 16)
-                
-                // Controls content with animation
-                if showControls {
-                    controlsContent
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .bottom).combined(with: .opacity),
-                            removal: .move(edge: .bottom).combined(with: .opacity)
-                        ))
+                VStack(spacing: 0) {
+                    Spacer()
+                    controlsToggleButton
+                        .padding(.bottom, 16)
+                    if showControls {
+                        controlsContent
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
                 }
+                .padding(.trailing, 16)
             }
             .animation(.easeInOut(duration: 0.3), value: showControls)
-            .padding(.trailing, 16)
         }
         .safeAreaInset(edge: .top) {
             if showInfoBar, let structure = structure, !structure.atoms.isEmpty {
@@ -590,13 +610,14 @@ struct ProteinSceneContainer: View {
             }
         }
         .padding(.horizontal, 20)
-        .padding(.top, 60) // Increased top padding to avoid navigation bar overlap
+        .padding(.top, 12) // Reduced padding since safeAreaInset handles top positioning
     }
     
+    @ViewBuilder
     private func chainSelectionTabs(structure: PDBStructure) -> some View {
         let chains = Array(Set(structure.atoms.map { $0.chain })).sorted()
         
-        return VStack(spacing: 16) {
+        VStack(spacing: 16) {
             // Info Tab Buttons
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
@@ -631,6 +652,12 @@ struct ProteinSceneContainer: View {
             }
         }
         .padding(.top, 20)
+        
+        // Selected Chain Information (if any chain is selected)
+        if let selectedChain = selectedChain {
+            selectedChainInfoView(structure: structure, chain: selectedChain)
+                .padding(.top, 16)
+        }
     }
     
     private func overviewContent(structure: PDBStructure) -> some View {
@@ -1148,22 +1175,7 @@ struct ProteinSceneContainer: View {
         .animation(.easeInOut(duration: 0.3), value: selectedChain)
     }
     
-    private func StatCard(title: String, value: String, color: Color) -> some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.title3.weight(.bold))
-                .foregroundColor(color)
-            
-            Text(title)
-                .font(.caption2.weight(.medium))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(color.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
+
 }
 
 // MARK: - Supporting Views
@@ -1443,26 +1455,5 @@ enum InfoTabType: String, CaseIterable {
     }
 }
 
-struct StatCard: View {
-    let title: String
-    let value: String
-    let color: Color
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            Text(value)
-                .font(.title2.weight(.bold))
-                .foregroundColor(color)
-            
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-}
+
 
