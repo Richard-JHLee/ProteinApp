@@ -4,28 +4,46 @@ struct ContentView: View {
     @State private var structure: PDBStructure? = nil
     @State private var isLoading = false
     @State private var error: String? = nil
+    @State private var showingProteinLibrary: Bool = false
     
     var body: some View {
         NavigationView {
             ZStack {
                 if let structure = structure {
-                    ProteinSceneContainer(structure: structure)
-                        .toolbar {
-                            ToolbarItem(placement: .navigationBarLeading) {
+                    ZStack {
+                        ProteinSceneContainer(structure: structure)
+                        
+                        // Top navigation buttons
+                        VStack {
+                            HStack {
                                 Button("Protein Library") {
-                                    // Show protein library
+                                    showingProteinLibrary = true
                                 }
                                 .font(.body.weight(.medium))
                                 .foregroundColor(.blue)
-                            }
-                            
-                            ToolbarItem(placement: .navigationBarTrailing) {
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(.ultraThinMaterial)
+                                .clipShape(Capsule())
+                                
+                                Spacer()
+                                
                                 Button("Info") {
                                     // Show app info or settings
                                 }
                                 .font(.body.weight(.medium))
+                                .foregroundColor(.primary)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(.ultraThinMaterial)
+                                .clipShape(Capsule())
                             }
+                            .padding(.horizontal, 20)
+                            .padding(.top, 20)
+                            
+                            Spacer()
                         }
+                    }
                 } else {
                     VStack(spacing: 20) {
                         if isLoading {
@@ -64,6 +82,14 @@ struct ContentView: View {
                 }
             } message: {
                 Text(error ?? "")
+            }
+        }
+        .sheet(isPresented: $showingProteinLibrary) {
+            ProteinLibraryView { selectedProtein in
+                // Handle protein selection from library
+                print("Selected protein: \(selectedProtein)")
+                showingProteinLibrary = false
+                // TODO: Load the selected protein structure
             }
         }
         .preferredColorScheme(.light)

@@ -3490,20 +3490,9 @@ struct ProteinLibraryView: View {
                 print("✅ 초기 로딩 완료: \(database.proteins.count)개 단백질")
             }
             
-            // API 카운트가 로드될 때까지 대기 (최대 5초)
-            var waitCount = 0
-            while database.categoryTotalCounts.isEmpty && waitCount < 50 {
-                _ = try? await Task.sleep(nanoseconds: 100_000_000) // 0.1초
-                waitCount += 1
-            }
-            
-            // 여전히 API 카운트가 없으면 직접 로드
-            if database.categoryTotalCounts.isEmpty {
-                print("🔍 모든 카테고리의 실제 개수 직접 로드 시작...")
-                await loadAllCategoryCounts()
-            } else {
-                print("📊 캐시된 API 카운트 사용: \(database.categoryTotalCounts.count)개 카테고리")
-            }
+            // 항상 실제 API 데이터로 카테고리별 개수 업데이트
+            print("🔍 모든 카테고리의 실제 개수 로드 시작...")
+            await loadAllCategoryCounts()
             
             // 샘플 데이터가 로드될 때까지 대기
             while database.proteins.isEmpty && !database.isLoading {

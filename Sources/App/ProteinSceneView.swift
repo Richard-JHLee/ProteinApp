@@ -45,16 +45,16 @@ final class GeometryCache {
         
         let g = SCNSphere(radius: r)
         g.levelsOfDetail = [
-            SCNLevelOfDetail(geometry: hi, screenSpaceRadius: 40),
-            SCNLevelOfDetail(geometry: md, screenSpaceRadius: 20),
-            SCNLevelOfDetail(geometry: lo, screenSpaceRadius: 8),
+            SCNLevelOfDetail(geometry: hi, screenSpaceRadius: 40.0),
+            SCNLevelOfDetail(geometry: md, screenSpaceRadius: 20.0),
+            SCNLevelOfDetail(geometry: lo, screenSpaceRadius: 8.0),
         ]
         g.firstMaterial = mat
         lodSphereCache[key] = g
         return g
     }
     
-    // 실린더는 높이가 개별 본드마다 달라 재사용이 어렵습니다.
+    // 실린더는 높이가 개본 본드마다 달라 재사용이 어렵습니다.
     // "단위 실린더(height=1)"를 캐시하고 각 본드는 scale.y = distance 로 해결하세요.
     func unitLodCylinder(radius r: CGFloat, color: UIColor) -> SCNGeometry {
         let key = "C:\(r)-\(colorKey(color))"
@@ -69,9 +69,9 @@ final class GeometryCache {
         
         let g = SCNCylinder(radius: r, height: 1)
         g.levelsOfDetail = [
-            SCNLevelOfDetail(geometry: hi, screenSpaceRadius: 30),
-            SCNLevelOfDetail(geometry: md, screenSpaceRadius: 15),
-            SCNLevelOfDetail(geometry: lo, screenSpaceRadius: 6),
+            SCNLevelOfDetail(geometry: hi, screenSpaceRadius: 30.0),
+            SCNLevelOfDetail(geometry: md, screenSpaceRadius: 15.0),
+            SCNLevelOfDetail(geometry: lo, screenSpaceRadius: 6.0),
         ]
         g.firstMaterial = mat
         lodCylinderCache[key] = g
@@ -125,6 +125,9 @@ struct ProteinSceneView: UIViewRepresentable {
     let autoRotate: Bool
     @Binding var showInfoBar: Bool
     var onSelectAtom: ((Atom) -> Void)? = nil
+    var highlightedChain: String? = nil
+    var onChainHighlight: ((String?) -> Void)? = nil
+    var onChainFocus: ((String?) -> Void)? = nil
 
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView()
@@ -311,7 +314,33 @@ struct ProteinSceneView: UIViewRepresentable {
         node.position = SCNVector3(pos.x, pos.y, pos.z)
         node.name = "atom_\(atom.id)"
         
+        // 체인 하이라이트 적용
+        if let highlightedChain = highlightedChain, atom.chain == highlightedChain {
+            applyChainHighlight(to: node)
+        }
+        
         return node
+    }
+    
+    // MARK: - Chain Highlight Functions
+    private func applyChainHighlight(to node: SCNNode) {
+        // Glow 효과를 위한 emission material 추가
+        if let geometry = node.geometry {
+            let material = geometry.firstMaterial ?? SCNMaterial()
+            material.emission.contents = UIColor.yellow
+            material.emission.intensity = 0.3
+            
+            // Outline 효과를 위한 stroke material
+            let strokeMaterial = SCNMaterial()
+            strokeMaterial.diffuse.contents = UIColor.yellow
+            strokeMaterial.transparency = 0.8
+            
+            // 원본 geometry에 stroke material 추가
+            geometry.materials = [material, strokeMaterial]
+        }
+        
+        // 추가적인 시각적 강조를 위한 scale
+        node.scale = SCNVector3(1.1, 1.1, 1.1)
     }
     
     private func createBondNode(bond: Bond, atoms: [Atom], colorMode: ColorMode, uniformColor: UIColor) -> SCNNode {
@@ -329,19 +358,27 @@ struct ProteinSceneView: UIViewRepresentable {
             return SCNNode()
         }
         
-        let start = SCNVector3(pos1.x, pos1.y, pos1.z)
-        let end = SCNVector3(pos2.x, pos2.y, pos2.z)
+        let start = SCNVector3(Float(pos1.x), Float(pos1.y), Float(pos1.z))
+        let end = SCNVector3(Float(pos2.x), Float(pos2.y), Float(pos2.z))
         
-        let direction = SCNVector3(end.x - start.x, end.y - start.y, end.z - start.z)
-        let len = sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z)
+        let direction = SCNVector3(
+            Float(end.x - start.x),
+            Float(end.y - start.y),
+            Float(end.z - start.z)
+        )
+        let len = Float(sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z))
         guard len > 0.0001 else { return SCNNode() }
         
         let color = getBondColor(atom1: atom1, atom2: atom2, colorMode: colorMode, uniformColor: uniformColor)
         
         // 단위 LOD 실린더 공유
         let node = SCNNode(geometry: GeometryCache.shared.unitLodCylinder(radius: 0.05, color: color))
-        node.position = SCNVector3((start.x + end.x) / 2, (start.y + end.y) / 2, (start.z + end.z) / 2)
-        node.scale = SCNVector3(1, len, 1) // height=1 → 길이를 스케일로
+        node.position = SCNVector3(
+            Float((start.x + end.x) / 2),
+            Float((start.y + end.y) / 2),
+            Float((start.z + end.z) / 2)
+        )
+        node.scale = SCNVector3(1, Float(len), 1) // height=1 → 길이를 스케일로
         
         // 로컬 Y축(0,1,0)을 dir로 회전: 쿼터니언 생성 (NaN 방지)
         let yAxis = simd_float3(0, 1, 0)
@@ -353,12 +390,21 @@ struct ProteinSceneView: UIViewRepresentable {
         
         if angle.isFinite && angle > 0.0001 && axisLen > 0.0001 {
             let axis = crossV / axisLen
-            node.orientation = SCNQuaternion(axis.x * sin(angle/2),
-                                           axis.y * sin(angle/2),
-                                           axis.z * sin(angle/2),
-                                           cos(angle/2))
+            let halfAngle = angle / 2
+            node.orientation = SCNQuaternion(
+                Float(axis.x * sin(halfAngle)),
+                Float(axis.y * sin(halfAngle)),
+                Float(axis.z * sin(halfAngle)),
+                Float(cos(halfAngle))
+            )
         } else {
             node.orientation = SCNQuaternion(0, 0, 0, 1) // 평행: 회전 없음
+        }
+        
+        // 체인 하이라이트 적용 (bond도 하이라이트)
+        if let highlightedChain = highlightedChain, 
+           (atom1.chain == highlightedChain || atom2.chain == highlightedChain) {
+            applyChainHighlight(to: node)
         }
         
         return node
@@ -478,8 +524,15 @@ struct ProteinSceneView: UIViewRepresentable {
     }
 }
 
+// MARK: - View Mode Enum
+enum ViewMode {
+    case info      // 정보 탭과 상세 정보 표시
+    case viewer    // 3D 뷰어만 표시
+}
+
 struct ProteinSceneContainer: View {
     let structure: PDBStructure?
+    @State private var viewMode: ViewMode = .info
     @State private var selectedStyle: RenderStyle = .spheres
     @State private var selectedColorMode: ColorMode = .element
     @State private var selectedUniformColor: Color = .blue
@@ -487,6 +540,7 @@ struct ProteinSceneContainer: View {
     @State private var showControls: Bool = true
     @State private var showInfoBar: Bool = true
     @State private var selectedChain: String? = nil
+    @State private var highlightedChain: String? = nil
     @State private var error: String? = nil
     @State private var pdbId: String = ""
     @State private var isLoading: Bool = false
@@ -494,44 +548,84 @@ struct ProteinSceneContainer: View {
     
     var body: some View {
         ZStack {
-            // Main 3D Viewer (Full screen, ignores safe area)
-            ProteinSceneView(
-                structure: structure,
-                style: selectedStyle,
-                colorMode: selectedColorMode,
-                uniformColor: UIColor(selectedUniformColor),
-                autoRotate: autoRotate,
-                showInfoBar: $showInfoBar,
-                onSelectAtom: { atom in
-                    // Handle atom selection
-                    print("Selected atom: \(atom.element) in chain \(atom.chain)")
-                }
-            )
-            .ignoresSafeArea()
-            
-            // Controls Section (Bottom right, fixed)
-            HStack {
-                Spacer()
-                VStack(spacing: 0) {
+            // Main 3D Viewer (Full screen, ignores safe area) - 뷰어 모드에서만 표시
+            if viewMode == .viewer {
+                ProteinSceneView(
+                    structure: structure,
+                    style: selectedStyle,
+                    colorMode: selectedColorMode,
+                    uniformColor: UIColor(selectedUniformColor),
+                    autoRotate: autoRotate,
+                    showInfoBar: $showInfoBar,
+                    onSelectAtom: { atom in
+                        // Handle atom selection
+                        print("Selected atom: \(atom.element) in chain \(atom.chain)")
+                    },
+                    highlightedChain: highlightedChain,
+                    onChainHighlight: { chain in
+                        highlightedChain = chain
+                    },
+                    onChainFocus: onChainFocus
+                )
+                .ignoresSafeArea()
+                
+                // Controls Section (Bottom right, fixed) - 모든 모드에서 표시
+                HStack {
                     Spacer()
-                    controlsToggleButton
-                        .padding(.bottom, 16)
-                    if showControls {
-                        controlsContent
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    VStack(spacing: 0) {
+                        Spacer()
+                        
+                        // 항상 보이는 색상 슬라이더
+                        colorSliderContent
+                            .padding(.bottom, 16)
+                        
+                        // 토글 가능한 컨트롤들
+                        if showControls {
+                            toggleableControlsContent
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                        }
+                        
+                        controlsToggleButton
+                            .padding(.bottom, 16)
                     }
+                    .padding(.trailing, 16)
                 }
-                .padding(.trailing, 16)
+                .animation(.easeInOut(duration: 0.3), value: showControls)
+                
+                // 정보 모드로 돌아가는 버튼 (Top left, floating)
+                VStack {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            viewMode = .info
+                        }
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "list.bullet")
+                                .font(.system(size: 14, weight: .medium))
+                            Text("Info")
+                                .font(.caption.weight(.medium))
+                        }
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Spacer()
+                }
+                .padding(.leading, 20)
+                .padding(.top, 20)
             }
-            .animation(.easeInOut(duration: 0.3), value: showControls)
         }
         .safeAreaInset(edge: .top) {
-            if showInfoBar, let structure = structure, !structure.atoms.isEmpty {
+            if viewMode == .info, let structure = structure, !structure.atoms.isEmpty {
                 VStack(spacing: 0) {
                     proteinInfoHeader(structure: structure)
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
-                    chainSelectionTabs(structure: structure)
+                    chainSelectionTabs(structure: structure, highlightedChain: highlightedChain, onChainFocus: onChainFocus, onChainHighlight: onChainHighlight)
                         .padding(.horizontal, 20)
                         .padding(.bottom, 12)
                 }
@@ -558,50 +652,60 @@ struct ProteinSceneContainer: View {
                     .foregroundColor(.primary)
                 
                 HStack(spacing: 20) {
-                    VStack(spacing: 4) {
+                    VStack(spacing: 6) {
                         Text("\(structure.atoms.count)")
-                            .font(.title3.weight(.bold))
+                            .font(.title.weight(.bold))
                             .foregroundColor(.blue)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                         Text("atoms")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(.caption2.weight(.medium))
+                            .foregroundColor(.secondary.opacity(0.8))
+                            .textCase(.uppercase)
                     }
                     
-                    VStack(spacing: 4) {
+                    VStack(spacing: 6) {
                         let chains = Array(Set(structure.atoms.map { $0.chain }))
                         Text("\(chains.count)")
-                            .font(.title3.weight(.bold))
+                            .font(.title.weight(.bold))
                             .foregroundColor(.green)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                         Text("chains")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(.caption2.weight(.medium))
+                            .foregroundColor(.secondary.opacity(0.8))
+                            .textCase(.uppercase)
                     }
                     
-                    VStack(spacing: 4) {
+                    VStack(spacing: 6) {
                         let residues = Array(Set(structure.atoms.map { $0.residueName }))
                         Text("\(residues.count)")
-                            .font(.title3.weight(.bold))
+                            .font(.title.weight(.bold))
                             .foregroundColor(.orange)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                         Text("residues")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(.caption2.weight(.medium))
+                            .foregroundColor(.secondary.opacity(0.8))
+                            .textCase(.uppercase)
                     }
                     
                     Spacer()
                     
-                    // 풀스크린 모드 토글 버튼
+                    // 모드 전환 버튼 (정보 ↔ 뷰어)
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.3)) {
-                            showInfoBar.toggle()
+                            viewMode = (viewMode == .info) ? .viewer : .info
                         }
                     }) {
-                        Image(systemName: showInfoBar ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                        Image(systemName: viewMode == .info ? "eye" : "list.bullet")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.primary)
                             .frame(width: 32, height: 32)
                             .background(.ultraThinMaterial)
                             .clipShape(Circle())
                     }
+                    .accessibilityLabel(viewMode == .info ? "Switch to 3D Viewer" : "Switch to Info View")
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
@@ -614,7 +718,7 @@ struct ProteinSceneContainer: View {
     }
     
     @ViewBuilder
-    private func chainSelectionTabs(structure: PDBStructure) -> some View {
+    private func chainSelectionTabs(structure: PDBStructure, highlightedChain: String?, onChainFocus: ((String?) -> Void)?, onChainHighlight: ((String?) -> Void)?) -> some View {
         let chains = Array(Set(structure.atoms.map { $0.chain })).sorted()
         
         VStack(spacing: 16) {
@@ -655,7 +759,7 @@ struct ProteinSceneContainer: View {
         
         // Selected Chain Information (if any chain is selected)
         if let selectedChain = selectedChain {
-            selectedChainInfoView(structure: structure, chain: selectedChain)
+            selectedChainInfoView(structure: structure, chain: selectedChain, highlightedChain: highlightedChain, onChainFocus: onChainFocus, onChainHighlight: onChainHighlight)
                 .padding(.top, 16)
         }
     }
@@ -760,40 +864,89 @@ struct ProteinSceneContainer: View {
         let residueCounts = Dictionary(grouping: structure.atoms, by: { $0.residueName })
             .mapValues { $0.count }
             .sorted { $0.value > $1.value }
+            .map { (key: $0.key, value: $0.value) }
+        
+        let totalAtoms = structure.atoms.count
+        let maxCount = residueCounts.map { $0.value }.max() ?? 1
         
         return VStack(alignment: .leading, spacing: 16) {
             Text("Residues")
                 .font(.headline.weight(.semibold))
                 .foregroundColor(.primary)
             
-            Text("Amino acid composition")
+            Text("Amino acid composition with relative abundance")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
-                ForEach(residueCounts.prefix(20), id: \.key) { residue, count in
-                    VStack(spacing: 4) {
-                        Text(String(residue))
-                            .font(.caption.weight(.bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.blue)
-                            .clipShape(Capsule())
-                        
-                        Text("\(count)")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+            // Top residues with bar charts - Scrollable container
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Top Residues")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.primary)
+                
+                ScrollView(.vertical, showsIndicators: true) {
+                    VStack(spacing: 8) {
+                        ForEach(residueCounts, id: \.key) { residue, count in
+                            HStack(spacing: 12) {
+                                // Residue name with color-coded background
+                                Text(String(residue))
+                                    .font(.caption.weight(.bold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(residueGroupColor(for: String(residue)))
+                                    .clipShape(Capsule())
+                                    .frame(width: 50, alignment: .center)
+                                
+                                // Bar chart showing relative abundance
+                                GeometryReader { geometry in
+                                    HStack(spacing: 0) {
+                                        Rectangle()
+                                            .fill(residueGroupColor(for: String(residue)))
+                                            .frame(width: geometry.size.width * CGFloat(count) / CGFloat(maxCount))
+                                        
+                                        Spacer()
+                                    }
+                                }
+                                .frame(height: 20)
+                                .background(Color(.systemGray5))
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                
+                                // Count and percentage
+                                VStack(alignment: .trailing, spacing: 2) {
+                                    Text("\(count)")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundColor(.primary)
+                                    
+                                    Text("\(Int(Double(count) / Double(totalAtoms) * 100))%")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                                .frame(width: 40, alignment: .trailing)
+                            }
+                        }
                     }
+                    .padding(.trailing, 4) // 스크롤바 공간 확보
                 }
+                .frame(maxHeight: 300) // 최대 높이 제한으로 스크롤 가능하게
             }
             
-            if residues.count > 20 {
-                Text("+ \(residues.count - 20) more residues")
+            // Summary statistics
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Residue Groups")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundColor(.primary)
+                
+                HStack(spacing: 16) {
+                    residueGroupSummary(title: "Hydrophobic", color: .blue, count: hydrophobicResidueCount(structure))
+                    residueGroupSummary(title: "Polar", color: .green, count: polarResidueCount(structure))
+                    residueGroupSummary(title: "Charged", color: .orange, count: chargedResidueCount(structure))
+                }
+            }
+            .padding(.top, 8)
+            
+            if residues.count > 15 {
+                Text("+ \(residues.count - 15) more residues")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.top, 8)
@@ -830,7 +983,10 @@ struct ProteinSceneContainer: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Color.orange)
+                                .background(
+                                    // 🟧 Orange → Side chain/Ligand (변동성)
+                                    Color.orange
+                                )
                                 .clipShape(Capsule())
                         }
                     }
@@ -947,7 +1103,10 @@ struct ProteinSceneContainer: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Color.brown)
+                            .background(
+                                // 🟦 Blue → 수량/전체 (Sequence는 전체 구조)
+                                Color.blue
+                            )
                             .clipShape(Capsule())
                     }
                 }
@@ -1018,7 +1177,34 @@ struct ProteinSceneContainer: View {
         .buttonStyle(.plain)
     }
     
-    private var controlsContent: some View {
+    // MARK: - Controls Components
+    
+    // 항상 보이는 색상 슬라이더
+    private var colorSliderContent: some View {
+        VStack(spacing: 16) {
+            // Uniform Color Picker (only for uniform mode)
+            if selectedColorMode == .uniform {
+                HStack {
+                    Text("Color")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    ColorPicker("", selection: $selectedUniformColor)
+                        .labelsHidden()
+                }
+            }
+        }
+        .padding(20)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, 20)
+        .padding(.bottom, 20)
+    }
+    
+    // 토글 가능한 컨트롤들
+    private var toggleableControlsContent: some View {
         VStack(spacing: 16) {
             // Style Selection
             VStack(alignment: .leading, spacing: 8) {
@@ -1056,20 +1242,6 @@ struct ProteinSceneContainer: View {
                 }
             }
             
-            // Uniform Color Picker (only for uniform mode)
-            if selectedColorMode == .uniform {
-                HStack {
-                    Text("Color")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.primary)
-                    
-                    Spacer()
-                    
-                    ColorPicker("", selection: $selectedUniformColor)
-                        .labelsHidden()
-                }
-            }
-            
             // Auto-rotate Toggle
             HStack {
                 Text("Auto-rotate")
@@ -1089,7 +1261,7 @@ struct ProteinSceneContainer: View {
         .padding(.bottom, 20)
     }
     
-    private func selectedChainInfoView(structure: PDBStructure, chain: String) -> some View {
+    private func selectedChainInfoView(structure: PDBStructure, chain: String, highlightedChain: String?, onChainFocus: ((String?) -> Void)?, onChainHighlight: ((String?) -> Void)?) -> some View {
         let atomsInChain = structure.atoms.filter { $0.chain == chain }
         let residuesInChain = Array(Set(atomsInChain.map { $0.residueName })).sorted()
         let uniqueResidues = residuesInChain.map { $0.prefix(3) }
@@ -1100,79 +1272,186 @@ struct ProteinSceneContainer: View {
         let helixResidues = atomsInChain.filter { $0.secondaryStructure == .helix }
         let sheetResidues = atomsInChain.filter { $0.secondaryStructure == .sheet }
         
-        return VStack(alignment: .leading, spacing: 16) {
-            // Header
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Chain \(chain)")
-                        .font(.title2.weight(.bold))
-                        .foregroundColor(.primary)
-                    
-                    Text("\(atomsInChain.count) atoms • \(uniqueResidues.count) residues")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                Button("Deselect") {
-                    selectedChain = nil
-                }
-                .font(.caption.weight(.medium))
-                .foregroundColor(.red)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color.red.opacity(0.1))
-                .clipShape(Capsule())
-            }
-            
-            // Statistics Grid
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
-                StatCard(title: "Total Atoms", value: "\(atomsInChain.count)", color: .blue)
-                StatCard(title: "Backbone", value: "\(backboneAtoms.count)", color: .green)
-                StatCard(title: "Side Chain", value: "\(sideChainAtoms.count)", color: .orange)
-                StatCard(title: "Helix", value: "\(helixResidues.count)", color: .purple)
-                StatCard(title: "Sheet", value: "\(sheetResidues.count)", color: .red)
-                StatCard(title: "Coil", value: "\(atomsInChain.count - helixResidues.count - sheetResidues.count)", color: .gray)
-            }
-            
-            // Residue Composition
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Residue Composition")
-                    .font(.headline.weight(.semibold))
-                    .foregroundColor(.primary)
-                
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(uniqueResidues, id: \.self) { residue in
-                            Text(String(residue))
-                                .font(.caption.weight(.medium))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.blue)
-                                .clipShape(Capsule())
-                        }
-                    }
-                    .padding(.horizontal, 4)
-                }
-            }
+        return selectedChainInfoContent(
+            chain: chain,
+            atomsInChain: atomsInChain,
+            uniqueResidues: uniqueResidues,
+            backboneAtoms: backboneAtoms,
+            sideChainAtoms: sideChainAtoms,
+            helixResidues: helixResidues,
+            sheetResidues: sheetResidues,
+            highlightedChain: highlightedChain,
+            onChainFocus: onChainFocus
+        )
+    }
+    
+    private func selectedChainInfoContent(
+        chain: String,
+        atomsInChain: [Atom],
+        uniqueResidues: [String.SubSequence],
+        backboneAtoms: [Atom],
+        sideChainAtoms: [Atom],
+        helixResidues: [Atom],
+        sheetResidues: [Atom],
+        highlightedChain: String?,
+        onChainFocus: ((String?) -> Void)?
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            selectedChainHeader(chain: chain, atomsInChain: atomsInChain, uniqueResidues: uniqueResidues, highlightedChain: highlightedChain, onChainFocus: onChainFocus, onChainHighlight: onChainHighlight)
+            selectedChainStatistics(atomsInChain: atomsInChain, backboneAtoms: backboneAtoms, sideChainAtoms: sideChainAtoms, helixResidues: helixResidues, sheetResidues: sheetResidues)
+            selectedChainResidues(uniqueResidues: uniqueResidues)
         }
         .padding(20)
-        .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(
+            LinearGradient(
+                colors: [Color.blue.opacity(0.05), Color.blue.opacity(0.02)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Color.blue.opacity(0.3), lineWidth: 2)
         )
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .animation(.easeInOut(duration: 0.3), value: selectedChain)
+    }
+    
+    private func selectedChainHeader(
+        chain: String,
+        atomsInChain: [Atom],
+        uniqueResidues: [String.SubSequence],
+        highlightedChain: String?,
+        onChainFocus: ((String?) -> Void)?,
+        onChainHighlight: ((String?) -> Void)?
+    ) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Chain \(chain)")
+                    .font(.title2.weight(.bold))
+                    .foregroundColor(.primary)
+                
+                Text("\(atomsInChain.count) atoms • \(uniqueResidues.count) residues")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            selectedChainActionButtons(chain: chain, highlightedChain: highlightedChain, onChainFocus: onChainFocus, onChainHighlight: onChainHighlight)
+        }
+    }
+    
+        private func selectedChainActionButtons(
+        chain: String,
+        highlightedChain: String?,
+        onChainFocus: ((String?) -> Void)?,
+        onChainHighlight: ((String?) -> Void)?
+    ) -> some View {
+        HStack(spacing: 8) {
+            // Highlight Button
+            Button(action: {
+                if highlightedChain == chain {
+                    onChainHighlight?(nil) // 하이라이트 해제
+                } else {
+                    onChainHighlight?(chain) // 하이라이트 적용
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: highlightedChain == chain ? "sparkles" : "sparkles.slash")
+                        .font(.caption2)
+                    Text(highlightedChain == chain ? "Unhighlight" : "Highlight")
+                        .font(.caption.weight(.medium))
+                }
+                .foregroundColor(highlightedChain == chain ? .orange : .blue)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background((highlightedChain == chain ? Color.orange : Color.blue).opacity(0.1))
+                .clipShape(Capsule())
+            }
+            
+            // Focus Button
+            Button(action: {
+                onChainFocus?(chain)
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "target")
+                        .font(.caption2)
+                    Text("Focus")
+                        .font(.caption.weight(.medium))
+                }
+                .foregroundColor(.green)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.green.opacity(0.1))
+                .clipShape(Capsule())
+            }
+            
+            // Deselect Button
+            Button("Deselect") {
+                selectedChain = nil
+                onChainHighlight?(nil) // 체인 선택 해제 시 하이라이트도 해제
+            }
+            .font(.caption.weight(.medium))
+            .foregroundColor(.red)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.red.opacity(0.1))
+            .clipShape(Capsule())
+        }
+    }
+    
+    private func selectedChainStatistics(
+        atomsInChain: [Atom],
+        backboneAtoms: [Atom],
+        sideChainAtoms: [Atom],
+        helixResidues: [Atom],
+        sheetResidues: [Atom]
+    ) -> some View {
+        LazyVGrid(columns: [
+            GridItem(.flexible()),
+            GridItem(.flexible()),
+            GridItem(.flexible())
+        ], spacing: 12) {
+            StatCard(title: "Total Atoms", value: "\(atomsInChain.count)", color: .blue)
+            StatCard(title: "Backbone", value: "\(backboneAtoms.count)", color: .green)
+            StatCard(title: "Side Chain", value: "\(sideChainAtoms.count)", color: .orange)
+            StatCard(title: "Helix", value: "\(helixResidues.count)", color: .purple)
+            StatCard(title: "Sheet", value: "\(sheetResidues.count)", color: .red)
+            StatCard(title: "Coil", value: "\(atomsInChain.count - helixResidues.count - sheetResidues.count)", color: .gray)
+        }
+    }
+    
+    private func selectedChainResidues(uniqueResidues: [String.SubSequence]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Residue Composition")
+                .font(.headline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(uniqueResidues, id: \.self) { residue in
+                        Text(String(residue))
+                            .font(.caption.weight(.medium))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.blue, Color.blue.opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .clipShape(Capsule())
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
     }
     
 
@@ -1451,6 +1730,144 @@ enum InfoTabType: String, CaseIterable {
         case .pockets: return "target"
         case .sequence: return "textformat"
         case .annotations: return "note.text"
+        }
+    }
+}
+
+// MARK: - Color Utility Functions
+/// Residue 타입에 따른 의미 있는 색상 반환
+private func residueColor(for residue: String) -> Color {
+    switch residue.uppercased() {
+    // 🟦 Blue → 수량/전체 (기본)
+    case "ALA", "MET", "PHE", "TRP":
+        return .blue // 소수성 아미노산 (안정적)
+    
+    // 🟩 Green → 안정적 요소 (Backbone)
+    case "SER", "CYS", "ASN", "GLN":
+        return .green // 극성 아미노산 (안정적)
+    
+    // 🟧 Orange → Side chain (변동성)
+    case "ASP", "GLU", "LYS", "ARG", "HIS":
+        return .orange // 전하를 띤 아미노산 (변동성)
+    
+    // 🟪 Purple → Helix (특수 구조)
+    case "PRO", "GLY":
+        return .purple // 특수 구조 형성
+    
+    // 🔴 Red → Sheet (강한 구조)
+    case "VAL", "ILE", "THR":
+        return .red // 베타 시트 선호
+    
+    // 🟦 Blue → 수량/전체 (기본)
+    case "LEU":
+        return .blue // 소수성 아미노산 (안정적)
+    
+    // ⚪ Gray → Coil (유연한 구조)
+    default:
+        return .gray // 유연한 구조
+    }
+}
+
+/// Residue 그룹별 색상 반환 (친수성/소수성/극성)
+private func residueGroupColor(for residue: String) -> Color {
+    switch residue.uppercased() {
+    // 🟦 Blue → Hydrophobic (소수성)
+    case "ALA", "VAL", "LEU", "ILE", "MET", "PHE", "TRP", "PRO":
+        return .blue
+    
+    // 🟩 Green → Polar (극성, 친수성)
+    case "GLY", "SER", "THR", "CYS", "ASN", "GLN":
+        return .green
+    
+    // 🟧 Orange → Charged (전하를 띤, 극성)
+    case "ASP", "GLU", "LYS", "ARG", "HIS":
+        return .orange
+    
+    default:
+        return .gray
+    }
+}
+
+/// 친수성 아미노산 개수 계산
+private func hydrophobicResidueCount(_ structure: PDBStructure) -> Int {
+    let hydrophobicResidues = ["ALA", "VAL", "LEU", "ILE", "MET", "PHE", "TRP", "PRO"]
+    return structure.atoms.filter { hydrophobicResidues.contains($0.residueName.uppercased()) }.count
+}
+
+/// 극성 아미노산 개수 계산
+private func polarResidueCount(_ structure: PDBStructure) -> Int {
+    let polarResidues = ["GLY", "SER", "THR", "CYS", "ASN", "GLN"]
+    return structure.atoms.filter { polarResidues.contains($0.residueName.uppercased()) }.count
+}
+
+/// 전하를 띤 아미노산 개수 계산
+private func chargedResidueCount(_ structure: PDBStructure) -> Int {
+    let chargedResidues = ["ASP", "GLU", "LYS", "ARG", "HIS"]
+    return structure.atoms.filter { chargedResidues.contains($0.residueName.uppercased()) }.count
+}
+
+/// Residue 그룹 요약 카드
+private func residueGroupSummary(title: String, color: Color, count: Int) -> some View {
+    VStack(spacing: 4) {
+        Text(title)
+            .font(.caption2.weight(.medium))
+            .foregroundColor(.secondary)
+            .textCase(.uppercase)
+        
+        Text("\(count)")
+            .font(.title3.weight(.bold))
+            .foregroundColor(color)
+    }
+    .frame(maxWidth: .infinity)
+    .padding(.vertical, 8)
+    .background(color.opacity(0.1))
+    .clipShape(RoundedRectangle(cornerRadius: 8))
+}
+
+// MARK: - ProteinSceneContainer Extensions
+extension ProteinSceneContainer {
+    private func focusOnChain(_ chain: String?) {
+        guard let chain = chain, let structure = structure else { return }
+        
+        // 해당 체인의 원자들 찾기
+        let chainAtoms = structure.atoms.filter { $0.chain == chain }
+        guard !chainAtoms.isEmpty else { return }
+        
+        // 체인의 중심점 계산
+        let centerX = chainAtoms.map { $0.position.x }.reduce(0, +) / Float(chainAtoms.count)
+        let centerY = chainAtoms.map { $0.position.y }.reduce(0, +) / Float(chainAtoms.count)
+        let centerZ = chainAtoms.map { $0.position.z }.reduce(0, +) / Float(chainAtoms.count)
+        
+        let center = SCNVector3(centerX, centerY, centerZ)
+        
+        // 체인의 경계 상자 계산
+        let minX = chainAtoms.map { $0.position.x }.min() ?? 0
+        let maxX = chainAtoms.map { $0.position.x }.max() ?? 0
+        let minY = chainAtoms.map { $0.position.y }.min() ?? 0
+        let maxY = chainAtoms.map { $0.position.y }.max() ?? 0
+        let minZ = chainAtoms.map { $0.position.z }.min() ?? 0
+        let maxZ = chainAtoms.map { $0.position.z }.max() ?? 0
+        
+        let boundingSize = max(maxX - minX, maxY - minY, maxZ - minZ)
+        let cameraDistance = max(boundingSize * 1.5, 15.0)
+        
+        // 카메라를 체인 중심으로 이동하고 줌인
+        // Note: 실제 카메라 제어는 SceneKit에서 처리해야 하므로
+        // 여기서는 하이라이트만 토글하고, 카메라 제어는 별도로 구현
+        print("Focusing on chain \(chain) at center: \(center), distance: \(cameraDistance)")
+    }
+    
+    // onChainFocus 함수를 클로저로 정의
+    private var onChainFocus: ((String?) -> Void) {
+        return { chain in
+            self.focusOnChain(chain)
+        }
+    }
+    
+    // onChainHighlight 함수를 클로저로 정의
+    private var onChainHighlight: ((String?) -> Void) {
+        return { chain in
+            self.highlightedChain = chain
         }
     }
 }
