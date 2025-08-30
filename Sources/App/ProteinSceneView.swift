@@ -284,7 +284,6 @@ struct ProteinSceneView: UIViewRepresentable {
         let end = SCNVector3(atom2.position.x, atom2.position.y, atom2.position.z)
         
         let distance = sqrt(pow(end.x - start.x, 2) + pow(end.y - start.y, 2) + pow(end.z - start.z, 2))
-        let cylinder = SCNCylinder(radius: 0.05, height: CGFloat(distance))
         
         let color = getBondColor(atom1: atom1, atom2: atom2, colorMode: colorMode, uniformColor: uniformColor)
         
