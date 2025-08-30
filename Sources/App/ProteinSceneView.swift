@@ -623,7 +623,7 @@ struct ProteinSceneContainer: View {
                 ligandsContent(structure: structure)
             case .pockets:
                 pocketsContent(structure: structure)
-            case .sequences:
+            case .sequence:
                 sequenceContent(structure: structure)
             case .annotations:
                 annotationsContent(structure: structure)
@@ -1436,7 +1436,7 @@ enum InfoTabType: String, CaseIterable {
         case .residues: return "atom"
         case .ligands: return "pills"
         case .pockets: return "target"
-        case .sequences: return "textformat"
+        case .sequence: return "textformat"
         case .annotations: return "note.text"
         }
     }
