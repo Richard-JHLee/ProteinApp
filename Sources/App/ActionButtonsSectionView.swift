@@ -4,7 +4,6 @@ struct ActionButtonsSectionView: View {
     let protein: ProteinInfo
     var onView3D: () -> Void
     var onFavorite: () -> Void
-    var onEnhancedView: () -> Void
 
     var body: some View {
         VStack(spacing: 16) {
@@ -46,27 +45,6 @@ struct ActionButtonsSectionView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Add \(protein.name) to favorites")
-            
-            Button(action: onEnhancedView) {
-                HStack(spacing: 12) {
-                    Image(systemName: "cube.transparent.fill")
-                        .font(.title2)
-                        .accessibilityHidden(true)
-                    Text("Enhanced 3D Viewer")
-                        .font(.headline.weight(.semibold))
-                }
-                .foregroundColor(protein.category.color)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(Color(.systemGray6))
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(protein.category.color, lineWidth: 2)
-                )
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("View enhanced 3D visualization for \(protein.name)")
         }
         .padding(.top, 8)
     }

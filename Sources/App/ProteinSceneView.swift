@@ -41,7 +41,30 @@ struct ProteinSceneView: UIViewRepresentable {
     let uniformColor: UIColor
     let autoRotate: Bool
     var onSelectAtom: ((Atom) -> Void)? = nil
-
+    
+    // Material cache for better performance
+    private static var materialCache: [String: SCNMaterial] = [:]
+    private static let materialCacheLock = NSLock()
+    
+    static func getCachedMaterial(for key: String, create: () -> SCNMaterial) -> SCNMaterial {
+        materialCacheLock.lock()
+        defer { materialCacheLock.unlock() }
+        
+        if let cached = materialCache[key] {
+            return cached
+        }
+        
+        let newMaterial = create()
+        materialCache[key] = newMaterial
+        return newMaterial
+    }
+    
+    static func clearMaterialCache() {
+        materialCacheLock.lock()
+        materialCache.removeAll()
+        materialCacheLock.unlock()
+    }
+    
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView()
         view.scene = SCNScene()
@@ -98,468 +121,963 @@ struct ProteinSceneView: UIViewRepresentable {
         fillLight.color = UIColor(red: 0.9, green: 0.95, blue: 1.0, alpha: 1.0)
         let fillLightNode = SCNNode()
         fillLightNode.light = fillLight
-        fillLightNode.position = SCNVector3(-15, 10, 20)
+        fillLightNode.position = SCNVector3(-20, 20, -30)
         scene.rootNode.addChildNode(fillLightNode)
         
-        let ambient = SCNLight()
-        ambient.type = .ambient
-        ambient.intensity = 200
-        ambient.color = UIColor(red: 0.95, green: 0.95, blue: 1.0, alpha: 1.0)
-        let ambientNode = SCNNode()
-        ambientNode.light = ambient
-        scene.rootNode.addChildNode(ambientNode)
+        let rimLight = SCNLight()
+        rimLight.type = .directional
+        rimLight.intensity = 300
+        rimLight.color = UIColor(red: 1.0, green: 1.0, blue: 0.95, alpha: 1.0)
+        let rimLightNode = SCNNode()
+        rimLightNode.light = rimLight
+        rimLightNode.position = SCNVector3(0, -20, 20)
+        rimLightNode.look(at: SCNVector3(0, 0, 0))
+        scene.rootNode.addChildNode(rimLightNode)
 
-        if let s = structure {
-            addStructure(s, to: scene)
-            frameScene(scene)
+        guard let structure = structure else {
+            view.scene = scene
+            return
         }
+
+        let proteinNode = SCNNode()
+        
+        for atom in structure.atoms {
+            let atomNode = createAtomNode(atom: atom, style: style, colorMode: colorMode, uniformColor: uniformColor)
+            proteinNode.addChildNode(atomNode)
+        }
+        
+        if style == .sticks || style == .cartoon {
+            for bond in structure.bonds {
+                let bondNode = createBondNode(bond: bond, atoms: structure.atoms, colorMode: colorMode, uniformColor: uniformColor)
+                proteinNode.addChildNode(bondNode)
+            }
+        }
+        
+        scene.rootNode.addChildNode(proteinNode)
         view.scene = scene
+        
+        // Auto-fit camera
+        let boundingBox = proteinNode.boundingBox
+        let boundingSize = SCNVector3(
+            boundingBox.max.x - boundingBox.min.x,
+            boundingBox.max.y - boundingBox.min.y,
+            boundingBox.max.z - boundingBox.min.z
+        )
+        let maxDimension = max(boundingSize.x, boundingSize.y, boundingSize.z)
+        let cameraDistance = maxDimension * 2.5
+        
+        let cameraNode = SCNNode()
+        cameraNode.camera = SCNCamera()
+        cameraNode.position = SCNVector3(0, 0, cameraDistance)
+        cameraNode.look(at: SCNVector3(0, 0, 0))
+        scene.rootNode.addChildNode(cameraNode)
+        
+        view.defaultCameraController.target = SCNVector3(0, 0, 0)
+        // Note: SCNCameraController doesn't have a 'distance' property
+        // The camera position is already set above
     }
-
-    private func addStructure(_ s: PDBStructure, to scene: SCNScene) {
+    
+    private func createAtomNode(atom: Atom, style: RenderStyle, colorMode: ColorMode, uniformColor: UIColor) -> SCNNode {
+        let node = SCNNode()
+        
         switch style {
-        case .spheres: addSpheresRepresentation(s, to: scene)
-        case .sticks: addSticksRepresentation(s, to: scene)
-        case .cartoon: addCartoonRepresentation(s, to: scene)
-        case .surface: addSurfaceRepresentation(s, to: scene)
-        }
-    }
-    
-    private func addSpheresRepresentation(_ s: PDBStructure, to scene: SCNScene) {
-        // 렌더링 최적화: 원자 수에 따라 구체 크기와 세그먼트 수를 더 세밀하게 조정
-        let atomCount = s.atoms.count
-        let atomRadius: CGFloat
-        let segmentCount: Int
-        
-        if atomCount > 3000 {
-            atomRadius = 1.5
-            segmentCount = 12
-        } else if atomCount > 2000 {
-            atomRadius = 1.3
-            segmentCount = 16
-        } else if atomCount > 1000 {
-            atomRadius = 1.1
-            segmentCount = 20
-        } else {
-            atomRadius = 0.8
-            segmentCount = 24
-        }
-        
-        print("🔧 Rendering \(atomCount) atoms with radius \(atomRadius), segments \(segmentCount)")
-        
-        for atom in s.atoms {
-            let sphere = SCNSphere(radius: atomRadius)
-            sphere.segmentCount = segmentCount
-            let mat = SceneKitUtils.createEnhancedMaterial(color: colorFor(atom: atom))
-            sphere.materials = [mat]
-            let node = SCNNode(geometry: sphere)
-            node.position = SCNVector3(atom.position.x, atom.position.y, atom.position.z)
-            node.name = "atom:\(atom.id)"
-            scene.rootNode.addChildNode(node)
-        }
-    }
-    
-    private func addSticksRepresentation(_ s: PDBStructure, to scene: SCNScene) {
-        // 렌더링 최적화: 원자 수에 따라 구체 크기와 세그먼트 수 조정
-        let atomCount = s.atoms.count
-        let atomRadius: CGFloat = atomCount > 1000 ? 0.4 : 0.3
-        let bondRadius: CGFloat = atomCount > 1000 ? 0.2 : 0.15
-        let segmentCount: Int = atomCount > 1000 ? 16 : 20
-        
-        print("🔧 Rendering \(atomCount) atoms in sticks mode with radius \(atomRadius), segments \(segmentCount)")
-        
-        for atom in s.atoms {
-            let sphere = SCNSphere(radius: atomRadius)
-            sphere.segmentCount = segmentCount
-            let mat = SceneKitUtils.createEnhancedMaterial(color: colorFor(atom: atom))
-            sphere.materials = [mat]
-            let node = SCNNode(geometry: sphere)
-            node.position = SCNVector3(atom.position.x, atom.position.y, atom.position.z)
-            node.name = "atom:\(atom.id)"
-            scene.rootNode.addChildNode(node)
-        }
-        
-        for b in s.bonds {
-            let a = s.atoms[b.a]
-            let c = s.atoms[b.b]
-            let cylinder = SceneKitUtils.createCylinderBetween(
-                SCNVector3(a.position.x, a.position.y, a.position.z),
-                SCNVector3(c.position.x, c.position.y, c.position.z),
-                radius: bondRadius,
-                color: UIColor(red: 0.8, green: 0.8, blue: 0.8, alpha: 1.0)
-            )
-            scene.rootNode.addChildNode(cylinder)
-        }
-    }
-    
-    private func addCartoonRepresentation(_ s: PDBStructure, to scene: SCNScene) {
-        let backboneAtoms = s.atoms.filter { $0.isBackbone && $0.name == "CA" }
-        let chainGroups = Dictionary(grouping: backboneAtoms) { $0.chain }
-        
-        // 렌더링 최적화: 원자 수에 따라 구체 크기와 세그먼트 수 조정
-        let atomCount = s.atoms.count
-        let atomRadius: CGFloat = atomCount > 1000 ? 0.25 : 0.2
-        let tubeRadius: CGFloat = atomCount > 1000 ? 0.4 : 0.3
-        let segmentCount: Int = atomCount > 1000 ? 12 : 16
-        
-        print("🔧 Rendering cartoon mode: \(atomCount) atoms, \(backboneAtoms.count) backbone atoms")
-        
-        for (_, chainAtoms) in chainGroups {
-            let sortedAtoms = chainAtoms.sorted { $0.residueNumber < $1.residueNumber }
+        case .spheres:
+            let sphere = SCNSphere(radius: getAtomRadius(atom: atom))
+            sphere.firstMaterial?.diffuse.contents = getAtomColor(atom: atom, colorMode: colorMode, uniformColor: uniformColor)
+            sphere.firstMaterial?.specular.contents = UIColor.white
+            sphere.firstMaterial?.shininess = 0.8
+            node.geometry = sphere
             
-            // 체인 연결선 그리기
-            for i in 0..<(sortedAtoms.count - 1) {
-                let current = sortedAtoms[i]
-                let next = sortedAtoms[i + 1]
-                
-                let tube = SceneKitUtils.createCylinderBetween(
-                    SCNVector3(current.position.x, current.position.y, current.position.z),
-                    SCNVector3(next.position.x, next.position.y, next.position.z),
-                    radius: tubeRadius,
-                    color: colorFor(atom: current)
-                )
-                scene.rootNode.addChildNode(tube)
-            }
+        case .sticks:
+            let sphere = SCNSphere(radius: 0.1)
+            sphere.firstMaterial?.diffuse.contents = getAtomColor(atom: atom, colorMode: colorMode, uniformColor: uniformColor)
+            node.geometry = sphere
             
-            // 백본 원자들 그리기
-            for atom in sortedAtoms {
-                let sphere = SCNSphere(radius: atomRadius)
-                sphere.segmentCount = segmentCount
-                let mat = SceneKitUtils.createEnhancedMaterial(color: colorFor(atom: atom))
-                sphere.materials = [mat]
-                let node = SCNNode(geometry: sphere)
-                node.position = SCNVector3(atom.position.x, atom.position.y, atom.position.z)
-                node.name = "atom:\(atom.id)"
-                scene.rootNode.addChildNode(node)
-            }
+        case .cartoon:
+            let sphere = SCNSphere(radius: 0.15)
+            sphere.firstMaterial?.diffuse.contents = getAtomColor(atom: atom, colorMode: colorMode, uniformColor: uniformColor)
+            node.geometry = sphere
+            
+        case .surface:
+            let sphere = SCNSphere(radius: getAtomRadius(atom: atom) * 1.2)
+            sphere.firstMaterial?.diffuse.contents = getAtomColor(atom: atom, colorMode: colorMode, uniformColor: uniformColor)
+            sphere.firstMaterial?.transparency = 0.3
+            node.geometry = sphere
         }
+        
+        node.position = SCNVector3(atom.position.x, atom.position.y, atom.position.z)
+        node.name = "atom_\(atom.id)"
+        
+        return node
     }
     
-    private func addSurfaceRepresentation(_ s: PDBStructure, to scene: SCNScene) {
-        for atom in s.atoms {
-            let sphere = SCNSphere(radius: 1.2)
-            sphere.segmentCount = 20
-            let mat = SceneKitUtils.createEnhancedMaterial(color: colorFor(atom: atom))
-            mat.transparency = 0.8
-            sphere.materials = [mat]
-            let node = SCNNode(geometry: sphere)
-            node.position = SCNVector3(atom.position.x, atom.position.y, atom.position.z)
-            node.name = "atom:\(atom.id)"
-            scene.rootNode.addChildNode(node)
+    private func createBondNode(bond: Bond, atoms: [Atom], colorMode: ColorMode, uniformColor: UIColor) -> SCNNode {
+        guard let atom1 = atoms.first(where: { $0.id == bond.a }),
+              let atom2 = atoms.first(where: { $0.id == bond.b }) else {
+            return SCNNode()
         }
+        
+        let start = SCNVector3(atom1.position.x, atom1.position.y, atom1.position.z)
+        let end = SCNVector3(atom2.position.x, atom2.position.y, atom2.position.z)
+        
+        let distance = sqrt(pow(end.x - start.x, 2) + pow(end.y - start.y, 2) + pow(end.z - start.z, 2))
+        let cylinder = SCNCylinder(radius: 0.05, height: CGFloat(distance))
+        
+        let material = SCNMaterial()
+        material.diffuse.contents = getBondColor(atom1: atom1, atom2: atom2, colorMode: colorMode, uniformColor: uniformColor)
+        material.specular.contents = UIColor.white
+        material.shininess = 0.5
+        cylinder.materials = [material]
+        
+        let node = SCNNode(geometry: cylinder)
+        
+        // Position and rotate cylinder
+        let midPoint = SCNVector3((start.x + end.x) / 2, (start.y + end.y) / 2, (start.z + end.z) / 2)
+        node.position = midPoint
+        
+        let direction = SCNVector3(end.x - start.x, end.y - start.y, end.z - start.z)
+        
+        // Calculate rotation to align cylinder with bond direction
+        if direction.y != 0 || direction.x != 0 {
+            let angle = atan2(sqrt(direction.x * direction.x + direction.y * direction.y), direction.z)
+            let rotationNode = SCNNode()
+            rotationNode.eulerAngles = SCNVector3(angle, 0, 0)
+            node.addChildNode(rotationNode)
+        }
+        
+        return node
     }
-
-    private func colorFor(atom: Atom) -> UIColor {
+    
+    private func getAtomRadius(atom: Atom) -> CGFloat {
+        let radii: [String: CGFloat] = [
+            "H": 0.31, "C": 0.76, "N": 0.71, "O": 0.66, "S": 1.05,
+            "P": 1.07, "F": 0.57, "Cl": 1.02, "Br": 1.20, "I": 1.39
+        ]
+        return radii[atom.element] ?? 0.5
+    }
+    
+    private func getAtomColor(atom: Atom, colorMode: ColorMode, uniformColor: UIColor) -> UIColor {
         switch colorMode {
-        case .uniform: return uniformColor
-        case .chain:
-            let colors: [UIColor] = [
-                UIColor(red: 0.2, green: 0.6, blue: 1.0, alpha: 1.0),
-                UIColor(red: 1.0, green: 0.3, blue: 0.5, alpha: 1.0),
-                UIColor(red: 0.0, green: 0.8, blue: 0.4, alpha: 1.0),
-                UIColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 1.0),
-                UIColor(red: 0.7, green: 0.2, blue: 1.0, alpha: 1.0),
-                UIColor(red: 0.0, green: 0.7, blue: 0.8, alpha: 1.0)
-            ]
-            if let ch = atom.chain.unicodeScalars.first {
-                return colors[Int(ch.value) % colors.count]
-            }
-            return UIColor(red: 0.5, green: 0.5, blue: 0.5, alpha: 1.0)
         case .element:
-            switch atom.element.uppercased() {
-            case "H": return UIColor(red: 0.9, green: 0.9, blue: 0.9, alpha: 1.0)
-            case "C": return UIColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 1.0)
-            case "N": return UIColor(red: 0.1, green: 0.4, blue: 0.9, alpha: 1.0)
-            case "O": return UIColor(red: 0.9, green: 0.2, blue: 0.2, alpha: 1.0)
-            case "S": return UIColor(red: 1.0, green: 0.8, blue: 0.0, alpha: 1.0)
-            case "P": return UIColor(red: 1.0, green: 0.5, blue: 0.0, alpha: 1.0)
-            default: return UIColor(red: 0.4, green: 0.7, blue: 0.7, alpha: 1.0)
-            }
+            return getElementColor(atom.element)
+        case .chain:
+            return getChainColor(atom.chain)
+        case .uniform:
+            return uniformColor
         case .secondaryStructure:
-            switch atom.secondaryStructure {
-            case .helix: return UIColor(red: 0.9, green: 0.2, blue: 0.4, alpha: 1.0)
-            case .sheet: return UIColor(red: 0.2, green: 0.7, blue: 0.3, alpha: 1.0)
-            case .coil: return UIColor(red: 0.3, green: 0.5, blue: 0.9, alpha: 1.0)
-            case .unknown: return UIColor(red: 0.6, green: 0.6, blue: 0.6, alpha: 1.0)
-            }
+            return getSecondaryStructureColor(atom)
         }
     }
-
-
-}
-
-private func frameScene(_ scene: SCNScene) {
-    SceneKitUtils.frameScene(scene)
-}
-
-final class Coordinator: NSObject {
-    private let parent: ProteinSceneView
-    init(parent: ProteinSceneView) { self.parent = parent }
-
-    @objc func handleTap(_ gesture: UITapGestureRecognizer) {
-        guard let view = gesture.view as? SCNView else { return }
-        let point = gesture.location(in: view)
-        let results = view.hitTest(point, options: [SCNHitTestOption.categoryBitMask: 0xFFFFFFFF])
-        guard let node = results.first?.node else { return }
-        let target = node.name ?? node.parent?.name
-        guard let name = target, name.hasPrefix("atom:"),
-              let id = Int(name.dropFirst("atom:".count)),
-              let atoms = parent.structure?.atoms,
-              let atom = atoms.first(where: { $0.id == id }) else { return }
-        parent.onSelectAtom?(atom)
-    }
-}
-
-// MARK: - Main Container View
-struct ProteinSceneContainer: View {
-    let selectedProteinId: String
-    @State private var pdbId: String
     
-    init(selectedProteinId: String) {
-        self.selectedProteinId = selectedProteinId
-        self._pdbId = State(initialValue: selectedProteinId)
+    private func getBondColor(atom1: Atom, atom2: Atom, colorMode: ColorMode, uniformColor: UIColor) -> UIColor {
+        switch colorMode {
+        case .element:
+            return UIColor.systemGray
+        case .chain:
+            return getChainColor(atom1.chain)
+        case .uniform:
+            return uniformColor
+        case .secondaryStructure:
+            return UIColor.systemGray
+        }
     }
-    @State private var structure: PDBStructure? = nil
-    @State private var style: RenderStyle = .cartoon
-    @State private var color: ColorMode = .secondaryStructure
-    @State private var uniformColor: Color = .purple
-    @State private var isLoading = false
-    @State private var error: String? = nil
-    @State private var selectedAtom: Atom? = nil
-    @State private var showControls = false
-    @State private var autoRotate = false
-    @State private var showingLibrary = false
-
-    var body: some View {
-        NavigationView {
-            ZStack {
-                // Gradient background
-                LinearGradient(
-                    colors: [
-                        Color(.systemBackground),
-                        Color(.secondarySystemBackground)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-                
-        VStack(spacing: 0) {
-                    // Main 3D Viewer
-                    ZStack {
-                        ProteinSceneView(
-                            structure: structure,
-                            style: style,
-                            colorMode: color,
-                            uniformColor: UIColor(uniformColor),
-                            autoRotate: autoRotate,
-                            onSelectAtom: { atom in 
-                                selectedAtom = atom
-                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                                impactFeedback.impactOccurred()
-                            }
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 20))
-                        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
-                        
-                        // Loading overlay
-                        if isLoading {
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(.ultraThinMaterial)
-                                .overlay {
-                                    VStack(spacing: 16) {
-                                        ProgressView()
-                                            .scaleEffect(1.5)
-                                            .tint(.blue)
-                                        
-                                        Text("Loading \(pdbId.uppercased())")
-                                            .font(.headline)
-                                            .foregroundColor(.primary)
-                                    }
-                                }
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 10)
-                    
-                    // Bottom controls
-                    VStack(spacing: 16) {
-                        // Quick style selector
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(RenderStyle.allCases, id: \.self) { renderStyle in
-                                    StyleButton(
-                                        style: renderStyle,
-                                        isSelected: style == renderStyle
-                                    ) {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                            self.style = renderStyle
-                                        }
-                                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                                        impactFeedback.impactOccurred()
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                        }
-                        
-                        // Color mode selector
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(ColorMode.allCases, id: \.self) { colorMode in
-                                    ColorButton(
-                                        colorMode: colorMode,
-                                        isSelected: color == colorMode
-                                    ) {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                            self.color = colorMode
-                                        }
-                                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                                        impactFeedback.impactOccurred()
-                                    }
-                    }
-                    
-                    if color == .uniform {
-                                    ColorPicker("Custom", selection: $uniformColor)
-                                .labelsHidden()
-                                        .frame(width: 44, height: 44)
-                                        .background(Color(.systemGray6))
-                                        .clipShape(Circle())
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                        }
-                    }
-                    .padding(.vertical, 20)
-                    .background(.ultraThinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
-                    
-                    // Selected atom info
-                    if let atom = selectedAtom {
-                        AtomInfoView(atom: atom) {
-                            selectedAtom = nil
-                        }
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 20)
-                    }
-                }
-                
-                // Floating action button
-                VStack {
-                    HStack {
-                        Spacer()
-                        VStack(spacing: 16) {
-                            FloatingActionButton(
-                                icon: autoRotate ? "pause.circle.fill" : "play.circle.fill",
-                                color: .blue
-                            ) {
-                                autoRotate.toggle()
-                                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                                impactFeedback.impactOccurred()
-                            }
-                            
-                            FloatingActionButton(
-                                icon: "info.circle.fill",
-                                color: .green
-                            ) {
-                                // Show info
-                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                                impactFeedback.impactOccurred()
-                            }
-                        }
-                        .padding(.trailing, 20)
-                    }
-                    Spacer()
-                }
-            }
-            .navigationTitle("Protein Viewer")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        showingLibrary = true
-                    } label: {
-                        Image(systemName: "books.vertical.fill")
-                            .font(.title2)
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        TextField("PDB ID", text: $pdbId)
-                            .textCase(.uppercase)
-                        
-                        Button("Load Structure") {
-                            Task { await load() }
-                        }
-                        .disabled(isLoading)
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
-                    }
-                }
-            }
-            .sheet(isPresented: $showingLibrary) {
-                ProteinLibraryView { selectedProteinId in
-                    pdbId = selectedProteinId
-                    showingLibrary = false
-                    Task { await load() }
-                }
+    
+    private func getElementColor(_ element: String) -> UIColor {
+        let colors: [String: UIColor] = [
+            "H": .white, "C": .darkGray, "N": .blue, "O": .red, "S": .yellow,
+            "P": .orange, "F": .green, "Cl": .green, "Br": .systemRed, "I": .systemPurple
+        ]
+        return colors[element] ?? .lightGray
+    }
+    
+    private func getChainColor(_ chain: String) -> UIColor {
+        let colors: [String: UIColor] = [
+            "A": .systemBlue, "B": .systemRed, "C": .systemGreen, "D": .systemOrange,
+            "E": .systemPurple, "F": .systemPink, "G": .systemTeal, "H": .systemIndigo
+        ]
+        return colors[chain] ?? .systemGray
+    }
+    
+    private func getSecondaryStructureColor(_ atom: Atom) -> UIColor {
+        // For now, use chain color as fallback
+        return getChainColor(atom.chain)
+    }
+    
+    class Coordinator: NSObject {
+        let parent: ProteinSceneView
+        
+        init(parent: ProteinSceneView) {
+            self.parent = parent
+        }
+        
+        @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            let view = gesture.view as! SCNView
+            let location = gesture.location(in: view)
+            
+            let hitResults = view.hitTest(location, options: [
+                .searchMode: SCNHitTestSearchMode.closest.rawValue,
+                .ignoreHiddenNodes: true
+            ])
+            
+            if let result = hitResults.first,
+               let nodeName = result.node.name,
+               nodeName.hasPrefix("atom_"),
+               let atomId = Int(nodeName.replacingOccurrences(of: "atom_", with: "")),
+               let atom = parent.structure?.atoms.first(where: { $0.id == atomId }) {
+                parent.onSelectAtom?(atom)
             }
         }
+    }
+}
+
+struct ProteinSceneContainer: View {
+    let structure: PDBStructure?
+    @State private var selectedStyle: RenderStyle = .spheres
+    @State private var selectedColorMode: ColorMode = .element
+    @State private var selectedUniformColor: Color = .blue
+    @State private var autoRotate: Bool = false
+    @State private var showControls: Bool = true
+    @State private var selectedChain: String? = nil
+    @State private var error: String? = nil
+    @State private var pdbId: String = ""
+    @State private var isLoading: Bool = false
+    @State private var selectedTab: InfoTabType = .overview
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Fixed Header Section (Always visible)
+            if let structure = structure, !structure.atoms.isEmpty {
+                proteinInfoHeader(structure: structure)
+                chainSelectionTabs(structure: structure)
+            }
+            
+            // Main 3D Viewer (Fixed position)
+            ProteinSceneView(
+                structure: structure,
+                style: selectedStyle,
+                colorMode: selectedColorMode,
+                uniformColor: UIColor(selectedUniformColor),
+                autoRotate: autoRotate,
+                onSelectAtom: { atom in
+                    // Handle atom selection
+                    print("Selected atom: \(atom.element) in chain \(atom.chain)")
+                }
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            // Selected Chain Information (Fixed position)
+            if let selectedChain = selectedChain, let structure = structure {
+                selectedChainInfoView(structure: structure, chain: selectedChain)
+            }
+            
+            // Controls Section (Animated, doesn't affect layout)
+            VStack(spacing: 0) {
+                // Toggle button (always visible)
+                controlsToggleButton
+                    .padding(.top, 16)
+                
+                // Controls content with animation
+                if showControls {
+                    controlsContent
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .move(edge: .bottom).combined(with: .opacity)
+                        ))
+                }
+            }
+            .animation(.easeInOut(duration: 0.3), value: showControls)
+        }
+        .padding(.top, 20)
+        .background(Color(.systemBackground))
         .alert("Error", isPresented: .constant(error != nil)) {
             Button("OK") { error = nil }
         } message: {
             Text(error ?? "")
         }
-        .onAppear {
-            pdbId = selectedProteinId
-            Task { await load() }
-        }
     }
-
-    private func load() async {
-        guard !pdbId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            error = "Please enter a valid PDB ID"
-            return
-        }
-        
-        withAnimation(.easeInOut(duration: 0.3)) {
-        isLoading = true
-        error = nil
-        }
-        
-        defer {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                isLoading = false
+    
+    // MARK: - UI Components
+    
+    private func proteinInfoHeader(structure: PDBStructure) -> some View {
+        VStack(spacing: 16) {
+            // Main protein info
+            VStack(spacing: 8) {
+                Text("Protein Structure")
+                    .font(.title2.weight(.bold))
+                    .foregroundColor(.primary)
+                
+                HStack(spacing: 20) {
+                    VStack(spacing: 4) {
+                        Text("\(structure.atoms.count)")
+                            .font(.title3.weight(.bold))
+                            .foregroundColor(.blue)
+                        Text("atoms")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    VStack(spacing: 4) {
+                        let chains = Array(Set(structure.atoms.map { $0.chain }))
+                        Text("\(chains.count)")
+                            .font(.title3.weight(.bold))
+                            .foregroundColor(.green)
+                        Text("chains")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    VStack(spacing: 4) {
+                        let residues = Array(Set(structure.atoms.map { $0.residueName }))
+                        Text("\(residues.count)")
+                            .font(.title3.weight(.bold))
+                            .foregroundColor(.orange)
+                        Text("residues")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
             }
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 60) // Increased top padding to avoid navigation bar overlap
+    }
+    
+    private func chainSelectionTabs(structure: PDBStructure) -> some View {
+        let chains = Array(Set(structure.atoms.map { $0.chain })).sorted()
         
-        do {
-            let url = URL(string: "https://files.rcsb.org/download/\(pdbId.uppercased()).pdb")!
-            let (data, response) = try await URLSession.shared.data(from: url)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { 
-                throw URLError(.badServerResponse) 
+        return VStack(spacing: 16) {
+            // Info Tab Buttons
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(InfoTabType.allCases, id: \.self) { tabType in
+                        InfoTabButton(
+                            type: tabType,
+                            isSelected: selectedTab == tabType
+                        ) {
+                            selectedTab = tabType
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
             }
-            let text = String(decoding: data, as: UTF8.self)
             
-            await MainActor.run {
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-            structure = PDBParser.parse(pdbText: text)
+            // Content based on selected tab
+            switch selectedTab {
+            case .overview:
+                overviewContent(structure: structure)
+            case .chains:
+                chainsContent(structure: structure, chains: chains)
+            case .residues:
+                residuesContent(structure: structure)
+            case .ligands:
+                ligandsContent(structure: structure)
+            case .pockets:
+                pocketsContent(structure: structure)
+            case .sequence:
+                sequenceContent(structure: structure)
+            case .annotations:
+                annotationsContent(structure: structure)
+            }
+        }
+        .padding(.top, 20)
+    }
+    
+    private func overviewContent(structure: PDBStructure) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Overview")
+                .font(.headline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: 12) {
+                StatCard(title: "Total Atoms", value: "\(structure.atoms.count)", color: .blue)
+                StatCard(title: "Chains", value: "\(Set(structure.atoms.map { $0.chain }).count)", color: .green)
+                StatCard(title: "Residues", value: "\(Set(structure.atoms.map { $0.residueName }).count)", color: .orange)
+                StatCard(title: "Backbone", value: "\(structure.atoms.filter { $0.isBackbone }.count)", color: .purple)
+                StatCard(title: "Ligands", value: "\(structure.atoms.filter { $0.isLigand }.count)", color: .red)
+                StatCard(title: "Pockets", value: "\(structure.atoms.filter { $0.isPocket }.count)", color: .brown)
+            }
+            
+            // Secondary Structure Summary
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Secondary Structure")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.primary)
+                
+                HStack(spacing: 16) {
+                    VStack {
+                        Text("\(structure.atoms.filter { $0.secondaryStructure == .helix }.count)")
+                            .font(.title2.weight(.bold))
+                            .foregroundColor(.purple)
+                        Text("Helix")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    VStack {
+                        Text("\(structure.atoms.filter { $0.secondaryStructure == .sheet }.count)")
+                            .font(.title2.weight(.bold))
+                            .foregroundColor(.red)
+                        Text("Sheet")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    VStack {
+                        Text("\(structure.atoms.filter { $0.secondaryStructure == .coil }.count)")
+                            .font(.title2.weight(.bold))
+                            .foregroundColor(.gray)
+                        Text("Coil")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
-        } catch {
-            await MainActor.run {
-                self.error = "Failed to load \(pdbId.uppercased())"
+            .padding(.top, 8)
+        }
+        .padding(20)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(.systemGray4), lineWidth: 1)
+        )
+    }
+    
+    private func chainsContent(structure: PDBStructure, chains: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Chains")
+                .font(.headline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(chains, id: \.self) { chain in
+                        ChainDetailCard(
+                            chain: chain,
+                            atomCount: structure.atoms.filter { $0.chain == chain }.count,
+                            isSelected: selectedChain == chain
+                        ) {
+                            selectedChain = selectedChain == chain ? nil : chain
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
             }
         }
+        .padding(20)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(.systemGray4), lineWidth: 1)
+        )
+    }
+    
+    private func residuesContent(structure: PDBStructure) -> some View {
+        let residues = Array(Set(structure.atoms.map { $0.residueName })).sorted()
+        let residueCounts = Dictionary(grouping: structure.atoms, by: { $0.residueName })
+            .mapValues { $0.count }
+            .sorted { $0.value > $1.value }
+        
+        return VStack(alignment: .leading, spacing: 16) {
+            Text("Residues")
+                .font(.headline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            Text("Amino acid composition")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: 12) {
+                ForEach(residueCounts.prefix(20), id: \.key) { residue, count in
+                    VStack(spacing: 4) {
+                        Text(String(residue))
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.blue)
+                            .clipShape(Capsule())
+                        
+                        Text("\(count)")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            
+            if residues.count > 20 {
+                Text("+ \(residues.count - 20) more residues")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 8)
+            }
+        }
+        .padding(20)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(.systemGray4), lineWidth: 1)
+        )
+    }
+    
+    private func ligandsContent(structure: PDBStructure) -> some View {
+        let ligands = Array(Set(structure.atoms.filter { $0.isLigand }.map { $0.residueName })).sorted()
+        
+        return VStack(alignment: .leading, spacing: 16) {
+            Text("Ligands")
+                .font(.headline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            if ligands.isEmpty {
+                Text("No ligands found")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .padding(.vertical, 20)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(ligands, id: \.self) { ligand in
+                            Text(String(ligand))
+                                .font(.caption.weight(.medium))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.orange)
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                }
+            }
+        }
+        .padding(20)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(.systemGray4), lineWidth: 1)
+        )
+    }
+    
+    private func pocketsContent(structure: PDBStructure) -> some View {
+        let pocketAtoms = structure.atoms.filter { $0.isPocket }
+        let pocketResidues = Array(Set(pocketAtoms.map { $0.residueName })).sorted()
+        let pocketChains = Array(Set(pocketAtoms.map { $0.chain })).sorted()
+        
+        return VStack(alignment: .leading, spacing: 16) {
+            Text("Pockets")
+                .font(.headline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            Text("Binding sites and surface regions")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            if pocketAtoms.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "target")
+                        .font(.system(size: 40))
+                        .foregroundColor(.purple.opacity(0.6))
+                    
+                    Text("No pockets detected")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    Text("Pockets are surface regions that may serve as binding sites for ligands or other molecules.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.vertical, 20)
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("\(pocketAtoms.count)")
+                                .font(.title2.weight(.bold))
+                                .foregroundColor(.purple)
+                            Text("Pocket Atoms")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text("\(pocketResidues.count)")
+                                .font(.title2.weight(.bold))
+                                .foregroundColor(.purple)
+                            Text("Residues")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Chains with pockets:")
+                            .font(.subheadline.weight(.medium))
+                        
+                        HStack(spacing: 8) {
+                            ForEach(pocketChains, id: \.self) { chain in
+                                Text(chain)
+                                    .font(.caption.weight(.medium))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.purple)
+                                    .clipShape(Capsule())
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(20)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(.systemGray4), lineWidth: 1)
+        )
+    }
+    
+    private func sequenceContent(structure: PDBStructure) -> some View {
+        let residues = Array(Set(structure.atoms.map { $0.residueName })).sorted()
+        
+        return VStack(alignment: .leading, spacing: 16) {
+            Text("Sequence")
+                .font(.headline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(residues, id: \.self) { residue in
+                        Text(String(residue))
+                            .font(.caption.weight(.medium))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.brown)
+                            .clipShape(Capsule())
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+        .padding(20)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(.systemGray4), lineWidth: 1)
+        )
+    }
+    
+    private func annotationsContent(structure: PDBStructure) -> some View {
+        let annotations = structure.annotations.map { $0.type.rawValue }.sorted()
+        
+        return VStack(alignment: .leading, spacing: 16) {
+            Text("Annotations")
+                .font(.headline.weight(.semibold))
+                .foregroundColor(.primary)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(annotations, id: \.self) { annotation in
+                        Text(annotation)
+                            .font(.caption.weight(.medium))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.gray)
+                            .clipShape(Capsule())
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+        .padding(20)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(.systemGray4), lineWidth: 1)
+        )
+    }
+    
+    private var controlsToggleButton: some View {
+        Button(action: {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showControls.toggle()
+            }
+        }) {
+            HStack {
+                Image(systemName: showControls ? "chevron.down" : "chevron.up")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.secondary)
+                
+                Text(showControls ? "Hide Controls" : "Show Controls")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color(.systemGray6))
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var controlsContent: some View {
+        VStack(spacing: 16) {
+            // Style Selection
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Render Style")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.primary)
+                
+                HStack(spacing: 12) {
+                    ForEach(RenderStyle.allCases, id: \.self) { style in
+                        StyleButton(
+                            style: style,
+                            isSelected: selectedStyle == style
+                        ) {
+                            selectedStyle = style
+                        }
+                    }
+                }
+            }
+            
+            // Color Mode Selection
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Color Mode")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.primary)
+                
+                HStack(spacing: 12) {
+                    ForEach(ColorMode.allCases, id: \.self) { mode in
+                        ColorModeButton(
+                            mode: mode,
+                            isSelected: selectedColorMode == mode
+                        ) {
+                            selectedColorMode = mode
+                        }
+                    }
+                }
+            }
+            
+            // Uniform Color Picker (only for uniform mode)
+            if selectedColorMode == .uniform {
+                HStack {
+                    Text("Color")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    ColorPicker("", selection: $selectedUniformColor)
+                        .labelsHidden()
+                }
+            }
+            
+            // Auto-rotate Toggle
+            HStack {
+                Text("Auto-rotate")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Toggle("", isOn: $autoRotate)
+                    .labelsHidden()
+            }
+        }
+        .padding(20)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, 20)
+        .padding(.bottom, 20)
+    }
+    
+    private func selectedChainInfoView(structure: PDBStructure, chain: String) -> some View {
+        let atomsInChain = structure.atoms.filter { $0.chain == chain }
+        let residuesInChain = Array(Set(atomsInChain.map { $0.residueName })).sorted()
+        let uniqueResidues = residuesInChain.map { $0.prefix(3) }
+        
+        // Calculate chain statistics
+        let backboneAtoms = atomsInChain.filter { $0.isBackbone }
+        let sideChainAtoms = atomsInChain.filter { !$0.isBackbone }
+        let helixResidues = atomsInChain.filter { $0.secondaryStructure == .helix }
+        let sheetResidues = atomsInChain.filter { $0.secondaryStructure == .sheet }
+        
+        return VStack(alignment: .leading, spacing: 16) {
+            // Header
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Chain \(chain)")
+                        .font(.title2.weight(.bold))
+                        .foregroundColor(.primary)
+                    
+                    Text("\(atomsInChain.count) atoms • \(uniqueResidues.count) residues")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                Button("Deselect") {
+                    selectedChain = nil
+                }
+                .font(.caption.weight(.medium))
+                .foregroundColor(.red)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.red.opacity(0.1))
+                .clipShape(Capsule())
+            }
+            
+            // Statistics Grid
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: 12) {
+                StatCard(title: "Total Atoms", value: "\(atomsInChain.count)", color: .blue)
+                StatCard(title: "Backbone", value: "\(backboneAtoms.count)", color: .green)
+                StatCard(title: "Side Chain", value: "\(sideChainAtoms.count)", color: .orange)
+                StatCard(title: "Helix", value: "\(helixResidues.count)", color: .purple)
+                StatCard(title: "Sheet", value: "\(sheetResidues.count)", color: .red)
+                StatCard(title: "Coil", value: "\(atomsInChain.count - helixResidues.count - sheetResidues.count)", color: .gray)
+            }
+            
+            // Residue Composition
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Residue Composition")
+                    .font(.headline.weight(.semibold))
+                    .foregroundColor(.primary)
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(uniqueResidues, id: \.self) { residue in
+                            Text(String(residue))
+                                .font(.caption.weight(.medium))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue)
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                }
+            }
+        }
+        .padding(20)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.blue.opacity(0.3), lineWidth: 2)
+        )
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .animation(.easeInOut(duration: 0.3), value: selectedChain)
+    }
+    
+    private func StatCard(title: String, value: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.title3.weight(.bold))
+                .foregroundColor(color)
+            
+            Text(title)
+                .font(.caption2.weight(.medium))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(color.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 
 // MARK: - Supporting Views
+
+struct ChainDetailCard: View {
+    let chain: String
+    let atomCount: Int
+    let isSelected: Bool
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 8) {
+                Text("Chain \(chain)")
+                    .font(.headline.weight(.semibold))
+                    .foregroundColor(isSelected ? .white : .primary)
+                
+                Text("\(atomCount) atoms")
+                    .font(.caption)
+                    .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                
+                HStack(spacing: 8) {
+                    Button("Highlight") {
+                        // Highlight chain functionality
+                    }
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(isSelected ? .white : .blue)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(isSelected ? .white.opacity(0.2) : .blue.opacity(0.1))
+                    .clipShape(Capsule())
+                    
+                    Button("Focus") {
+                        // Focus chain functionality
+                    }
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(isSelected ? .white : .green)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(isSelected ? .white.opacity(0.2) : .green.opacity(0.1))
+                    .clipShape(Capsule())
+                }
+            }
+            .padding(16)
+            .background {
+                if isSelected {
+                    LinearGradient(colors: [.blue, .blue.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                } else {
+                    Color(.systemGray6)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isSelected ? .blue : Color(.systemGray4), lineWidth: isSelected ? 2 : 1)
+            )
+            .scaleEffect(isSelected ? 1.05 : 1.0)
+        }
+        .buttonStyle(.plain)
+    }
+}
 
 struct StyleButton: View {
     let style: RenderStyle
@@ -568,26 +1086,27 @@ struct StyleButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 8) {
+            VStack(spacing: 4) {
                 Image(systemName: style.icon)
-                    .font(.title2)
+                    .font(.title3)
                     .foregroundColor(isSelected ? .white : .primary)
                 
                 Text(style.rawValue)
-                    .font(.caption)
-                    .modifier(ConditionalFontWeight(weight: .medium, fallbackFont: .caption))
+                    .font(.caption.weight(.medium))
                     .foregroundColor(isSelected ? .white : .primary)
             }
-            .frame(width: 80, height: 64)
-            .background(
-                isSelected ? 
-                LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing) :
-                LinearGradient(colors: [Color(.systemGray6)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .frame(width: 60, height: 60)
+            .background {
+                if isSelected {
+                    LinearGradient(colors: [.blue, .blue.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                } else {
+                    Color(.systemGray6)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? .clear : Color(.systemGray4), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isSelected ? .blue : Color(.systemGray4), lineWidth: isSelected ? 2 : 1)
             )
             .scaleEffect(isSelected ? 1.05 : 1.0)
         }
@@ -595,35 +1114,33 @@ struct StyleButton: View {
     }
 }
 
-struct ColorButton: View {
-    let colorMode: ColorMode
+struct ColorModeButton: View {
+    let mode: ColorMode
     let isSelected: Bool
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: colorMode.icon)
-                    .font(.title2)
+            VStack(spacing: 4) {
+                Image(systemName: mode.icon)
+                    .font(.title3)
                     .foregroundColor(isSelected ? .white : .primary)
-                
-                Text(colorMode.rawValue)
-                    .font(.caption2)
-                    .modifier(ConditionalFontWeight(weight: .medium, fallbackFont: .caption2))
+                Text(mode.rawValue)
+                    .font(.caption.weight(.medium))
                     .foregroundColor(isSelected ? .white : .primary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
             }
-            .frame(width: 80, height: 64)
-            .background(
-                isSelected ? 
-                LinearGradient(colors: [.orange, .red], startPoint: .topLeading, endPoint: .bottomTrailing) :
-                LinearGradient(colors: [Color(.systemGray6)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .frame(width: 60, height: 60)
+            .background {
+                if isSelected {
+                    LinearGradient(colors: [.blue, .blue.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                } else {
+                    Color(.systemGray6)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? .clear : Color(.systemGray4), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isSelected ? .blue : Color(.systemGray4), lineWidth: isSelected ? 2 : 1)
             )
             .scaleEffect(isSelected ? 1.05 : 1.0)
         }
@@ -664,8 +1181,7 @@ struct AtomInfoView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Selected Atom")
-                    .font(.headline)
-                    .modifier(ConditionalFontWeight(weight: .bold, fallbackFont: .headline))
+                    .font(.headline.weight(.bold))
                 
                 Spacer()
                 
@@ -679,49 +1195,41 @@ struct AtomInfoView: View {
             HStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ELEMENT")
-                        .font(.caption)
-                        .modifier(ConditionalFontWeight(weight: .semibold, fallbackFont: .caption))
+                        .font(.caption.weight(.semibold))
                         .foregroundColor(.secondary)
                     Text(atom.element)
-                        .font(.title2)
-                        .modifier(ConditionalFontWeight(weight: .bold, fallbackFont: .title2))
+                        .font(.title2.weight(.bold))
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("NAME")
-                        .font(.caption)
-                        .modifier(ConditionalFontWeight(weight: .semibold, fallbackFont: .caption))
+                        .font(.caption.weight(.semibold))
                         .foregroundColor(.secondary)
                     Text(atom.name)
-                        .font(.title2)
-                        .modifier(ConditionalFontWeight(weight: .bold, fallbackFont: .title2))
+                        .font(.title2.weight(.bold))
                 }
                 
                 Spacer()
                 
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("CHAIN")
-                        .font(.caption)
-                        .modifier(ConditionalFontWeight(weight: .semibold, fallbackFont: .caption))
+                        .font(.caption.weight(.semibold))
                         .foregroundColor(.secondary)
                     Text(atom.chain)
-                        .font(.title2)
-                        .modifier(ConditionalFontWeight(weight: .bold, fallbackFont: .title2))
+                        .font(.title2.weight(.bold))
                 }
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text("RESIDUE")
-                    .font(.caption)
-                    .modifier(ConditionalFontWeight(weight: .semibold, fallbackFont: .caption))
+                    .font(.caption.weight(.semibold))
                     .foregroundColor(.secondary)
                 Text("\(atom.residueName) \(atom.residueNumber)")
-                    .font(.subheadline)
-                    .modifier(ConditionalFontWeight(weight: .medium, fallbackFont: .subheadline))
+                    .font(.subheadline.weight(.medium))
             }
         }
         .padding(20)
-        .background(.ultraThinMaterial)
+        .background(Color(.systemGray6))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -729,3 +1237,62 @@ struct AtomInfoView: View {
         )
     }
 }
+
+struct InfoTabButton: View {
+    let type: InfoTabType
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: type.icon)
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(isSelected ? .white : .primary)
+                
+                Text(type.rawValue)
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(isSelected ? .white : .primary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background {
+                if isSelected {
+                    LinearGradient(colors: [.blue, .blue.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                } else {
+                    Color(.systemGray6)
+                }
+            }
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(isSelected ? .blue : Color(.systemGray4), lineWidth: isSelected ? 2 : 1)
+            )
+            .scaleEffect(isSelected ? 1.05 : 1.0)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+enum InfoTabType: String, CaseIterable {
+    case overview = "Overview"
+    case chains = "Chains"
+    case residues = "Residues"
+    case ligands = "Ligands"
+    case pockets = "Pockets"
+    case sequence = "Sequence"
+    case annotations = "Annotations"
+    
+    var icon: String {
+        switch self {
+        case .overview: return "info.circle"
+        case .chains: return "link"
+        case .residues: return "atom"
+        case .ligands: return "pills"
+        case .pockets: return "target"
+        case .sequence: return "textformat"
+        case .annotations: return "note.text"
+        }
+    }
+}
+
