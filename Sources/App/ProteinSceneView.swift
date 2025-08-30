@@ -142,6 +142,9 @@ struct ProteinSceneView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: SCNView, context: Context) {
+        // Coordinator에 현재 view 설정
+        context.coordinator.currentView = uiView
+        
         rebuild(view: uiView)
         
         if autoRotate {
@@ -365,6 +368,7 @@ struct ProteinSceneView: UIViewRepresentable {
     
     class Coordinator: NSObject, SCNCameraControllerDelegate {
         let parent: ProteinSceneView
+        weak var currentView: SCNView?
         
         init(parent: ProteinSceneView) {
             self.parent = parent
@@ -390,11 +394,11 @@ struct ProteinSceneView: UIViewRepresentable {
         
         // MARK: - AA 동적 전환 (4×↔2×)
         func cameraInertiaWillStart(_ cameraController: SCNCameraController) {
-            (cameraController.pointOfView?.scene?.view as? SCNView)?.antialiasingMode = .multisampling2X
+            currentView?.antialiasingMode = .multisampling2X
         }
         
         func cameraInertiaDidEnd(_ cameraController: SCNCameraController) {
-            (cameraController.pointOfView?.scene?.view as? SCNView)?.antialiasingMode = .multisampling4X
+            currentView?.antialiasingMode = .multisampling4X
         }
     }
 }
