@@ -287,7 +287,6 @@ struct ProteinSceneView: UIViewRepresentable {
         let cylinder = SCNCylinder(radius: 0.05, height: CGFloat(distance))
         
         let color = getBondColor(atom1: atom1, atom2: atom2, colorMode: colorMode, uniformColor: uniformColor)
-        let distance = sqrt(pow(end.x - start.x, 2) + pow(end.y - start.y, 2) + pow(end.z - start.z, 2))
         
         // LOD가 적용된 실린더 지오메트리 사용
         let geometry = GeometryCache.shared.cylinderWithLOD(radius: 0.05, height: CGFloat(distance), baseColor: color)
