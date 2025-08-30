@@ -393,11 +393,11 @@ struct ProteinSceneView: UIViewRepresentable {
         }
         
         // MARK: - AA 동적 전환 (4×↔2×)
-        func cameraInertiaWillStart(_ cameraController: SCNCameraController) {
+        func cameraInertiaWillStart(for cameraController: SCNCameraController) {
             currentView?.antialiasingMode = .multisampling2X
         }
         
-        func cameraInertiaDidEnd(_ cameraController: SCNCameraController) {
+        func cameraInertiaDidEnd(for cameraController: SCNCameraController) {
             currentView?.antialiasingMode = .multisampling4X
         }
     }
