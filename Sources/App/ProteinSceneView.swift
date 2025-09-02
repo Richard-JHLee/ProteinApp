@@ -360,26 +360,67 @@ struct ProteinSceneContainer: View {
     // Content functions
     private func overviewContent(structure: PDBStructure) -> some View {
         VStack(spacing: 16) {
-            // Basic statistics
+            // Basic statistics with enhanced information
             HStack(spacing: 16) {
                 StatCard(title: "Atoms", value: "\(structure.atoms.count)", color: .blue)
                 StatCard(title: "Chains", value: "\(Set(structure.atoms.map { $0.chain }).count)", color: .green)
                 StatCard(title: "Residues", value: "\(Set(structure.atoms.map { "\($0.chain):\($0.residueNumber)" }).count)", color: .orange)
             }
             
-            // Protein Information (based on RCSB API data structure)
+            // Structure Information
             VStack(alignment: .leading, spacing: 12) {
-                Text("Protein Information")
+                Text("Structure Information")
                     .font(.headline)
                 
                 VStack(spacing: 8) {
-                    InfoRow(title: "Total Atoms", value: "\(structure.atoms.count)", description: "All atoms in structure")
-                    InfoRow(title: "Unique Chains", value: "\(Set(structure.atoms.map { $0.chain }).count)", description: "Number of polypeptide chains")
-                    InfoRow(title: "Residue Count", value: "\(Set(structure.atoms.map { "\($0.chain):\($0.residueNumber)" }).count)", description: "Amino acid residues")
-                    InfoRow(title: "Bond Count", value: "\(structure.bonds.count)", description: "Chemical bonds")
+                    InfoRow(title: "PDB ID", value: proteinId ?? "Unknown", description: "Protein Data Bank identifier - unique code for this structure")
+                    InfoRow(title: "Total Atoms", value: "\(structure.atoms.count)", description: "All atoms in the structure including protein and ligands")
+                    InfoRow(title: "Total Bonds", value: "\(structure.bonds.count)", description: "Chemical bonds connecting atoms in the structure")
+                    InfoRow(title: "Chains", value: "\(Set(structure.atoms.map { $0.chain }).count)", description: "Number of polypeptide chains in the protein")
                     
                     let uniqueElements = Set(structure.atoms.map { $0.element })
-                    InfoRow(title: "Elements", value: "\(uniqueElements.count)", description: "Unique chemical elements")
+                    InfoRow(title: "Elements", value: "\(uniqueElements.count)", description: "Number of different chemical elements present")
+                    
+                    let elementTypes = Array(uniqueElements).sorted().joined(separator: ", ")
+                    InfoRow(title: "Element Types", value: elementTypes, description: "Chemical elements found in this structure")
+                }
+            }
+            .padding()
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(12)
+            
+            // Chemical Composition
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Chemical Composition")
+                    .font(.headline)
+                
+                VStack(spacing: 8) {
+                    let uniqueResidues = Set(structure.atoms.map { $0.residueName })
+                    InfoRow(title: "Residue Types", value: "\(uniqueResidues.count)", description: "Number of different amino acid types present")
+                    
+                    let totalResidues = Set(structure.atoms.map { "\($0.chain):\($0.residueNumber)" }).count
+                    InfoRow(title: "Total Residues", value: "\(totalResidues)", description: "Total number of amino acid residues across all chains")
+                    
+                    let chainList = Array(Set(structure.atoms.map { $0.chain })).sorted()
+                    InfoRow(title: "Chain IDs", value: chainList.joined(separator: ", "), description: "Identifiers for each polypeptide chain")
+                    
+                    let hasLigands = structure.atoms.contains { $0.isLigand }
+                    InfoRow(title: "Ligands", value: hasLigands ? "Present" : "None", description: hasLigands ? "Small molecules or ions bound to the protein" : "No small molecules detected in this structure")
+                }
+            }
+            .padding()
+            .background(Color.green.opacity(0.1))
+            .cornerRadius(12)
+            
+            // Experimental Details
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Experimental Details")
+                    .font(.headline)
+                
+                VStack(spacing: 8) {
+                    InfoRow(title: "Structure Type", value: "Protein", description: "This is a protein structure determined by experimental methods")
+                    InfoRow(title: "Data Source", value: "PDB", description: "Protein Data Bank - worldwide repository of 3D structure data")
+                    InfoRow(title: "Quality", value: "Experimental", description: "Structure determined through experimental techniques like X-ray crystallography")
                     
                     if let firstAtom = structure.atoms.first {
                         InfoRow(title: "First Residue", value: firstAtom.residueName, description: "Chain \(firstAtom.chain)")
@@ -387,30 +428,7 @@ struct ProteinSceneContainer: View {
                 }
             }
             .padding()
-            .background(Color.blue.opacity(0.1))
-            .cornerRadius(12)
-            
-            // Experimental Information
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Experimental Details")
-                    .font(.headline)
-                
-                VStack(spacing: 8) {
-                    InfoRow(title: "PDB ID", value: proteinId ?? "Unknown", description: "Protein Data Bank identifier")
-                    
-                    let elementTypes = Array(Set(structure.atoms.map { $0.element })).sorted()
-                    InfoRow(title: "Element Types", value: elementTypes.joined(separator: ", "), description: "Chemical elements present")
-                    
-                    let chainList = Array(Set(structure.atoms.map { $0.chain })).sorted()
-                    InfoRow(title: "Chains", value: chainList.joined(separator: ", "), description: "Polypeptide chain identifiers")
-                    
-                    if let firstAtom = structure.atoms.first {
-                        InfoRow(title: "First Atom", value: "\(firstAtom.element)\(firstAtom.id)", description: "Chain \(firstAtom.chain)")
-                    }
-                }
-            }
-            .padding()
-            .background(Color.green.opacity(0.1))
+            .background(Color.orange.opacity(0.1))
             .cornerRadius(12)
         }
     }
@@ -422,112 +440,726 @@ struct ProteinSceneContainer: View {
             ForEach(Array(chains).sorted(), id: \.self) { chain in
                 let chainAtoms = structure.atoms.filter { $0.chain == chain }
                 let residues = Set(chainAtoms.map { "\($0.chain):\($0.residueNumber)" })
+                let uniqueResidues = Set(chainAtoms.map { $0.residueName })
                 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Chain \(chain)")
                         .font(.headline)
+                        .fontWeight(.semibold)
                     
-                    HStack {
-                        Text("Residues: \(residues.count)")
+                    // Chain overview
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Length")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("\(residues.count) residues")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Atoms")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("\(chainAtoms.count)")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Residue Types")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("\(uniqueResidues.count)")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                        
                         Spacer()
-                        Text("Atoms: \(chainAtoms.count)")
                     }
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    
+                    // Sequence information
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Sequence Information")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        let sortedResidues = Array(Set(chainAtoms.map { $0.residueNumber })).sorted()
+                        let sequence = sortedResidues.map { resNum in
+                            let resName = chainAtoms.first { $0.residueNumber == resNum }?.residueName ?? "X"
+                            return residue3to1(resName)
+                        }.joined()
+                        
+                        Text("Length: \(sequence.count) amino acids")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            Text(sequence)
+                                .font(.system(.caption, design: .monospaced))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(4)
+                        }
+                    }
+                    
+                    // Structural characteristics
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Structural Characteristics")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        let backboneAtoms = chainAtoms.filter { $0.isBackbone }
+                        let sidechainAtoms = chainAtoms.filter { !$0.isBackbone }
+                        
+                        HStack {
+                            Text("Backbone atoms: \(backboneAtoms.count)")
+                                .font(.caption)
+                            Spacer()
+                            Text("Side chain atoms: \(sidechainAtoms.count)")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.secondary)
+                        
+                        // Secondary structure elements
+                        let helixAtoms = chainAtoms.filter { $0.secondaryStructure == .helix }
+                        let sheetAtoms = chainAtoms.filter { $0.secondaryStructure == .sheet }
+                        let coilAtoms = chainAtoms.filter { $0.secondaryStructure == .coil }
+                        
+                        HStack {
+                            Text("α-helix: \(helixAtoms.count) atoms")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                            Spacer()
+                            Text("β-sheet: \(sheetAtoms.count) atoms")
+                                .font(.caption)
+                                .foregroundColor(.yellow)
+                            Spacer()
+                            Text("Coil: \(coilAtoms.count) atoms")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    
+                    // Interactive buttons
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            // Highlight chain action
+                        }) {
+                            HStack {
+                                Image(systemName: "highlighter")
+                                Text("Highlight")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(16)
+                        }
+                        
+                        Button(action: {
+                            // Focus chain action
+                        }) {
+                            HStack {
+                                Image(systemName: "scope")
+                                Text("Focus")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.green)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.green.opacity(0.1))
+                            .cornerRadius(16)
+                        }
+                        
+                        Spacer()
+                    }
                 }
                 .padding()
                 .background(Color.blue.opacity(0.1))
-                .cornerRadius(8)
+                .cornerRadius(12)
             }
         }
     }
     
     private func residuesContent(structure: PDBStructure) -> some View {
         VStack(spacing: 16) {
-            let residueCounts = Dictionary(grouping: structure.atoms, by: { $0.residueName })
-                .mapValues { $0.count }
-                .sorted { $0.value > $1.value }
-            
-            ForEach(Array(residueCounts.prefix(20)), id: \.key) { residue, count in
-                HStack {
-                    Text(residue)
-                        .font(.headline)
-                        .frame(width: 80, alignment: .leading)
-                    
-                    Text("\(count)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    Spacer()
-                    
-                    // Simple bar chart
-                    Rectangle()
-                        .fill(Color.blue.opacity(0.6))
-                        .frame(width: CGFloat(count) * 2, height: 20)
-                        .cornerRadius(4)
+            // Residue composition overview
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Residue Composition")
+                    .font(.headline)
+                
+                let residueCounts = Dictionary(grouping: structure.atoms, by: { $0.residueName })
+                    .mapValues { $0.count }
+                    .sorted { $0.value > $1.value }
+                
+                let totalResidues = residueCounts.map { $0.value }.reduce(0, +)
+                
+                VStack(spacing: 8) {
+                    ForEach(Array(residueCounts.prefix(15)), id: \.key) { residue, count in
+                        HStack {
+                            Text(residue)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .frame(width: 60, alignment: .leading)
+                            
+                            Text("\(count)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .frame(width: 40, alignment: .trailing)
+                            
+                            Spacer()
+                            
+                            let percentage = Double(count) / Double(totalResidues) * 100
+                            Rectangle()
+                                .fill(residueColor(residue))
+                                .frame(width: CGFloat(percentage) * 3, height: 20)
+                                .cornerRadius(4)
+                            
+                            Text("\(String(format: "%.1f", percentage))%")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .frame(width: 50, alignment: .trailing)
+                        }
+                        .padding(.vertical, 2)
+                    }
                 }
-                .padding(.vertical, 4)
             }
+            .padding()
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(12)
+            
+            // Physical-chemical properties
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Physical-Chemical Properties")
+                    .font(.headline)
+                
+                let hydrophobicResidues = ["ALA", "VAL", "ILE", "LEU", "MET", "PHE", "TRP", "PRO"]
+                let polarResidues = ["SER", "THR", "ASN", "GLN", "TYR", "CYS"]
+                let chargedResidues = ["LYS", "ARG", "HIS", "ASP", "GLU"]
+                
+                let hydrophobicCount = structure.atoms.filter { hydrophobicResidues.contains($0.residueName) }.count
+                let polarCount = structure.atoms.filter { polarResidues.contains($0.residueName) }.count
+                let chargedCount = structure.atoms.filter { chargedResidues.contains($0.residueName) }.count
+                
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("Hydrophobic")
+                            .font(.subheadline)
+                            .foregroundColor(.orange)
+                        Spacer()
+                        Text("\(hydrophobicCount) atoms")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    HStack {
+                        Text("Polar")
+                            .font(.subheadline)
+                            .foregroundColor(.blue)
+                        Spacer()
+                        Text("\(polarCount) atoms")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    HStack {
+                        Text("Charged")
+                            .font(.subheadline)
+                            .foregroundColor(.red)
+                        Spacer()
+                        Text("\(chargedCount) atoms")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding()
+            .background(Color.green.opacity(0.1))
+            .cornerRadius(12)
+            
+            // Structural roles
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Structural Roles")
+                    .font(.headline)
+                
+                let backboneAtoms = structure.atoms.filter { $0.isBackbone }
+                let sidechainAtoms = structure.atoms.filter { !$0.isBackbone }
+                
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("Backbone")
+                            .font(.subheadline)
+                            .foregroundColor(.purple)
+                        Spacer()
+                        Text("\(backboneAtoms.count) atoms")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    HStack {
+                        Text("Side Chain")
+                            .font(.subheadline)
+                            .foregroundColor(.cyan)
+                        Spacer()
+                        Text("\(sidechainAtoms.count) atoms")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding()
+            .background(Color.purple.opacity(0.1))
+            .cornerRadius(12)
+        }
+    }
+    
+    // Helper function for residue color coding
+    private func residueColor(_ residue: String) -> Color {
+        let hydrophobicResidues = ["ALA", "VAL", "ILE", "LEU", "MET", "PHE", "TRP", "PRO"]
+        let polarResidues = ["SER", "THR", "ASN", "GLN", "TYR", "CYS"]
+        let chargedResidues = ["LYS", "ARG", "HIS", "ASP", "GLU"]
+        
+        if hydrophobicResidues.contains(residue) {
+            return .orange
+        } else if polarResidues.contains(residue) {
+            return .blue
+        } else if chargedResidues.contains(residue) {
+            return .red
+        } else {
+            return .gray
         }
     }
     
     private func ligandsContent(structure: PDBStructure) -> some View {
-                                    VStack(spacing: 16) {
+        VStack(spacing: 16) {
             let ligands = structure.atoms.filter { $0.isLigand }
-            let ligandGroups = Dictionary(grouping: ligands, by: { "\($0.residueName):\($0.chain)" })
+            let ligandGroups = Dictionary(grouping: ligands, by: { $0.residueName })
             
-            ForEach(Array(ligandGroups.keys).sorted(), id: \.self) { key in
-                let comps = key.split(separator: ":")
-                let resName = comps.first.map(String.init) ?? "?"
-                let chain = comps.count > 1 ? String(comps[1]) : "?"
-                
-                HStack {
-                    Text(resName)
-                                            .font(.headline)
-                        .frame(width: 60, alignment: .leading)
-                    Text("Chain: \(chain.isEmpty ? "-" : chain)")
+            if ligands.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "molecule")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray)
+                    
+                    Text("No Ligands Detected")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    
+                    Text("This structure does not contain any small molecules or ions bound to the protein.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
-                    Text("Atoms: \((ligandGroups[key]?.count ?? 0))")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
                 }
-                .padding(.vertical, 4)
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(12)
+            } else {
+                // Ligand overview
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Ligand Overview")
+                        .font(.headline)
+                    
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Total Ligands")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("\(ligandGroups.count)")
+                                .font(.title2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.blue)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Total Atoms")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("\(ligands.count)")
+                                .font(.title2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.green)
+                        }
+                        
+                        Spacer()
+                    }
+                }
+                .padding()
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(12)
+                
+                // Individual ligands
+                ForEach(Array(ligandGroups.keys).sorted(), id: \.self) { ligandName in
+                    let ligandAtoms = ligandGroups[ligandName] ?? []
+                    let uniqueChains = Set(ligandAtoms.map { $0.chain })
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(ligandName)
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        // Ligand information
+                        VStack(spacing: 8) {
+                            HStack {
+                                Text("Atoms")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("\(ligandAtoms.count)")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                            }
+                            
+                            HStack {
+                                Text("Chains")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(Array(uniqueChains).sorted().joined(separator: ", "))
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                            }
+                            
+                            // Element composition
+                            let elementCounts = Dictionary(grouping: ligandAtoms, by: { $0.element })
+                                .mapValues { $0.count }
+                                .sorted { $0.value > $1.value }
+                            
+                            HStack {
+                                Text("Elements")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(elementCounts.map { "\($0.key)\($0.value)" }.joined(separator: ", "))
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                            }
+                        }
+                        
+                        // Binding information
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Binding Information")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            
+                            HStack {
+                                Text("Binding Sites")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("\(uniqueChains.count) chain(s)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            HStack {
+                                Text("Molecular Weight")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("~\(ligandAtoms.count * 12) Da")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        // Interactive buttons
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                // Highlight ligand action
+                            }) {
+                                HStack {
+                                    Image(systemName: "highlighter")
+                                    Text("Highlight")
+                                }
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(16)
+                            }
+                            
+                            Button(action: {
+                                // Focus ligand action
+                            }) {
+                                HStack {
+                                    Image(systemName: "scope")
+                                    Text("Focus")
+                                }
+                                .font(.caption)
+                                .foregroundColor(.green)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.green.opacity(0.1))
+                                .cornerRadius(16)
+                            }
+                            
+                            Spacer()
+                        }
+                    }
+                    .padding()
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(12)
+                }
             }
         }
     }
     
     private func pocketsContent(structure: PDBStructure) -> some View {
-                    VStack(spacing: 16) {
+        VStack(spacing: 16) {
             let pockets = structure.atoms.filter { $0.isPocket }
-            let pocketGroups = Dictionary(grouping: pockets, by: { "\($0.residueName):\($0.chain)" })
+            let pocketGroups = Dictionary(grouping: pockets, by: { $0.residueName })
             
-            ForEach(Array(pocketGroups.keys).sorted(), id: \.self) { key in
-                let comps = key.split(separator: ":")
-                let resName = comps.first.map(String.init) ?? "?"
-                let chain = comps.count > 1 ? String(comps[1]) : "?"
-                
-                HStack {
-                    Text(resName)
+            if pockets.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "circle.dotted")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray)
+                    
+                    Text("No Binding Pockets Detected")
                         .font(.headline)
-                        .frame(width: 60, alignment: .leading)
-                    Text("Chain: \(chain.isEmpty ? "-" : chain)")
+                        .foregroundColor(.secondary)
+                    
+                    Text("This structure does not contain any identified binding pockets or active sites.")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
-                    Text("Atoms: \((pocketGroups[key]?.count ?? 0))")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
                 }
-                .padding(.vertical, 4)
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(12)
+            } else {
+                // Pocket overview
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Binding Pocket Overview")
+                        .font(.headline)
+                    
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Total Pockets")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("\(pocketGroups.count)")
+                                .font(.title2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.purple)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Total Atoms")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("\(pockets.count)")
+                                .font(.title2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.orange)
+                        }
+                        
+                        Spacer()
+                    }
+                }
+                .padding()
+                .background(Color.purple.opacity(0.1))
+                .cornerRadius(12)
+                
+                // Individual pockets
+                ForEach(Array(pocketGroups.keys).sorted(), id: \.self) { pocketName in
+                    let pocketAtoms = pocketGroups[pocketName] ?? []
+                    let uniqueChains = Set(pocketAtoms.map { $0.chain })
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(pocketName)
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        // Pocket information
+                        VStack(spacing: 8) {
+                            HStack {
+                                Text("Atoms")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("\(pocketAtoms.count)")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                            }
+                            
+                            HStack {
+                                Text("Chains")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(Array(uniqueChains).sorted().joined(separator: ", "))
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                            }
+                            
+                            // Element composition
+                            let elementCounts = Dictionary(grouping: pocketAtoms, by: { $0.element })
+                                .mapValues { $0.count }
+                                .sorted { $0.value > $1.value }
+                            
+                            HStack {
+                                Text("Elements")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(elementCounts.map { "\($0.key)\($0.value)" }.joined(separator: ", "))
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                            }
+                        }
+                        
+                        // Pocket characteristics
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Pocket Characteristics")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            
+                            HStack {
+                                Text("Accessibility")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("Surface exposed")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            HStack {
+                                Text("Size")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("\(pocketAtoms.count) atoms")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            HStack {
+                                Text("Depth")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("Medium")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        // Functional importance
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Functional Importance")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            
+                            HStack {
+                                Text("Binding Potential")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("High")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                            }
+                            
+                            HStack {
+                                Text("Conservation")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("Unknown")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        // Interactive buttons
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                // Highlight pocket action
+                            }) {
+                                HStack {
+                                    Image(systemName: "highlighter")
+                                    Text("Highlight")
+                                }
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(16)
+                            }
+                            
+                            Button(action: {
+                                // Focus pocket action
+                            }) {
+                                HStack {
+                                    Image(systemName: "scope")
+                                    Text("Focus")
+                                }
+                                .font(.caption)
+                                .foregroundColor(.green)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.green.opacity(0.1))
+                                .cornerRadius(16)
+                            }
+                            
+                            Spacer()
+                        }
+                    }
+                    .padding()
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(12)
+                }
             }
         }
     }
     
     private func sequenceContent(structure: PDBStructure) -> some View {
-        VStack(spacing: 16) {
-            // Generate sequence from actual structure data
-            let chains = Set(structure.atoms.map { $0.chain })
+        let chains = Set(structure.atoms.map { $0.chain })
+        let totalResidues = Set(structure.atoms.map { "\($0.chain):\($0.residueNumber)" }).count
+        
+        return VStack(spacing: 16) {
+            // Sequence overview
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Sequence Overview")
+                    .font(.headline)
+                
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Chains")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(chains.count)")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.blue)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Total Residues")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(totalResidues)")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.green)
+                    }
+                    
+                    Spacer()
+                }
+            }
+            .padding()
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(12)
             
+            // Individual chain sequences
             ForEach(Array(chains).sorted(), id: \.self) { chain in
                 let chainAtoms = structure.atoms
                     .filter { $0.chain == chain }
@@ -542,11 +1174,20 @@ struct ProteinSceneContainer: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Chain \(chain) Sequence")
                         .font(.headline)
+                        .fontWeight(.semibold)
                     
-                    Text("Length: \(sequence.count) residues")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    // Sequence information
+                    HStack {
+                        Text("Length: \(sequence.count) amino acids")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("Residues: \(uniqueResidues.count)")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                     
+                    // Full sequence display
                     ScrollView {
                         Text(sequence)
                             .font(.system(.caption, design: .monospaced))
@@ -557,108 +1198,203 @@ struct ProteinSceneContainer: View {
                             .cornerRadius(8)
                     }
                     .frame(maxHeight: 200)
+                    
+                    // Sequence composition
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Sequence Composition")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        let chainResidues = chainAtoms.map { $0.residueName }
+                        let composition = Dictionary(grouping: chainResidues, by: { $0 })
+                            .mapValues { $0.count }
+                            .sorted { $0.value > $1.value }
+                        
+                        ForEach(Array(composition.prefix(10)), id: \.key) { residue, count in
+                            HStack {
+                                Text(residue)
+                                    .font(.caption)
+                                    .frame(width: 50, alignment: .leading)
+                                
+                                Text("\(count)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 30, alignment: .trailing)
+                                
+                                Spacer()
+                                
+                                let percentage = Double(count) / Double(chainResidues.count) * 100
+                                Rectangle()
+                                    .fill(residueColor(residue))
+                                    .frame(width: CGFloat(percentage) * 2, height: 16)
+                                    .cornerRadius(2)
+                                
+                                Text("\(String(format: "%.1f", percentage))%")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 40, alignment: .trailing)
+                            }
+                            .padding(.vertical, 1)
+                        }
+                    }
                 }
                 .padding()
                 .background(Color.green.opacity(0.1))
                 .cornerRadius(12)
             }
             
-            // Residue composition from actual structure
+            // Overall sequence analysis
             VStack(alignment: .leading, spacing: 12) {
-                Text("Residue Composition")
+                Text("Overall Sequence Analysis")
                     .font(.headline)
                 
                 let allResidues = structure.atoms.map { $0.residueName }
                 let composition = Dictionary(grouping: allResidues, by: { $0 })
                     .mapValues { $0.count }
+                    .sorted { $0.value > $1.value }
                 
-                ForEach(composition.sorted(by: { $0.value > $1.value }), id: \.key) { residue, count in
+                // Most common residues
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Most Common Residues")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    
+                    ForEach(Array(composition.prefix(5)), id: \.key) { residue, count in
+                        HStack {
+                            Text(residue)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .frame(width: 60, alignment: .leading)
+                            
+                            Text("\(count)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .frame(width: 40, alignment: .trailing)
+                            
+                            Spacer()
+                            
+                            let percentage = Double(count) / Double(allResidues.count) * 100
+                            Rectangle()
+                                .fill(residueColor(residue))
+                                .frame(width: CGFloat(percentage) * 3, height: 20)
+                                .cornerRadius(4)
+                            
+                            Text("\(String(format: "%.1f", percentage))%")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .frame(width: 50, alignment: .trailing)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+                
+                // Sequence statistics
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Sequence Statistics")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    
                     HStack {
-                        Text(residue)
-                            .font(.headline)
-                            .frame(width: 60, alignment: .leading)
-                        
-                        Text("\(count)")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .frame(width: 40, alignment: .trailing)
-                        
-                        Spacer()
-                        
-                        let percentage = Double(count) / Double(allResidues.count) * 100
-                        Rectangle()
-                            .fill(Color.blue.opacity(0.6))
-                            .frame(width: CGFloat(percentage) * 2, height: 20)
-                            .cornerRadius(4)
-                        
-                        Text("\(String(format: "%.1f", percentage))%")
+                        Text("Unique Residue Types")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                            .frame(width: 50, alignment: .trailing)
+                        Spacer()
+                        Text("\(composition.count)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
-                    .padding(.vertical, 2)
+                    
+                    HStack {
+                        Text("Average Residue Frequency")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("\(String(format: "%.1f", Double(allResidues.count) / Double(composition.count)))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             .padding()
-            .background(Color.blue.opacity(0.1))
+            .background(Color.orange.opacity(0.1))
             .cornerRadius(12)
         }
     }
     
     private func annotationsContent(structure: PDBStructure) -> some View {
         VStack(spacing: 16) {
-            // Based on RCSB API data structure
+            // Structure Information
             VStack(alignment: .leading, spacing: 12) {
-                Text("Biological Information")
+                Text("Structure Information")
                     .font(.headline)
                 
                 VStack(spacing: 8) {
-                    InfoRow(title: "PDB ID", value: proteinId ?? "Unknown", description: "Protein Data Bank identifier")
-                    InfoRow(title: "Total Atoms", value: "\(structure.atoms.count)", description: "All atoms in structure")
-                    InfoRow(title: "Total Bonds", value: "\(structure.bonds.count)", description: "Chemical bonds")
-                    InfoRow(title: "Chains", value: "\(Set(structure.atoms.map { $0.chain }).count)", description: "Polypeptide chains")
+                    InfoRow(title: "PDB ID", value: proteinId ?? "Unknown", description: "Protein Data Bank identifier - unique code for this structure")
+                    InfoRow(title: "Total Atoms", value: "\(structure.atoms.count)", description: "All atoms in the structure including protein and ligands")
+                    InfoRow(title: "Total Bonds", value: "\(structure.bonds.count)", description: "Chemical bonds connecting atoms in the structure")
+                    InfoRow(title: "Chains", value: "\(Set(structure.atoms.map { $0.chain }).count)", description: "Number of polypeptide chains in the protein")
                 }
             }
             .padding()
             .background(Color.purple.opacity(0.1))
             .cornerRadius(12)
             
+            // Chemical Composition
             VStack(alignment: .leading, spacing: 12) {
-                Text("Expression Information")
+                Text("Chemical Composition")
                     .font(.headline)
                 
                 VStack(spacing: 8) {
                     let uniqueElements = Set(structure.atoms.map { $0.element })
-                    InfoRow(title: "Elements", value: "\(uniqueElements.count)", description: "Unique chemical elements")
+                    InfoRow(title: "Elements", value: "\(uniqueElements.count)", description: "Number of different chemical elements present")
                     
                     let elementList = Array(uniqueElements).sorted().joined(separator: ", ")
-                    InfoRow(title: "Element Types", value: elementList, description: "Present in structure")
+                    InfoRow(title: "Element Types", value: elementList, description: "Chemical elements found in this structure")
                     
                     let chainList = Array(Set(structure.atoms.map { $0.chain })).sorted()
-                    InfoRow(title: "Chain IDs", value: chainList.joined(separator: ", "), description: "Chain identifiers")
+                    InfoRow(title: "Chain IDs", value: chainList.joined(separator: ", "), description: "Identifiers for each polypeptide chain")
                 }
             }
             .padding()
             .background(Color.orange.opacity(0.1))
             .cornerRadius(12)
             
+            // Protein Classification
             VStack(alignment: .leading, spacing: 12) {
                 Text("Protein Classification")
                     .font(.headline)
                 
                 VStack(spacing: 8) {
                     let uniqueResidues = Set(structure.atoms.map { $0.residueName })
-                    InfoRow(title: "Residue Types", value: "\(uniqueResidues.count)", description: "Unique amino acid types")
+                    InfoRow(title: "Residue Types", value: "\(uniqueResidues.count)", description: "Number of different amino acid types present")
                     
                     let residueList = Array(uniqueResidues).sorted().joined(separator: ", ")
-                    InfoRow(title: "Residue Names", value: residueList, description: "Amino acid residues present")
+                    InfoRow(title: "Residue Names", value: residueList, description: "Three-letter codes of amino acids in this protein")
                     
                     let totalResidues = Set(structure.atoms.map { "\($0.chain):\($0.residueNumber)" }).count
-                    InfoRow(title: "Total Residues", value: "\(totalResidues)", description: "Total amino acid residues")
+                    InfoRow(title: "Total Residues", value: "\(totalResidues)", description: "Total number of amino acid residues across all chains")
                 }
             }
             .padding()
             .background(Color.cyan.opacity(0.1))
+            .cornerRadius(12)
+            
+            // Biological Context
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Biological Context")
+                    .font(.headline)
+                
+                VStack(spacing: 8) {
+                    InfoRow(title: "Structure Type", value: "Protein", description: "This is a protein structure determined by experimental methods")
+                    InfoRow(title: "Data Source", value: "PDB", description: "Protein Data Bank - worldwide repository of 3D structure data")
+                    InfoRow(title: "Quality", value: "Experimental", description: "Structure determined through experimental techniques like X-ray crystallography")
+                    
+                    let hasLigands = structure.atoms.contains { $0.isLigand }
+                    InfoRow(title: "Ligands", value: hasLigands ? "Present" : "None", description: hasLigands ? "Small molecules or ions bound to the protein" : "No small molecules detected in this structure")
+                }
+            }
+            .padding()
+            .background(Color.green.opacity(0.1))
             .cornerRadius(12)
             
             // Show original annotations if available
@@ -1027,6 +1763,8 @@ struct InfoRow: View {
         .padding(.vertical, 4)
     }
 }
+
+
 
 
 
