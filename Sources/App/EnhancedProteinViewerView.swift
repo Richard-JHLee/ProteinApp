@@ -1863,7 +1863,7 @@ extension EnhancedProteinViewerView {
         let id = pdbId.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: "https://files.rcsb.org/download/\(id).pdb") else { throw NetError.badURL }
         let pdbText = try await Net.getText(url)
-        return PDBParser.parse(pdbText: pdbText) // 프로젝트에 있는 파서 사용
+        return try PDBParser.parse(pdbText: pdbText) // 프로젝트에 있는 파서 사용
     }
 
     /// RCSB에서 엔티티 정보 가져오기 (리간드, 주석 등)

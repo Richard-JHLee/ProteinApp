@@ -89,7 +89,7 @@ struct ContentView: View {
                 }
                 
                 let pdbText = String(decoding: data, as: UTF8.self)
-                let loadedStructure = PDBParser.parse(pdbText: pdbText)
+                let loadedStructure = try PDBParser.parse(pdbText: pdbText)
                 
                 await MainActor.run {
                     self.structure = loadedStructure
@@ -128,7 +128,7 @@ struct ContentView: View {
                 }
                 
                 let pdbText = String(decoding: data, as: UTF8.self)
-                let loadedStructure = PDBParser.parse(pdbText: pdbText)
+                let loadedStructure = try PDBParser.parse(pdbText: pdbText)
                 
                 await MainActor.run {
                     self.structure = loadedStructure

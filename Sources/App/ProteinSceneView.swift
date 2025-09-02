@@ -1608,7 +1608,7 @@ struct ProteinSceneView: UIViewRepresentable {
             rootNode.addChildNode(bondNode)
             
             if index < 5 { // Log first 5 bonds for debugging
-                print("Bond \(index): \(bond.a) - \(bond.b)")
+                print("Bond \(index): \(bond.atomA) - \(bond.atomB)")
             }
         }
         
@@ -1654,8 +1654,8 @@ struct ProteinSceneView: UIViewRepresentable {
     }
     
     private func createBondNode(_ bond: Bond, atoms: [Atom]) -> SCNNode {
-        guard let atom1 = atoms.first(where: { $0.id == bond.a }),
-              let atom2 = atoms.first(where: { $0.id == bond.b }) else {
+        guard let atom1 = atoms.first(where: { $0.id == bond.atomA }),
+              let atom2 = atoms.first(where: { $0.id == bond.atomB }) else {
             return SCNNode()
         }
         

@@ -120,7 +120,7 @@ private func loadStructureFromRCSB(pdbId: String) async throws -> PDBStructure {
         
         print("📝 PDB content length: \(pdbString.count) characters")
         
-        let structure = PDBParser.parse(pdbText: pdbString)
+        let structure = try PDBParser.parse(pdbText: pdbString)
         print("🔬 Parsed structure: \(structure.atoms.count) atoms, \(structure.bonds.count) bonds")
         
         return structure
