@@ -5,45 +5,21 @@ struct ContentView: View {
     @State private var isLoading = false
     @State private var error: String? = nil
     @State private var showingProteinLibrary: Bool = false
+    @State private var currentProteinId: String = ""
+    @State private var currentProteinName: String = ""
     
     var body: some View {
         NavigationView {
             ZStack {
                 if let structure = structure {
-                    ZStack {
-                        ProteinSceneContainer(structure: structure)
-                        
-                        // Top navigation buttons
-                        VStack {
-                            HStack {
-                                Button("Protein Library") {
-                                    showingProteinLibrary = true
-                                }
-                                .font(.body.weight(.medium))
-                                .foregroundColor(.blue)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(.ultraThinMaterial)
-                                .clipShape(Capsule())
-                                
-                                Spacer()
-                                
-                                Button("Info") {
-                                    // Show app info or settings
-                                }
-                                .font(.body.weight(.medium))
-                                .foregroundColor(.primary)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(.ultraThinMaterial)
-                                .clipShape(Capsule())
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.top, 20)
-                            
-                            Spacer()
+                    ProteinSceneContainer(
+                        structure: structure,
+                        proteinId: currentProteinId,
+                        proteinName: currentProteinName,
+                        onProteinLibraryTap: {
+                            showingProteinLibrary = true
                         }
-                    }
+                    )
                 } else {
                     VStack(spacing: 20) {
                         if isLoading {
@@ -85,11 +61,12 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showingProteinLibrary) {
-            ProteinLibraryView { selectedProtein in
+            ProteinLibraryView { selectedProteinId in
                 // Handle protein selection from library
-                print("Selected protein: \(selectedProtein)")
+                print("Selected protein ID: \(selectedProteinId)")
                 showingProteinLibrary = false
-                // TODO: Load the selected protein structure
+                // Load the selected protein structure
+                loadSelectedProtein(selectedProteinId)
             }
         }
         .preferredColorScheme(.light)
@@ -116,15 +93,76 @@ struct ContentView: View {
                 
                 await MainActor.run {
                     self.structure = loadedStructure
+                    self.currentProteinId = "1CRN"
+                    self.currentProteinName = "Crambin"
                     self.isLoading = false
+                    print("Successfully loaded default PDB structure: 1CRN")
                 }
             } catch {
                 await MainActor.run {
-                    self.error = "Failed to load protein structure: \(error.localizedDescription)"
+                    self.error = "Failed to load default protein structure: \(error.localizedDescription)"
                     self.isLoading = false
+                    print("Error loading default PDB structure: \(error)")
                 }
             }
         }
+    }
+    
+    private func loadSelectedProtein(_ pdbId: String) {
+        isLoading = true
+        error = nil
+        
+        Task {
+            do {
+                // Construct PDB download URL using the protein's PDB ID
+                let formattedPdbId = pdbId.uppercased()
+                let url = URL(string: "https://files.rcsb.org/download/\(formattedPdbId).pdb")!
+                
+                print("Loading PDB structure for: \(formattedPdbId)")
+                
+                let (data, response) = try await URLSession.shared.data(from: url)
+                
+                guard let httpResponse = response as? HTTPURLResponse,
+                      httpResponse.statusCode == 200 else {
+                    throw URLError(.badServerResponse)
+                }
+                
+                let pdbText = String(decoding: data, as: UTF8.self)
+                let loadedStructure = PDBParser.parse(pdbText: pdbText)
+                
+                await MainActor.run {
+                    self.structure = loadedStructure
+                    self.currentProteinId = formattedPdbId
+                    self.currentProteinName = getProteinName(from: formattedPdbId)
+                    self.isLoading = false
+                    print("Successfully loaded PDB structure: \(formattedPdbId)")
+                }
+            } catch {
+                await MainActor.run {
+                    self.error = "Failed to load protein structure for \(pdbId): \(error.localizedDescription)"
+                    self.isLoading = false
+                    print("Error loading PDB structure: \(error)")
+                }
+            }
+        }
+    }
+    
+    private func getProteinName(from pdbId: String) -> String {
+        // Common protein names mapping
+        let proteinNames: [String: String] = [
+            "1CRN": "Crambin",
+            "1TUB": "Tubulin",
+            "1HHO": "Hemoglobin",
+            "1INS": "Insulin",
+            "1LYZ": "Lysozyme",
+            "1GFL": "Green Fluorescent Protein",
+            "1UBQ": "Ubiquitin",
+            "1PGA": "Protein G",
+            "1TIM": "Triosephosphate Isomerase",
+            "1AKE": "Adenylate Kinase"
+        ]
+        
+        return proteinNames[pdbId] ?? "Unknown Protein"
     }
 }
 

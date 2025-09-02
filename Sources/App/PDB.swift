@@ -102,7 +102,17 @@ final class PDBParser {
             let name = substr(s, 12..<16).trimmingCharacters(in: .whitespaces)
             let resName = substr(s, 17..<20).trimmingCharacters(in: .whitespaces)
             let chain = substr(s, 21..<22).trimmingCharacters(in: .whitespaces)
-            let resSeq = Int(substr(s, 22..<26).trimmingCharacters(in: .whitespaces)) ?? 0
+            
+            // Safe Int parsing for residue sequence number
+            let resSeqStr = substr(s, 22..<26).trimmingCharacters(in: .whitespaces)
+            let resSeq: Int
+            if let parsedResSeq = Int(resSeqStr) {
+                resSeq = parsedResSeq
+            } else {
+                print("Warning: Invalid residue sequence number: '\(resSeqStr)', using 0")
+                resSeq = 0
+            }
+            
             let xStr = substr(s, 30..<38).trimmingCharacters(in: .whitespaces)
             let yStr = substr(s, 38..<46).trimmingCharacters(in: .whitespaces)
             let zStr = substr(s, 46..<54).trimmingCharacters(in: .whitespaces)

@@ -64,7 +64,12 @@ struct InfoSheet: View {
         }
         .sheet(isPresented: $showingProteinView) {
             if let structure = proteinStructure {
-                ProteinSceneContainer(structure: structure)
+                ProteinSceneContainer(
+                    structure: structure,
+                    proteinId: protein.id,
+                    proteinName: protein.name,
+                    onProteinLibraryTap: nil // InfoSheet에서는 Protein Library 기능 불필요
+                )
             } else if isLoadingStructure {
                 VStack(spacing: 20) {
                     ProgressView("Loading protein structure...")
