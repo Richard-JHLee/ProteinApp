@@ -188,6 +188,7 @@ struct EnhancedProteinViewerView: View {
                         colorMode: colorMode,
                         uniformColor: UIColor(uniformColor),
                         autoRotate: autoRotate,
+                        isInfoMode: false, // Enhanced view는 viewer 모드
                         showInfoBar: .constant(false), // Enhanced view에서는 정보 바 숨김
                         onSelectAtom: { atom in
                             selectedAtom = atom

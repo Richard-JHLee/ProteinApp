@@ -152,6 +152,7 @@ struct ProteinSceneContainer: View {
                     colorMode: selectedColorMode,
                     uniformColor: .systemBlue,
                     autoRotate: false,
+                    isInfoMode: false,
                     showInfoBar: $showInfoBar
                 )
                 .ignoresSafeArea()
@@ -296,6 +297,7 @@ struct ProteinSceneContainer: View {
                                 colorMode: selectedColorMode,
                                 uniformColor: .systemBlue,
                                 autoRotate: false,
+                                isInfoMode: true,
                                 showInfoBar: .constant(false)
                             )
                             .frame(height: 200)
@@ -1449,6 +1451,7 @@ struct ProteinSceneView: UIViewRepresentable {
     let colorMode: ColorMode
     let uniformColor: UIColor
     let autoRotate: Bool
+    let isInfoMode: Bool
     var showInfoBar: Binding<Bool>? = nil
     var onSelectAtom: ((Atom) -> Void)? = nil
 
@@ -1594,14 +1597,16 @@ struct ProteinSceneView: UIViewRepresentable {
         let cameraNode = SCNNode()
         cameraNode.camera = camera
         
-        // Calculate appropriate camera distance (safer approach)
-        let baseCameraDistance: Float = max(boundingSize * 3.0, 20.0)
+        // Calculate appropriate camera distance
+        // Info 모드일 때는 카메라를 2배 가깝게 (3.0 → 1.5)하여 이미지를 2배 크게 보이게 함
+        let multiplier: Float = isInfoMode ? 1.5 : 3.0
+        let baseCameraDistance: Float = max(boundingSize * multiplier, 20.0)
         let cameraDistance = min(baseCameraDistance, 200.0) // Maximum value limit
         
         cameraNode.position = SCNVector3(0, 0, cameraDistance)
         cameraNode.look(at: SCNVector3(0, 0, 0))
         
-        print("Camera positioned at distance: \(cameraDistance), bounding size: \(boundingSize)")
+        print("Camera positioned at distance: \(cameraDistance), bounding size: \(boundingSize), isInfoMode: \(isInfoMode)")
         
         scene.rootNode.addChildNode(cameraNode)
         view.pointOfView = cameraNode
