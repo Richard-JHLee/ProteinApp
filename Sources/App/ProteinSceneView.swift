@@ -1500,42 +1500,13 @@ struct ProteinSceneView: UIViewRepresentable {
         Coordinator(parent: self)
     }
 
+    // ProteinSceneView의 rebuild 메소드 수정 버전
     private func rebuild(view: SCNView) {
         let scene = SCNScene()
         scene.rootNode.childNodes.forEach { $0.removeFromParentNode() }
 
-        // Professional lighting setup
-        let keyLight = SCNLight()
-        keyLight.type = .directional
-        keyLight.intensity = 1000
-        keyLight.color = UIColor(red: 1.0, green: 0.95, blue: 0.9, alpha: 1.0)
-        keyLight.castsShadow = true
-        keyLight.shadowRadius = 8
-        keyLight.shadowColor = UIColor.black.withAlphaComponent(0.3)
-        let keyLightNode = SCNNode()
-        keyLightNode.light = keyLight
-        keyLightNode.position = SCNVector3(20, 30, 40)
-        keyLightNode.look(at: SCNVector3(0, 0, 0))
-        scene.rootNode.addChildNode(keyLightNode)
-        
-        let fillLight = SCNLight()
-        fillLight.type = .omni
-        fillLight.intensity = 400
-        fillLight.color = UIColor(red: 0.9, green: 0.95, blue: 1.0, alpha: 1.0)
-        let fillLightNode = SCNNode()
-        fillLightNode.light = fillLight
-        fillLightNode.position = SCNVector3(-20, 20, -20)
-        scene.rootNode.addChildNode(fillLightNode)
-        
-        let rimLight = SCNLight()
-        rimLight.type = .directional
-        rimLight.intensity = 300
-        rimLight.color = UIColor(red: 1.0, green: 1.0, blue: 0.95, alpha: 1.0)
-        let rimLightNode = SCNNode()
-        rimLightNode.light = rimLight
-        rimLightNode.position = SCNVector3(0, -30, 0)
-        rimLightNode.look(at: SCNVector3(0, 0, 0))
-        scene.rootNode.addChildNode(rimLightNode)
+        // 개선된 조명 설정
+        setupLighting(scene: scene)
 
         if let structure = structure {
             print("Creating protein node with \(structure.atoms.count) atoms and \(structure.bonds.count) bonds")
@@ -1543,43 +1514,21 @@ struct ProteinSceneView: UIViewRepresentable {
             let proteinNode = createProteinNode(from: structure)
             scene.rootNode.addChildNode(proteinNode)
             
-            // Calculate bounding box and center
-            let boundingBox = proteinNode.boundingBox
-            let center = SCNVector3(
-                (boundingBox.min.x + boundingBox.max.x) / 2,
-                (boundingBox.min.y + boundingBox.max.y) / 2,
-                (boundingBox.min.z + boundingBox.max.z) / 2
-            )
+            // 개선된 바운딩 박스 계산
+            let (center, boundingSize) = calculateProteinBounds(structure: structure)
             
-            let maxDimension = max(boundingBox.max.x - boundingBox.min.x,
-                                 boundingBox.max.y - boundingBox.min.y,
-                                 boundingBox.max.z - boundingBox.min.z)
+            print("Protein center: \(center), bounding size: \(boundingSize)")
             
-            print("Bounding box: min=\(boundingBox.min), max=\(boundingBox.max)")
-            print("Center: \(center), maxDimension: \(maxDimension)")
-            
-            // Center the protein at origin
+            // 단백질을 원점으로 이동
             proteinNode.position = SCNVector3(-center.x, -center.y, -center.z)
             
-            // Set up camera with proper distance
-            let camera = SCNCamera()
-            camera.fieldOfView = 60
-            let cameraNode = SCNNode()
-            cameraNode.camera = camera
+            // 개선된 카메라 설정
+            setupCamera(scene: scene, view: view, boundingSize: boundingSize)
             
-            // Position camera at appropriate distance
-            let cameraDistance = max(maxDimension * 2.5, 50.0) // Ensure minimum distance
-            cameraNode.position = SCNVector3(0, 0, cameraDistance)
-            cameraNode.look(at: SCNVector3(0, 0, 0))
-            
-            print("Camera positioned at distance: \(cameraDistance)")
-            
-            scene.rootNode.addChildNode(cameraNode)
-            
-            // Set the camera as the point of view
-            view.pointOfView = cameraNode
         } else {
             print("No structure provided to ProteinSceneView")
+            // 기본 카메라 설정
+            setupDefaultCamera(scene: scene, view: view)
         }
 
         view.scene = scene
@@ -1615,35 +1564,149 @@ struct ProteinSceneView: UIViewRepresentable {
         return rootNode
     }
     
+    // 개선된 바운딩 박스 계산
+    private func calculateProteinBounds(structure: PDBStructure) -> (center: SCNVector3, size: Float) {
+        guard !structure.atoms.isEmpty else {
+            return (SCNVector3Zero, 10.0)
+        }
+        
+        var minX = Float.greatestFiniteMagnitude
+        var maxX = -Float.greatestFiniteMagnitude
+        var minY = Float.greatestFiniteMagnitude
+        var maxY = -Float.greatestFiniteMagnitude
+        var minZ = Float.greatestFiniteMagnitude
+        var maxZ = -Float.greatestFiniteMagnitude
+        
+        for atom in structure.atoms {
+            minX = min(minX, atom.position.x)
+            maxX = max(maxX, atom.position.x)
+            minY = min(minY, atom.position.y)
+            maxY = max(maxY, atom.position.y)
+            minZ = min(minZ, atom.position.z)
+            maxZ = max(maxZ, atom.position.z)
+        }
+        
+        let center = SCNVector3(
+            (minX + maxX) / 2,
+            (minY + maxY) / 2,
+            (minZ + maxZ) / 2
+        )
+        
+        let sizeX = maxX - minX
+        let sizeY = maxY - minY
+        let sizeZ = maxZ - minZ
+        let maxSize = max(sizeX, max(sizeY, sizeZ))
+        
+        return (center, maxSize)
+    }
+    
+    // 개선된 카메라 설정
+    private func setupCamera(scene: SCNScene, view: SCNView, boundingSize: Float) {
+        let camera = SCNCamera()
+        camera.fieldOfView = 60
+        camera.zNear = 0.1
+        camera.zFar = 1000
+        
+        let cameraNode = SCNNode()
+        cameraNode.camera = camera
+        
+        // 적절한 카메라 거리 계산 (더 안전한 방식)
+        let baseCameraDistance: Float = max(boundingSize * 3.0, 20.0)
+        let cameraDistance = min(baseCameraDistance, 200.0) // 최대값 제한
+        
+        cameraNode.position = SCNVector3(0, 0, cameraDistance)
+        cameraNode.look(at: SCNVector3(0, 0, 0))
+        
+        print("Camera positioned at distance: \(cameraDistance), bounding size: \(boundingSize)")
+        
+        scene.rootNode.addChildNode(cameraNode)
+        view.pointOfView = cameraNode
+    }
+    
+    // 기본 카메라 설정 (구조가 없을 때)
+    private func setupDefaultCamera(scene: SCNScene, view: SCNView) {
+        let camera = SCNCamera()
+        camera.fieldOfView = 60
+        camera.zNear = 0.1
+        camera.zFar = 1000
+        
+        let cameraNode = SCNNode()
+        cameraNode.camera = camera
+        cameraNode.position = SCNVector3(0, 0, 50)
+        cameraNode.look(at: SCNVector3(0, 0, 0))
+        
+        scene.rootNode.addChildNode(cameraNode)
+        view.pointOfView = cameraNode
+    }
+    
+    // 조명 설정 분리
+    private func setupLighting(scene: SCNScene) {
+        // 키 라이트 (주 조명)
+        let keyLight = SCNLight()
+        keyLight.type = .directional
+        keyLight.intensity = 800 // 약간 줄임
+        keyLight.color = UIColor.white
+        keyLight.castsShadow = false // 성능 향상을 위해 그림자 비활성화
+        let keyLightNode = SCNNode()
+        keyLightNode.light = keyLight
+        keyLightNode.position = SCNVector3(10, 20, 30)
+        keyLightNode.look(at: SCNVector3(0, 0, 0))
+        scene.rootNode.addChildNode(keyLightNode)
+        
+        // 보조 조명
+        let fillLight = SCNLight()
+        fillLight.type = .omni
+        fillLight.intensity = 300
+        fillLight.color = UIColor(white: 0.8, alpha: 1.0)
+        let fillLightNode = SCNNode()
+        fillLightNode.light = fillLight
+        fillLightNode.position = SCNVector3(-15, 15, -15)
+        scene.rootNode.addChildNode(fillLightNode)
+        
+        // 환경광
+        let ambientLight = SCNLight()
+        ambientLight.type = .ambient
+        ambientLight.intensity = 200
+        ambientLight.color = UIColor(white: 0.4, alpha: 1.0)
+        let ambientLightNode = SCNNode()
+        ambientLightNode.light = ambientLight
+        scene.rootNode.addChildNode(ambientLightNode)
+    }
+    
+    // 개선된 원자 노드 생성
     private func createAtomNode(_ atom: Atom) -> SCNNode {
+        let baseRadius: CGFloat = 1.0 // 기본 크기를 더 작게
         let radius: CGFloat
         let color: UIColor
         
         switch colorMode {
         case .element:
-            radius = atom.element.atomicRadius * 2.0 // Make atoms larger
+            radius = baseRadius * (atom.element.atomicRadius / 0.7) // 정규화된 크기
             color = atom.element.color
         case .chain:
-            radius = 2.0 // Make atoms larger
-            color = UIColor(hue: CGFloat(atom.chain.hashValue % 10) / 10.0, saturation: 0.7, brightness: 0.8, alpha: 1.0)
+            radius = baseRadius
+            color = chainColor(for: atom.chain)
         case .uniform:
-            radius = 2.0 // Make atoms larger
+            radius = baseRadius
             color = uniformColor
         case .secondaryStructure:
-            radius = 2.0 // Make atoms larger
+            radius = baseRadius
             color = atom.secondaryStructure.color
         }
+        
+        // 스타일에 따른 크기 조정
+        let finalRadius = radius * styleSizeMultiplier()
         
         let geometry: SCNGeometry
         switch style {
         case .spheres:
-            geometry = GeometryCache.shared.lodSphere(radius: radius, color: color)
+            geometry = GeometryCache.shared.lodSphere(radius: finalRadius, color: color)
         case .sticks:
-            geometry = GeometryCache.shared.lodSphere(radius: radius * 0.3, color: color)
+            geometry = GeometryCache.shared.lodSphere(radius: finalRadius * 0.4, color: color)
         case .cartoon:
-            geometry = GeometryCache.shared.lodSphere(radius: radius * 0.5, color: color)
+            geometry = GeometryCache.shared.lodSphere(radius: finalRadius * 0.6, color: color)
         case .surface:
-            geometry = GeometryCache.shared.lodSphere(radius: radius * 0.8, color: color)
+            geometry = GeometryCache.shared.lodSphere(radius: finalRadius * 0.8, color: color)
         }
         
         let node = SCNNode(geometry: geometry)
@@ -1653,6 +1716,7 @@ struct ProteinSceneView: UIViewRepresentable {
         return node
     }
     
+    // 개선된 본드 노드 생성
     private func createBondNode(_ bond: Bond, atoms: [Atom]) -> SCNNode {
         guard let atom1 = atoms.first(where: { $0.id == bond.atomA }),
               let atom2 = atoms.first(where: { $0.id == bond.atomB }) else {
@@ -1661,29 +1725,81 @@ struct ProteinSceneView: UIViewRepresentable {
         
         let start = atom1.position
         let end = atom2.position
-        let distance = sqrt(pow(end.x - start.x, 2) + pow(end.y - start.y, 2) + pow(end.z - start.z, 2))
         
-        let cylinder = GeometryCache.shared.unitLodCylinder(radius: 0.3, color: .gray) // Make bonds thicker
+        // 벡터 계산
+        let direction = SCNVector3(end.x - start.x, end.y - start.y, end.z - start.z)
+        let distance = sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z)
+        
+        // 거리가 너무 작으면 건드리지 않음
+        guard distance > 0.01 else { return SCNNode() }
+        
+        let bondRadius: CGFloat = style == .sticks ? 0.2 : 0.1
+        let cylinder = GeometryCache.shared.unitLodCylinder(radius: bondRadius, color: .lightGray)
         let node = SCNNode(geometry: cylinder)
         
-        // Position and orient the cylinder
-        let midPoint = SCNVector3((start.x + end.x) / 2, (start.y + end.y) / 2, (start.z + end.z) / 2)
+        // 중점 위치
+        let midPoint = SCNVector3(
+            (start.x + end.x) / 2,
+            (start.y + end.y) / 2,
+            (start.z + end.z) / 2
+        )
         node.position = midPoint
         
-        // Calculate rotation to align with bond direction
-        let direction = SCNVector3(end.x - start.x, end.y - start.y, end.z - start.z)
-        let up = SCNVector3(0, 1, 0)
+        // 회전 계산 개선
+        let normalizedDirection = SCNVector3(
+            direction.x / distance,
+            direction.y / distance,
+            direction.z / distance
+        )
         
-        if abs(direction.y) > 0.9 {
-            let right = SCNVector3(1, 0, 0)
-            let rotationMatrix = SCNMatrix4MakeRotation(Float.pi/2, right.x, right.y, right.z)
-            node.transform = SCNMatrix4Mult(SCNMatrix4MakeScale(1, distance, 1), rotationMatrix)
-        } else {
-            let rotationMatrix = SCNMatrix4MakeRotation(Float.pi/2, up.x, up.y, up.z)
-            node.transform = SCNMatrix4Mult(SCNMatrix4MakeScale(1, distance, 1), rotationMatrix)
+        // Y축과의 각도 계산
+        let yAxis = SCNVector3(0, 1, 0)
+        let rotationAxis = SCNVector3(
+            yAxis.y * normalizedDirection.z - yAxis.z * normalizedDirection.y,
+            yAxis.z * normalizedDirection.x - yAxis.x * normalizedDirection.z,
+            yAxis.x * normalizedDirection.y - yAxis.y * normalizedDirection.x
+        )
+        
+        let dotProduct = yAxis.y * normalizedDirection.y
+        let angle = acos(max(-1, min(1, dotProduct)))
+        
+        if abs(angle) > 0.001 {
+            node.rotation = SCNVector4(rotationAxis.x, rotationAxis.y, rotationAxis.z, angle)
         }
         
+        // 스케일 적용 (높이만 조정)
+        node.scale = SCNVector3(1, distance, 1)
+        
         return node
+    }
+    
+    // 스타일별 크기 배수
+    private func styleSizeMultiplier() -> CGFloat {
+        switch style {
+        case .spheres: return 1.0
+        case .sticks: return 0.8
+        case .cartoon: return 1.2
+        case .surface: return 0.9
+        }
+    }
+    
+    // 체인별 색상 생성 개선
+    private func chainColor(for chain: String) -> UIColor {
+        let hue = CGFloat(abs(chain.hashValue) % 360) / 360.0
+        return UIColor(hue: hue, saturation: 0.7, brightness: 0.8, alpha: 1.0)
+    }
+    
+    // 디버깅을 위한 바운딩 박스 시각화 (선택사항)
+    private func addBoundingBoxVisualization(to scene: SCNScene, center: SCNVector3, size: Float) {
+        let box = SCNBox(width: CGFloat(size), height: CGFloat(size), length: CGFloat(size), chamferRadius: 0)
+        let material = SCNMaterial()
+        material.diffuse.contents = UIColor.red.withAlphaComponent(0.2)
+        material.isDoubleSided = true
+        box.materials = [material]
+        
+        let boxNode = SCNNode(geometry: box)
+        boxNode.position = SCNVector3(-center.x, -center.y, -center.z)
+        scene.rootNode.addChildNode(boxNode)
     }
 
     class Coordinator: NSObject {
