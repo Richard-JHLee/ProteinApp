@@ -1937,10 +1937,17 @@ struct ColorModeButton: View {
 
 // MARK: - Enhanced Advanced Controls
 struct EnhancedAdvancedControlsView: View {
-    @State private var autoRotate = false
-    @State private var showBonds = true
-    @State private var transparency: Double = 1.0
-    @State private var atomSize: Double = 1.0
+    @Binding var autoRotate: Bool
+    @Binding var showBonds: Bool
+    @Binding var transparency: Double
+    @Binding var atomSize: Double
+    @Binding var selectedStyle: RenderStyle
+    @Binding var selectedColorMode: ColorMode
+    
+    // Callbacks for actions
+    let onResetView: () -> Void
+    let onScreenshot: () -> Void
+    let onShare: () -> Void
     
     var body: some View {
         VStack(spacing: 16) {
@@ -1951,7 +1958,7 @@ struct EnhancedAdvancedControlsView: View {
                     title: "Reset View",
                     color: .blue
                 ) {
-                    // Reset camera view
+                    onResetView()
                 }
                 
                 QuickActionButton(
@@ -1959,7 +1966,7 @@ struct EnhancedAdvancedControlsView: View {
                     title: "Screenshot",
                     color: .green
                 ) {
-                    // Take screenshot
+                    onScreenshot()
                 }
                 
                 QuickActionButton(
@@ -1967,7 +1974,7 @@ struct EnhancedAdvancedControlsView: View {
                     title: "Share",
                     color: .orange
                 ) {
-                    // Share action
+                    onShare()
                 }
                 
                 Spacer()
@@ -2092,6 +2099,12 @@ struct TabBasedViewerControls: View {
     @State private var selectedTab: ControlTab = .style
     @State private var showAdvancedControls = false
     
+    // Advanced controls state
+    @State private var autoRotate = false
+    @State private var showBonds = true
+    @State private var transparency: Double = 1.0
+    @State private var atomSize: Double = 1.0
+    
     enum ControlTab: String, CaseIterable {
         case style = "Rendering Style"
         case color = "Color Scheme"
@@ -2170,8 +2183,27 @@ struct TabBasedViewerControls: View {
                     Divider()
                         .padding(.horizontal, 16)
                     
-                    EnhancedAdvancedControlsView()
-                        .transition(.opacity.combined(with: .slide))
+                    EnhancedAdvancedControlsView(
+                        autoRotate: $autoRotate,
+                        showBonds: $showBonds,
+                        transparency: $transparency,
+                        atomSize: $atomSize,
+                        selectedStyle: $selectedStyle,
+                        selectedColorMode: $selectedColorMode,
+                        onResetView: {
+                            // Reset camera to default position
+                            print("Reset View - Camera position reset")
+                        },
+                        onScreenshot: {
+                            // Take screenshot of 3D view
+                            print("Screenshot - Capturing 3D view")
+                        },
+                        onShare: {
+                            // Share protein structure
+                            print("Share - Sharing protein structure")
+                        }
+                    )
+                    .transition(.opacity.combined(with: .slide))
                 }
             }
             .padding(.bottom, 12)
@@ -2264,8 +2296,24 @@ struct UpdatedViewerControls: View {
                     Divider()
                         .padding(.horizontal, -16)
                     
-                    EnhancedAdvancedControlsView()
-                        .transition(.opacity.combined(with: .slide))
+                    EnhancedAdvancedControlsView(
+                        autoRotate: .constant(false),
+                        showBonds: .constant(true),
+                        transparency: .constant(1.0),
+                        atomSize: .constant(1.0),
+                        selectedStyle: $selectedStyle,
+                        selectedColorMode: $selectedColorMode,
+                        onResetView: {
+                            print("Reset View - Camera position reset")
+                        },
+                        onScreenshot: {
+                            print("Screenshot - Capturing 3D view")
+                        },
+                        onShare: {
+                            print("Share - Sharing protein structure")
+                        }
+                    )
+                    .transition(.opacity.combined(with: .slide))
                 }
             }
             .padding(16)
