@@ -192,7 +192,10 @@ struct EnhancedProteinViewerView: View {
                         showInfoBar: .constant(false), // Enhanced view에서는 정보 바 숨김
                         onSelectAtom: { atom in
                             selectedAtom = atom
-                        }
+                        },
+                        highlightedChains: [], // Enhanced view에서는 highlight 기능 없음
+                        highlightedLigands: [],
+                        highlightedPockets: []
                     )
                     .background(Color.black)
                     .cornerRadius(12)
@@ -382,6 +385,9 @@ struct EnhancedProteinViewerView: View {
                 Text(protein.name)
                     .font(.headline)
                     .foregroundColor(.primary)
+                    .lineLimit(protein.name.count > 35 ? 1 : 2)  // 동적 길이 조정
+                    .truncationMode(.tail)                       // "..." 표시
+                    .minimumScaleFactor(0.9)                     // 필요시 텍스트 크기 축소
                 
                 HStack(spacing: 12) {
                     // PDB ID

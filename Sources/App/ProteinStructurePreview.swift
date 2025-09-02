@@ -37,7 +37,10 @@ struct ProteinStructurePreview: View {
                     autoRotate: false, // 카드에서는 자동 회전 비활성화
                     isInfoMode: false, // 카드는 viewer 모드
                     showInfoBar: .constant(false), // 카드에서는 정보 바 숨김
-                    onSelectAtom: { _ in } // 카드에서는 원자 선택 비활성화
+                    onSelectAtom: { _ in }, // 카드에서는 원자 선택 비활성화
+                    highlightedChains: [], // 미리보기에서는 highlight 없음
+                    highlightedLigands: [],
+                    highlightedPockets: []
                 )
                 .frame(width: 120, height: 120) // 크기를 2배로 증가
                 .clipShape(RoundedRectangle(cornerRadius: 12))

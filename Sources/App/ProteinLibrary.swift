@@ -3421,14 +3421,9 @@ struct ProteinLibraryView: View {
                                             let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
                                             impactFeedback.impactOccurred()
                                             
-                                            // 자연스러운 로딩 흐름: 먼저 로딩 화면 표시
-                                            selectedProtein = nil
+                                            // 즉시 단백질 정보 표시 (로딩 제거)
+                                            selectedProtein = protein
                                             showingInfoSheet = true
-                                            
-                                            // 짧은 지연 후 데이터 설정 (로딩 효과)
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                                selectedProtein = protein
-                                            }
                                         },
                                         onFavoriteToggle: {
                                             database.toggleFavorite(protein.id)
@@ -3516,33 +3511,6 @@ struct ProteinLibraryView: View {
                     protein: protein,
                     onProteinSelected: onProteinSelected
                 )
-            } else {
-                // 로딩 상태 표시
-                VStack(spacing: 16) {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .tint(.blue)
-                    
-                    VStack(spacing: 4) {
-                        Text("단백질 정보 로드 중...")
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                        
-                        Text("잠시만 기다려주세요")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(.systemBackground))
-                .onAppear {
-                    // 로딩 타임아웃 처리 (3초 후 시트 닫기)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                        if selectedProtein == nil {
-                            showingInfoSheet = false
-                        }
-                    }
-                }
             }
         }
         .alert("Error", isPresented: .constant(database.errorMessage != nil)) {
@@ -4105,32 +4073,7 @@ struct ProteinRowCard: View {
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 12) {
-                // Optimized Preview (No 3D rendering)
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    protein.category.color.opacity(0.2),
-                                    protein.category.color.opacity(0.05)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 60, height: 60)
-                    
-                    // 3D Protein Structure Preview (개선된 버전)
-                    ProteinStructurePreview(proteinId: protein.id)
-                        .frame(width: 60, height: 60)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(protein.category.color.opacity(0.3), lineWidth: 1)
-                )
-                
-                // Protein Info
+                // Protein Info (3D 아이콘 제거로 성능 향상)
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(protein.id.uppercased())
@@ -4154,6 +4097,9 @@ struct ProteinRowCard: View {
                     Text(protein.name)
                         .modifier(ConditionalFontWeight(weight: .semibold, fallbackFont: .headline))
                         .foregroundColor(.primary)
+                        .lineLimit(protein.name.count > 30 ? 1 : 2)  // 동적 길이 조정
+                        .truncationMode(.tail)                       // "..." 표시
+                        .minimumScaleFactor(0.9)                     // 필요시 텍스트 크기 축소
                         .multilineTextAlignment(.leading)
                     
                     Text(protein.description)

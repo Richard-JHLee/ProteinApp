@@ -130,12 +130,15 @@ struct ContentView: View {
                 let pdbText = String(decoding: data, as: UTF8.self)
                 let loadedStructure = try PDBParser.parse(pdbText: pdbText)
                 
+                // Fetch actual protein name from PDB API
+                let actualProteinName = await fetchProteinNameFromPDB(pdbId: formattedPdbId)
+                
                 await MainActor.run {
                     self.structure = loadedStructure
                     self.currentProteinId = formattedPdbId
-                    self.currentProteinName = getProteinName(from: formattedPdbId)
+                    self.currentProteinName = actualProteinName
                     self.isLoading = false
-                    print("Successfully loaded PDB structure: \(formattedPdbId)")
+                    print("Successfully loaded PDB structure: \(formattedPdbId) with name: \(actualProteinName)")
                 }
             } catch {
                 await MainActor.run {
@@ -148,7 +151,7 @@ struct ContentView: View {
     }
     
     private func getProteinName(from pdbId: String) -> String {
-        // Common protein names mapping
+        // Common protein names mapping (fallback for known proteins)
         let proteinNames: [String: String] = [
             "1CRN": "Crambin",
             "1TUB": "Tubulin",
@@ -162,7 +165,52 @@ struct ContentView: View {
             "1AKE": "Adenylate Kinase"
         ]
         
-        return proteinNames[pdbId] ?? "Unknown Protein"
+        return proteinNames[pdbId] ?? "Protein \(pdbId)"
+    }
+    
+    // MARK: - PDB API Integration
+    private func fetchProteinNameFromPDB(pdbId: String) async -> String {
+        do {
+            let name = try await loadProteinNameFromRCSB(pdbId: pdbId)
+            return name.isEmpty ? "Protein \(pdbId)" : name
+        } catch {
+            print("⚠️ Failed to fetch protein name from PDB: \(error.localizedDescription)")
+            return "Protein \(pdbId)"
+        }
+    }
+    
+    private func loadProteinNameFromRCSB(pdbId: String) async throws -> String {
+        let id = pdbId.uppercased()
+        guard let url = URL(string: "https://data.rcsb.org/rest/v1/core/entry/\(id)") else {
+            throw URLError(.badURL)
+        }
+        
+        let (data, response) = try await URLSession.shared.data(from: url)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+        
+        // Parse JSON response
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        
+        // Extract title from struct field
+        if let structData = json?["struct"] as? [String: Any],
+           let title = structData["title"] as? String,
+           !title.isEmpty {
+            
+            // Clean up the title
+            let cleanTitle = title
+                .replacingOccurrences(of: "CRYSTAL STRUCTURE OF", with: "", options: .caseInsensitive)
+                .replacingOccurrences(of: "X-RAY STRUCTURE OF", with: "", options: .caseInsensitive)
+                .replacingOccurrences(of: "NMR STRUCTURE OF", with: "", options: .caseInsensitive)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            return cleanTitle.isEmpty ? "Protein \(pdbId)" : cleanTitle
+        }
+        
+        return "Protein \(pdbId)"
     }
 }
 

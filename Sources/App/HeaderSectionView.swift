@@ -16,7 +16,9 @@ struct HeaderSectionView: View {
                         Text(protein.name)
                             .font(.title2.weight(.bold))
                             .foregroundStyle(.primary)
-                            .lineLimit(2)
+                            .lineLimit(protein.name.count > 50 ? 1 : 2)  // 동적 길이 조정
+                            .truncationMode(.tail)                       // "..." 표시
+                            .minimumScaleFactor(0.8)                     // 필요시 텍스트 크기 축소
                             .multilineTextAlignment(.leading)
                     }
 

@@ -143,6 +143,11 @@ struct ProteinSceneContainer: View {
     @State private var showAdvancedControls = false
     @State private var showInfoBar = true
     
+    // Chain highlight state management
+    @State private var highlightedChains: Set<String> = []
+    @State private var highlightedLigands: Set<String> = []
+    @State private var highlightedPockets: Set<String> = []
+    
     var body: some View {
         ZStack {
             if viewMode == .viewer {
@@ -153,7 +158,10 @@ struct ProteinSceneContainer: View {
                     uniformColor: .systemBlue,
                     autoRotate: false,
                     isInfoMode: false,
-                    showInfoBar: $showInfoBar
+                    showInfoBar: $showInfoBar,
+                    highlightedChains: highlightedChains,
+                    highlightedLigands: highlightedLigands,
+                    highlightedPockets: highlightedPockets
                 )
                 .ignoresSafeArea()
                 
@@ -183,6 +191,10 @@ struct ProteinSceneContainer: View {
                                     Text(name)
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
+                                        .lineLimit(name.count > 40 ? 1 : 2)  // 동적 길이 조정
+                                        .truncationMode(.tail)               // "..." 표시
+                                        .minimumScaleFactor(0.9)             // 필요시 텍스트 크기 축소
+                                        .multilineTextAlignment(.center)     // 중앙 정렬
                                 }
                             }
                             
@@ -239,6 +251,10 @@ struct ProteinSceneContainer: View {
                                     Text(name)
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
+                                        .lineLimit(name.count > 40 ? 1 : 2)  // 동적 길이 조정
+                                        .truncationMode(.tail)               // "..." 표시
+                                        .minimumScaleFactor(0.9)             // 필요시 텍스트 크기 축소
+                                        .multilineTextAlignment(.center)     // 중앙 정렬
                                 }
                             }
                             
@@ -265,19 +281,42 @@ struct ProteinSceneContainer: View {
                             .padding(.bottom, 8)
                             .background(.ultraThinMaterial)
                         
-                        // Info tab buttons
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 16) {
-                                ForEach(InfoTabType.allCases, id: \.self) { tab in
-                                    InfoTabButton(
-                                        title: tab.rawValue,
-                                        isSelected: selectedTab == tab
-                                    ) {
-                                        selectedTab = tab
+                        // Info tab buttons with clear highlights button
+                        HStack {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 16) {
+                                    ForEach(InfoTabType.allCases, id: \.self) { tab in
+                                        InfoTabButton(
+                                            title: tab.rawValue,
+                                            isSelected: selectedTab == tab
+                                        ) {
+                                            selectedTab = tab
+                                        }
                                     }
                                 }
+                                .padding(.horizontal, 16)
                             }
-                            .padding(.horizontal, 16)
+                            
+                            // Clear highlights button
+                            if !highlightedChains.isEmpty || !highlightedLigands.isEmpty || !highlightedPockets.isEmpty {
+                                Button(action: {
+                                    highlightedChains.removeAll()
+                                    highlightedLigands.removeAll()
+                                    highlightedPockets.removeAll()
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "xmark.circle.fill")
+                                        Text("Clear")
+                                    }
+                                    .font(.caption)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.red)
+                                    .cornerRadius(12)
+                                }
+                                .padding(.trailing, 16)
+                            }
                         }
                         .padding(.bottom, 8)
                         .background(.ultraThinMaterial)
@@ -298,7 +337,10 @@ struct ProteinSceneContainer: View {
                                 uniformColor: .systemBlue,
                                 autoRotate: false,
                                 isInfoMode: true,
-                                showInfoBar: .constant(false)
+                                showInfoBar: .constant(false),
+                                highlightedChains: highlightedChains,
+                                highlightedLigands: highlightedLigands,
+                                highlightedPockets: highlightedPockets
                             )
                             .frame(height: 200)
                             .padding(.horizontal, 16)
@@ -532,17 +574,22 @@ struct ProteinSceneContainer: View {
                     // Interactive buttons
                     HStack(spacing: 12) {
                         Button(action: {
-                            // Highlight chain action
+                            // Toggle chain highlight
+                            if highlightedChains.contains(chain) {
+                                highlightedChains.remove(chain)
+                            } else {
+                                highlightedChains.insert(chain)
+                            }
                         }) {
                             HStack {
-                                Image(systemName: "highlighter")
-                                Text("Highlight")
+                                Image(systemName: highlightedChains.contains(chain) ? "highlighter.fill" : "highlighter")
+                                Text(highlightedChains.contains(chain) ? "Unhighlight" : "Highlight")
                             }
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundColor(highlightedChains.contains(chain) ? .white : .blue)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(Color.blue.opacity(0.1))
+                            .background(highlightedChains.contains(chain) ? Color.blue : Color.blue.opacity(0.1))
                             .cornerRadius(16)
                         }
                         
@@ -855,17 +902,22 @@ struct ProteinSceneContainer: View {
                         // Interactive buttons
                             HStack(spacing: 12) {
                             Button(action: {
-                                // Highlight ligand action
+                                // Toggle ligand highlight
+                                if highlightedLigands.contains(ligandName) {
+                                    highlightedLigands.remove(ligandName)
+                                } else {
+                                    highlightedLigands.insert(ligandName)
+                                }
                             }) {
                                 HStack {
-                                    Image(systemName: "highlighter")
-                                    Text("Highlight")
+                                    Image(systemName: highlightedLigands.contains(ligandName) ? "highlighter.fill" : "highlighter")
+                                    Text(highlightedLigands.contains(ligandName) ? "Unhighlight" : "Highlight")
                                 }
                                 .font(.caption)
-                                .foregroundColor(.blue)
+                                .foregroundColor(highlightedLigands.contains(ligandName) ? .white : .blue)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .background(Color.blue.opacity(0.1))
+                                .background(highlightedLigands.contains(ligandName) ? Color.blue : Color.blue.opacity(0.1))
                                 .cornerRadius(16)
                             }
                             
@@ -1067,17 +1119,22 @@ struct ProteinSceneContainer: View {
                         // Interactive buttons
                         HStack(spacing: 12) {
                             Button(action: {
-                                // Highlight pocket action
+                                // Toggle pocket highlight
+                                if highlightedPockets.contains(pocketName) {
+                                    highlightedPockets.remove(pocketName)
+                                } else {
+                                    highlightedPockets.insert(pocketName)
+                                }
                             }) {
                                 HStack {
-                                    Image(systemName: "highlighter")
-                                    Text("Highlight")
+                                    Image(systemName: highlightedPockets.contains(pocketName) ? "highlighter.fill" : "highlighter")
+                                    Text(highlightedPockets.contains(pocketName) ? "Unhighlight" : "Highlight")
                                 }
                                 .font(.caption)
-                                .foregroundColor(.blue)
+                                .foregroundColor(highlightedPockets.contains(pocketName) ? .white : .blue)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .background(Color.blue.opacity(0.1))
+                                .background(highlightedPockets.contains(pocketName) ? Color.blue : Color.blue.opacity(0.1))
                                 .cornerRadius(16)
                             }
                             
@@ -1454,6 +1511,11 @@ struct ProteinSceneView: UIViewRepresentable {
     let isInfoMode: Bool
     var showInfoBar: Binding<Bool>? = nil
     var onSelectAtom: ((Atom) -> Void)? = nil
+    
+    // Highlight parameters
+    let highlightedChains: Set<String>
+    let highlightedLigands: Set<String>
+    let highlightedPockets: Set<String>
 
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView()
@@ -1668,19 +1730,37 @@ struct ProteinSceneView: UIViewRepresentable {
         let radius: CGFloat
         let color: UIColor
         
-        switch colorMode {
-        case .element:
-            radius = baseRadius * (atom.element.atomicRadius / 0.7) // Normalized size
-            color = atom.element.color
-        case .chain:
-            radius = baseRadius
-            color = chainColor(for: atom.chain)
-        case .uniform:
-            radius = baseRadius
-            color = uniformColor
-        case .secondaryStructure:
-            radius = baseRadius
-            color = atom.secondaryStructure.color
+        // Check if atom should be highlighted
+        let isHighlighted = highlightedChains.contains(atom.chain) || 
+                           highlightedLigands.contains(atom.residueName) || 
+                           highlightedPockets.contains(atom.residueName)
+        
+        if isHighlighted {
+            // Highlighted atoms: brighter colors and slightly larger
+            radius = baseRadius * 1.2 * (atom.element.atomicRadius / 0.7)
+            switch colorMode {
+            case .element:
+                color = atom.element.color.withAlphaComponent(0.9)
+            case .chain:
+                color = chainColor(for: atom.chain).withAlphaComponent(0.9)
+            case .uniform:
+                color = uniformColor.withAlphaComponent(0.9)
+            case .secondaryStructure:
+                color = atom.secondaryStructure.color.withAlphaComponent(0.9)
+            }
+        } else {
+            // Normal atoms: standard colors with reduced opacity for non-highlighted
+            radius = baseRadius * (atom.element.atomicRadius / 0.7)
+            switch colorMode {
+            case .element:
+                color = atom.element.color.withAlphaComponent(0.4)
+            case .chain:
+                color = chainColor(for: atom.chain).withAlphaComponent(0.4)
+            case .uniform:
+                color = uniformColor.withAlphaComponent(0.4)
+            case .secondaryStructure:
+                color = atom.secondaryStructure.color.withAlphaComponent(0.4)
+            }
         }
         
         // Size adjustment based on style
