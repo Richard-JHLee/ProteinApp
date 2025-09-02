@@ -203,34 +203,11 @@ struct ProteinSceneContainer: View {
                     }
                 }
                 .overlay(alignment: .bottom) {
-                    // Adaptive control layout - moved to bottom
-                    VStack(spacing: 12) {
-                        HStack(spacing: 16) {
-                            StylePicker(selectedStyle: $selectedStyle)
-                            ColorModePicker(selectedColorMode: $selectedColorMode)
-                        }
-                        
-                        if showAdvancedControls {
-                            AdvancedControlsView()
-                        }
-                        
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                showAdvancedControls.toggle()
-                            }
-                        }) {
-                            HStack {
-                                Image(systemName: showAdvancedControls ? "chevron.up" : "chevron.down")
-                                Text(showAdvancedControls ? "Less Options" : "More Options")
-                            }
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(12)
+                    // Improved control layout with enhanced UI
+                    UpdatedViewerControls(
+                        selectedStyle: $selectedStyle,
+                        selectedColorMode: $selectedColorMode
+                    )
                     .padding(.horizontal, 16)
                     .padding(.bottom, 20)
                 }
@@ -1836,7 +1813,338 @@ struct ProteinSceneView: UIViewRepresentable {
     }
 }
 
-// MARK: - UI Components
+// MARK: - Improved Control Components
+struct ImprovedStylePicker: View {
+    @Binding var selectedStyle: RenderStyle
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Rendering Style")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fontWeight(.medium)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(RenderStyle.allCases, id: \.self) { style in
+                        StyleButton(
+                            style: style,
+                            isSelected: selectedStyle == style
+                        ) {
+                            selectedStyle = style
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+    }
+}
+
+struct StyleButton: View {
+    let style: RenderStyle
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: style.icon)
+                    .font(.title2)
+                    .foregroundColor(isSelected ? .white : .primary)
+                
+                Text(style.rawValue)
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundColor(isSelected ? .white : .primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(width: 70, height: 60)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? Color.blue : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isSelected ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+struct ImprovedColorModePicker: View {
+    @Binding var selectedColorMode: ColorMode
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Color Scheme")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fontWeight(.medium)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(ColorMode.allCases, id: \.self) { mode in
+                        ColorModeButton(
+                            mode: mode,
+                            isSelected: selectedColorMode == mode
+                        ) {
+                            selectedColorMode = mode
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+    }
+}
+
+struct ColorModeButton: View {
+    let mode: ColorMode
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: mode.icon)
+                    .font(.title2)
+                    .foregroundColor(isSelected ? .white : .primary)
+                
+                Text(mode.rawValue)
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundColor(isSelected ? .white : .primary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(width: 70, height: 60)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? Color.green : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isSelected ? Color.green : Color.gray.opacity(0.3), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Enhanced Advanced Controls
+struct EnhancedAdvancedControlsView: View {
+    @State private var autoRotate = false
+    @State private var showBonds = true
+    @State private var transparency: Double = 1.0
+    @State private var atomSize: Double = 1.0
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            // Quick Actions Row
+            HStack(spacing: 12) {
+                QuickActionButton(
+                    icon: "arrow.clockwise",
+                    title: "Reset View",
+                    color: .blue
+                ) {
+                    // Reset camera view
+                }
+                
+                QuickActionButton(
+                    icon: "camera",
+                    title: "Screenshot",
+                    color: .green
+                ) {
+                    // Take screenshot
+                }
+                
+                QuickActionButton(
+                    icon: "square.and.arrow.up",
+                    title: "Share",
+                    color: .orange
+                ) {
+                    // Share action
+                }
+                
+                Spacer()
+            }
+            
+            // Detailed Controls
+            VStack(spacing: 12) {
+                // Auto-rotate toggle
+                HStack {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .foregroundColor(.blue)
+                        .frame(width: 20)
+                    
+                    Text("Auto Rotate")
+                        .font(.subheadline)
+                    
+                    Spacer()
+                    
+                    Toggle("", isOn: $autoRotate)
+                        .scaleEffect(0.8)
+                }
+                
+                // Show bonds toggle
+                HStack {
+                    Image(systemName: "link")
+                        .foregroundColor(.green)
+                        .frame(width: 20)
+                    
+                    Text("Show Bonds")
+                        .font(.subheadline)
+                    
+                    Spacer()
+                    
+                    Toggle("", isOn: $showBonds)
+                        .scaleEffect(0.8)
+                }
+                
+                // Transparency slider
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Image(systemName: "opacity")
+                            .foregroundColor(.purple)
+                            .frame(width: 20)
+                        
+                        Text("Transparency")
+                            .font(.subheadline)
+                        
+                        Spacer()
+                        
+                        Text("\(Int(transparency * 100))%")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Slider(value: $transparency, in: 0.1...1.0)
+                        .accentColor(.purple)
+                }
+                
+                // Atom size slider
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Image(systemName: "circle.grid.cross")
+                            .foregroundColor(.orange)
+                            .frame(width: 20)
+                        
+                        Text("Atom Size")
+                            .font(.subheadline)
+                        
+                        Spacer()
+                        
+                        Text("\(Int(atomSize * 100))%")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Slider(value: $atomSize, in: 0.5...2.0)
+                        .accentColor(.orange)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+}
+
+struct QuickActionButton: View {
+    let icon: String
+    let title: String
+    let color: Color
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundColor(color)
+                
+                Text(title)
+                    .font(.caption2)
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(width: 60, height: 50)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(color.opacity(0.1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(color.opacity(0.3), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Updated Main Control Layout
+struct UpdatedViewerControls: View {
+    @Binding var selectedStyle: RenderStyle
+    @Binding var selectedColorMode: ColorMode
+    @State private var showAdvancedControls = false
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Main controls panel
+            VStack(spacing: 16) {
+                // Style and Color pickers in horizontal layout
+                HStack(alignment: .top, spacing: 20) {
+                    ImprovedStylePicker(selectedStyle: $selectedStyle)
+                    ImprovedColorModePicker(selectedColorMode: $selectedColorMode)
+                }
+                
+                // Advanced controls (collapsible)
+                if showAdvancedControls {
+                    Divider()
+                        .padding(.horizontal, -16)
+                    
+                    EnhancedAdvancedControlsView()
+                        .transition(.opacity.combined(with: .slide))
+                }
+            }
+            .padding(16)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+            
+            // Expand/Collapse button
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showAdvancedControls.toggle()
+                }
+            }) {
+                HStack(spacing: 8) {
+                    Image(systemName: showAdvancedControls ? "chevron.down" : "chevron.up")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text(showAdvancedControls ? "Less Options" : "More Options")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 16)
+                .background(
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.gray.opacity(0.2), lineWidth: 0.5)
+                        )
+                )
+            }
+            .padding(.top, 8)
+        }
+    }
+}
+
+// MARK: - Legacy UI Components (for backward compatibility)
 struct StylePicker: View {
     @Binding var selectedStyle: RenderStyle
     
@@ -1867,17 +2175,17 @@ struct ColorModePicker: View {
 
 struct AdvancedControlsView: View {
     var body: some View {
-            VStack(spacing: 8) {
+        VStack(spacing: 8) {
             Text("Advanced Controls")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                .font(.caption)
+                .foregroundColor(.secondary)
             
             HStack {
                 Text("Auto-rotate")
                 Spacer()
                 Toggle("", isOn: .constant(false))
             }
-                        .font(.caption)
+            .font(.caption)
         }
     }
 }
