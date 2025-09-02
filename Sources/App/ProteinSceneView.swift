@@ -2093,14 +2093,11 @@ struct TabBasedViewerControls: View {
     @State private var showAdvancedControls = false
     
     enum ControlTab: String, CaseIterable {
-        case style = "A"
-        case color = "B"
+        case style = "Rendering Style"
+        case color = "Color Scheme"
         
         var title: String {
-            switch self {
-            case .style: return "Rendering Style"
-            case .color: return "Color Scheme"
-            }
+            return self.rawValue
         }
     }
     
@@ -2119,7 +2116,7 @@ struct TabBasedViewerControls: View {
                                 .font(.title3)
                                 .foregroundColor(selectedTab == tab ? .blue : .gray)
                             
-                            Text(tab.rawValue)
+                            Text(tab.title)
                                 .font(.headline)
                                 .fontWeight(.semibold)
                                 .foregroundColor(selectedTab == tab ? .blue : .primary)
