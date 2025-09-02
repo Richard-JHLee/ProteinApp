@@ -7,15 +7,15 @@ import simd
 final class GeometryCache {
     static let shared = GeometryCache()
     
-    // (반경, 색상HEX) → 공유 Geometry
+    // Cache for LOD spheres and cylinders with color-based materials
     private var lodSphereCache = [String: SCNGeometry]()
     private var lodCylinderCache = [String: SCNGeometry]()
-    private var materialByColor = [UInt32: SCNMaterial]() // 빠른 키
+    private var materialByColor = [UInt32: SCNMaterial]()
     
     private func colorKey(_ c: UIColor) -> UInt32 {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         c.getRed(&r, green: &g, blue: &b, alpha: &a)
-        // 8bit RGBA → 32bit 키
+        // Convert 8bit RGBA to 32bit key
         return (UInt32(r*255)<<24) | (UInt32(g*255)<<16) | (UInt32(b*255)<<8) | UInt32(a*255)
     }
     
@@ -52,8 +52,8 @@ final class GeometryCache {
         return g
     }
     
-    // 실린더는 높이가 개본 본드마다 달라 재사용이 어렵습니다.
-    // "단위 실린더(height=1)"를 캐시하고 각 본드는 scale.y = distance 로 해결하세요.
+    // Cylinders have different heights for each bond, making reuse difficult.
+    // Cache "unit cylinder (height=1)" and scale each bond with scale.y = distance.
     func unitLodCylinder(radius r: CGFloat, color: UIColor) -> SCNGeometry {
         let key = "C:\(r)-\(colorKey(color))"
         if let g = lodCylinderCache[key] { return g }
@@ -735,7 +735,7 @@ struct ProteinSceneContainer: View {
     }
     
     private func ligandsContent(structure: PDBStructure) -> some View {
-        VStack(spacing: 16) {
+                                    VStack(spacing: 16) {
             let ligands = structure.atoms.filter { $0.isLigand }
             let ligandGroups = Dictionary(grouping: ligands, by: { $0.residueName })
             
@@ -746,7 +746,7 @@ struct ProteinSceneContainer: View {
                         .foregroundColor(.gray)
                     
                     Text("No Ligands Detected")
-                        .font(.headline)
+                                            .font(.headline)
                         .foregroundColor(.secondary)
                     
                     Text("This structure does not contain any small molecules or ions bound to the protein.")
@@ -867,7 +867,7 @@ struct ProteinSceneContainer: View {
                         }
                         
                         // Interactive buttons
-                        HStack(spacing: 12) {
+                            HStack(spacing: 12) {
                             Button(action: {
                                 // Highlight ligand action
                             }) {
@@ -978,11 +978,11 @@ struct ProteinSceneContainer: View {
                         
                         // Pocket information
                         VStack(spacing: 8) {
-                            HStack {
+                    HStack {
                                 Text("Atoms")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
-                                Spacer()
+                        Spacer()
                                 Text("\(pocketAtoms.count)")
                                     .font(.subheadline)
                                     .fontWeight(.medium)
@@ -1024,7 +1024,7 @@ struct ProteinSceneContainer: View {
                                 Text("Accessibility")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                Spacer()
+                    Spacer()
                                 Text("Surface exposed")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
@@ -1280,7 +1280,7 @@ struct ProteinSceneContainer: View {
                                 .cornerRadius(4)
                             
                             Text("\(String(format: "%.1f", percentage))%")
-                                .font(.caption)
+                    .font(.caption)
                                 .foregroundColor(.secondary)
                                 .frame(width: 50, alignment: .trailing)
                         }
@@ -1328,7 +1328,7 @@ struct ProteinSceneContainer: View {
                 Text("Structure Information")
                     .font(.headline)
                 
-                VStack(spacing: 8) {
+            VStack(spacing: 8) {
                     InfoRow(title: "PDB ID", value: proteinId ?? "Unknown", description: "Protein Data Bank identifier - unique code for this structure")
                     InfoRow(title: "Total Atoms", value: "\(structure.atoms.count)", description: "All atoms in the structure including protein and ligands")
                     InfoRow(title: "Total Bonds", value: "\(structure.bonds.count)", description: "Chemical bonds connecting atoms in the structure")
@@ -1415,7 +1415,7 @@ struct ProteinSceneContainer: View {
                             
                             if !annotation.description.isEmpty {
                                 Text(annotation.description)
-                                    .font(.caption2)
+                    .font(.caption2)
                                     .foregroundColor(.secondary)
                             }
                         }
@@ -1500,12 +1500,12 @@ struct ProteinSceneView: UIViewRepresentable {
         Coordinator(parent: self)
     }
 
-    // ProteinSceneView의 rebuild 메소드 수정 버전
+    // Improved rebuild method for ProteinSceneView
     private func rebuild(view: SCNView) {
         let scene = SCNScene()
         scene.rootNode.childNodes.forEach { $0.removeFromParentNode() }
 
-        // 개선된 조명 설정
+        // Improved lighting setup
         setupLighting(scene: scene)
 
         if let structure = structure {
@@ -1514,20 +1514,20 @@ struct ProteinSceneView: UIViewRepresentable {
             let proteinNode = createProteinNode(from: structure)
             scene.rootNode.addChildNode(proteinNode)
             
-            // 개선된 바운딩 박스 계산
+            // Improved bounding box calculation
             let (center, boundingSize) = calculateProteinBounds(structure: structure)
             
             print("Protein center: \(center), bounding size: \(boundingSize)")
             
-            // 단백질을 원점으로 이동
+            // Move protein to origin
             proteinNode.position = SCNVector3(-center.x, -center.y, -center.z)
             
-            // 개선된 카메라 설정
+            // Improved camera setup
             setupCamera(scene: scene, view: view, boundingSize: boundingSize)
             
         } else {
             print("No structure provided to ProteinSceneView")
-            // 기본 카메라 설정
+            // Default camera setup
             setupDefaultCamera(scene: scene, view: view)
         }
 
@@ -1564,7 +1564,7 @@ struct ProteinSceneView: UIViewRepresentable {
         return rootNode
     }
     
-    // 개선된 바운딩 박스 계산
+    // Improved bounding box calculation
     private func calculateProteinBounds(structure: PDBStructure) -> (center: SCNVector3, size: Float) {
         guard !structure.atoms.isEmpty else {
             return (SCNVector3Zero, 10.0)
@@ -1600,7 +1600,7 @@ struct ProteinSceneView: UIViewRepresentable {
         return (center, maxSize)
     }
     
-    // 개선된 카메라 설정
+    // Improved camera setup
     private func setupCamera(scene: SCNScene, view: SCNView, boundingSize: Float) {
         let camera = SCNCamera()
         camera.fieldOfView = 60
@@ -1610,9 +1610,9 @@ struct ProteinSceneView: UIViewRepresentable {
         let cameraNode = SCNNode()
         cameraNode.camera = camera
         
-        // 적절한 카메라 거리 계산 (더 안전한 방식)
+        // Calculate appropriate camera distance (safer approach)
         let baseCameraDistance: Float = max(boundingSize * 3.0, 20.0)
-        let cameraDistance = min(baseCameraDistance, 200.0) // 최대값 제한
+        let cameraDistance = min(baseCameraDistance, 200.0) // Maximum value limit
         
         cameraNode.position = SCNVector3(0, 0, cameraDistance)
         cameraNode.look(at: SCNVector3(0, 0, 0))
@@ -1623,7 +1623,7 @@ struct ProteinSceneView: UIViewRepresentable {
         view.pointOfView = cameraNode
     }
     
-    // 기본 카메라 설정 (구조가 없을 때)
+    // Default camera setup (when no structure is available)
     private func setupDefaultCamera(scene: SCNScene, view: SCNView) {
         let camera = SCNCamera()
         camera.fieldOfView = 60
@@ -1639,21 +1639,21 @@ struct ProteinSceneView: UIViewRepresentable {
         view.pointOfView = cameraNode
     }
     
-    // 조명 설정 분리
+    // Separated lighting setup
     private func setupLighting(scene: SCNScene) {
-        // 키 라이트 (주 조명)
+        // Key light (main lighting)
         let keyLight = SCNLight()
         keyLight.type = .directional
-        keyLight.intensity = 800 // 약간 줄임
+        keyLight.intensity = 800 // Slightly reduced
         keyLight.color = UIColor.white
-        keyLight.castsShadow = false // 성능 향상을 위해 그림자 비활성화
+        keyLight.castsShadow = false // Disable shadows for performance improvement
         let keyLightNode = SCNNode()
         keyLightNode.light = keyLight
         keyLightNode.position = SCNVector3(10, 20, 30)
         keyLightNode.look(at: SCNVector3(0, 0, 0))
         scene.rootNode.addChildNode(keyLightNode)
         
-        // 보조 조명
+        // Fill light
         let fillLight = SCNLight()
         fillLight.type = .omni
         fillLight.intensity = 300
@@ -1663,7 +1663,7 @@ struct ProteinSceneView: UIViewRepresentable {
         fillLightNode.position = SCNVector3(-15, 15, -15)
         scene.rootNode.addChildNode(fillLightNode)
         
-        // 환경광
+        // Ambient light
         let ambientLight = SCNLight()
         ambientLight.type = .ambient
         ambientLight.intensity = 200
@@ -1673,15 +1673,15 @@ struct ProteinSceneView: UIViewRepresentable {
         scene.rootNode.addChildNode(ambientLightNode)
     }
     
-    // 개선된 원자 노드 생성
+    // Improved atom node creation
     private func createAtomNode(_ atom: Atom) -> SCNNode {
-        let baseRadius: CGFloat = 1.0 // 기본 크기를 더 작게
+        let baseRadius: CGFloat = 1.0 // Smaller base size
         let radius: CGFloat
         let color: UIColor
         
         switch colorMode {
         case .element:
-            radius = baseRadius * (atom.element.atomicRadius / 0.7) // 정규화된 크기
+            radius = baseRadius * (atom.element.atomicRadius / 0.7) // Normalized size
             color = atom.element.color
         case .chain:
             radius = baseRadius
@@ -1694,7 +1694,7 @@ struct ProteinSceneView: UIViewRepresentable {
             color = atom.secondaryStructure.color
         }
         
-        // 스타일에 따른 크기 조정
+        // Size adjustment based on style
         let finalRadius = radius * styleSizeMultiplier()
         
         let geometry: SCNGeometry
@@ -1716,7 +1716,7 @@ struct ProteinSceneView: UIViewRepresentable {
         return node
     }
     
-    // 개선된 본드 노드 생성
+    // Improved bond node creation
     private func createBondNode(_ bond: Bond, atoms: [Atom]) -> SCNNode {
         guard let atom1 = atoms.first(where: { $0.id == bond.atomA }),
               let atom2 = atoms.first(where: { $0.id == bond.atomB }) else {
@@ -1726,18 +1726,18 @@ struct ProteinSceneView: UIViewRepresentable {
         let start = atom1.position
         let end = atom2.position
         
-        // 벡터 계산
+        // Vector calculation
         let direction = SCNVector3(end.x - start.x, end.y - start.y, end.z - start.z)
         let distance = sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z)
         
-        // 거리가 너무 작으면 건드리지 않음
+        // Skip if distance is too small
         guard distance > 0.01 else { return SCNNode() }
         
         let bondRadius: CGFloat = style == .sticks ? 0.2 : 0.1
         let cylinder = GeometryCache.shared.unitLodCylinder(radius: bondRadius, color: .lightGray)
         let node = SCNNode(geometry: cylinder)
         
-        // 중점 위치
+        // Midpoint position
         let midPoint = SCNVector3(
             (start.x + end.x) / 2,
             (start.y + end.y) / 2,
@@ -1745,14 +1745,14 @@ struct ProteinSceneView: UIViewRepresentable {
         )
         node.position = midPoint
         
-        // 회전 계산 개선
+        // Improved rotation calculation
         let normalizedDirection = SCNVector3(
             direction.x / distance,
             direction.y / distance,
             direction.z / distance
         )
         
-        // Y축과의 각도 계산
+        // Calculate angle with Y-axis
         let yAxis = SCNVector3(0, 1, 0)
         let rotationAxis = SCNVector3(
             yAxis.y * normalizedDirection.z - yAxis.z * normalizedDirection.y,
@@ -1767,13 +1767,13 @@ struct ProteinSceneView: UIViewRepresentable {
             node.rotation = SCNVector4(rotationAxis.x, rotationAxis.y, rotationAxis.z, angle)
         }
         
-        // 스케일 적용 (높이만 조정)
+        // Apply scale (adjust height only)
         node.scale = SCNVector3(1, distance, 1)
         
         return node
     }
     
-    // 스타일별 크기 배수
+    // Style-based size multiplier
     private func styleSizeMultiplier() -> CGFloat {
         switch style {
         case .spheres: return 1.0
@@ -1783,13 +1783,13 @@ struct ProteinSceneView: UIViewRepresentable {
         }
     }
     
-    // 체인별 색상 생성 개선
+    // Improved chain-specific color generation
     private func chainColor(for chain: String) -> UIColor {
         let hue = CGFloat(abs(chain.hashValue) % 360) / 360.0
         return UIColor(hue: hue, saturation: 0.7, brightness: 0.8, alpha: 1.0)
     }
     
-    // 디버깅을 위한 바운딩 박스 시각화 (선택사항)
+    // Bounding box visualization for debugging (optional)
     private func addBoundingBoxVisualization(to scene: SCNScene, center: SCNVector3, size: Float) {
         let box = SCNBox(width: CGFloat(size), height: CGFloat(size), length: CGFloat(size), chamferRadius: 0)
         let material = SCNMaterial()
@@ -1862,15 +1862,15 @@ struct AdvancedControlsView: View {
     var body: some View {
             VStack(spacing: 8) {
             Text("Advanced Controls")
-                .font(.caption)
-                .foregroundColor(.secondary)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
             
             HStack {
                 Text("Auto-rotate")
                 Spacer()
                 Toggle("", isOn: .constant(false))
             }
-            .font(.caption)
+                        .font(.caption)
         }
     }
 }
@@ -1900,7 +1900,7 @@ struct InfoRow: View {
     let description: String
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(title)
                     .font(.subheadline)
@@ -1911,8 +1911,8 @@ struct InfoRow: View {
                     .foregroundColor(.primary)
             }
             Text(description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
         }
         .padding(.vertical, 4)
     }
