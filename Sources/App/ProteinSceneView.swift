@@ -159,18 +159,19 @@ struct ProteinSceneContainer: View {
                 // Viewer mode overlay
                 .overlay(alignment: .top) {
                     VStack(spacing: 0) {
-                        // Top navigation bar
+                        // Simplified navigation header
                         HStack {
                             Button(action: {
                                 viewMode = .info
                             }) {
-                                Image(systemName: "chevron.left")
-                                    .font(.title2)
+                                Text("Back")
+                                    .font(.subheadline)
                                     .foregroundColor(.primary)
                             }
                             
                             Spacer()
                             
+                            // Title centered
                             VStack(spacing: 2) {
                                 if let id = proteinId {
                                     Text(id)
@@ -186,10 +187,11 @@ struct ProteinSceneContainer: View {
                             
                             Spacer()
                             
+                            // Settings or additional functionality
                             Button(action: {
-                                viewMode = .info
+                                // Settings action
                             }) {
-                                Image(systemName: "list.bullet")
+                                Image(systemName: "gear")
                                     .font(.title2)
                                     .foregroundColor(.primary)
                             }
@@ -197,35 +199,40 @@ struct ProteinSceneContainer: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                         .background(.ultraThinMaterial)
-                        
-                        // Control panel
-                        VStack(spacing: 12) {
-                            HStack(spacing: 16) {
-                                StylePicker(selectedStyle: $selectedStyle)
-                                ColorModePicker(selectedColorMode: $selectedColorMode)
-                            }
-                            
-                            if showAdvancedControls {
-                                AdvancedControlsView()
-                            }
-                            
-                            Button(action: {
-                                showAdvancedControls.toggle()
-                            }) {
-                                HStack {
-                                    Image(systemName: showAdvancedControls ? "chevron.up" : "chevron.down")
-                                    Text(showAdvancedControls ? "Less Options" : "More Options")
-                                }
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(12)
-                        .padding(.horizontal, 16)
+                        .safeAreaInset(edge: .top) { Color.clear.frame(height: 0) }
                     }
+                }
+                .overlay(alignment: .bottom) {
+                    // Adaptive control layout - moved to bottom
+                    VStack(spacing: 12) {
+                        HStack(spacing: 16) {
+                            StylePicker(selectedStyle: $selectedStyle)
+                            ColorModePicker(selectedColorMode: $selectedColorMode)
+                        }
+                        
+                        if showAdvancedControls {
+                            AdvancedControlsView()
+                        }
+                        
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showAdvancedControls.toggle()
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: showAdvancedControls ? "chevron.up" : "chevron.down")
+                                Text(showAdvancedControls ? "Less Options" : "More Options")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(12)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 20)
                 }
         } else {
                 // Info mode
@@ -235,7 +242,7 @@ struct ProteinSceneContainer: View {
                         // Info mode header
                         HStack {
                             Button(action: {
-                                // Back action
+                                // Back to previous screen action
                             }) {
                                 Image(systemName: "chevron.left")
                                     .font(.title2)
