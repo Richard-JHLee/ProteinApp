@@ -1538,22 +1538,48 @@ struct ProteinSceneView: UIViewRepresentable {
         scene.rootNode.addChildNode(rimLightNode)
 
         if let structure = structure {
+            print("Creating protein node with \(structure.atoms.count) atoms and \(structure.bonds.count) bonds")
+            
             let proteinNode = createProteinNode(from: structure)
             scene.rootNode.addChildNode(proteinNode)
             
-            // Auto-adjust camera
+            // Calculate bounding box and center
             let boundingBox = proteinNode.boundingBox
+            let center = SCNVector3(
+                (boundingBox.min.x + boundingBox.max.x) / 2,
+                (boundingBox.min.y + boundingBox.max.y) / 2,
+                (boundingBox.min.z + boundingBox.max.z) / 2
+            )
+            
             let maxDimension = max(boundingBox.max.x - boundingBox.min.x,
                                  boundingBox.max.y - boundingBox.min.y,
                                  boundingBox.max.z - boundingBox.min.z)
             
+            print("Bounding box: min=\(boundingBox.min), max=\(boundingBox.max)")
+            print("Center: \(center), maxDimension: \(maxDimension)")
+            
+            // Center the protein at origin
+            proteinNode.position = SCNVector3(-center.x, -center.y, -center.z)
+            
+            // Set up camera with proper distance
             let camera = SCNCamera()
             camera.fieldOfView = 60
             let cameraNode = SCNNode()
             cameraNode.camera = camera
-            cameraNode.position = SCNVector3(0, 0, maxDimension * 2)
+            
+            // Position camera at appropriate distance
+            let cameraDistance = max(maxDimension * 2.5, 50.0) // Ensure minimum distance
+            cameraNode.position = SCNVector3(0, 0, cameraDistance)
             cameraNode.look(at: SCNVector3(0, 0, 0))
+            
+            print("Camera positioned at distance: \(cameraDistance)")
+            
             scene.rootNode.addChildNode(cameraNode)
+            
+            // Set the camera as the point of view
+            view.pointOfView = cameraNode
+        } else {
+            print("No structure provided to ProteinSceneView")
         }
 
         view.scene = scene
@@ -1562,16 +1588,28 @@ struct ProteinSceneView: UIViewRepresentable {
     private func createProteinNode(from structure: PDBStructure) -> SCNNode {
         let rootNode = SCNNode()
         
+        print("Creating \(structure.atoms.count) atoms...")
+        
         // Create atoms
-        for atom in structure.atoms {
+        for (index, atom) in structure.atoms.enumerated() {
             let atomNode = createAtomNode(atom)
             rootNode.addChildNode(atomNode)
+            
+            if index < 5 { // Log first 5 atoms for debugging
+                print("Atom \(index): \(atom.element) at position \(atom.position)")
+            }
         }
         
+        print("Creating \(structure.bonds.count) bonds...")
+        
         // Create bonds
-        for bond in structure.bonds {
+        for (index, bond) in structure.bonds.enumerated() {
             let bondNode = createBondNode(bond, atoms: structure.atoms)
             rootNode.addChildNode(bondNode)
+            
+            if index < 5 { // Log first 5 bonds for debugging
+                print("Bond \(index): \(bond.a) - \(bond.b)")
+            }
         }
         
         return rootNode
@@ -1583,16 +1621,16 @@ struct ProteinSceneView: UIViewRepresentable {
         
         switch colorMode {
         case .element:
-            radius = atom.element.atomicRadius
+            radius = atom.element.atomicRadius * 2.0 // Make atoms larger
             color = atom.element.color
         case .chain:
-            radius = 1.0
+            radius = 2.0 // Make atoms larger
             color = UIColor(hue: CGFloat(atom.chain.hashValue % 10) / 10.0, saturation: 0.7, brightness: 0.8, alpha: 1.0)
         case .uniform:
-            radius = 1.0
+            radius = 2.0 // Make atoms larger
             color = uniformColor
         case .secondaryStructure:
-            radius = 1.0
+            radius = 2.0 // Make atoms larger
             color = atom.secondaryStructure.color
         }
         
@@ -1625,7 +1663,7 @@ struct ProteinSceneView: UIViewRepresentable {
         let end = atom2.position
         let distance = sqrt(pow(end.x - start.x, 2) + pow(end.y - start.y, 2) + pow(end.z - start.z, 2))
         
-        let cylinder = GeometryCache.shared.unitLodCylinder(radius: 0.1, color: .gray)
+        let cylinder = GeometryCache.shared.unitLodCylinder(radius: 0.3, color: .gray) // Make bonds thicker
         let node = SCNNode(geometry: cylinder)
         
         // Position and orient the cylinder
