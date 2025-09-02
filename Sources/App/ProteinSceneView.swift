@@ -203,8 +203,8 @@ struct ProteinSceneContainer: View {
                     }
                 }
                 .overlay(alignment: .bottom) {
-                    // Improved control layout with enhanced UI
-                    UpdatedViewerControls(
+                    // Tab-based control layout
+                    TabBasedViewerControls(
                         selectedStyle: $selectedStyle,
                         selectedColorMode: $selectedColorMode
                     )
@@ -2085,7 +2085,168 @@ struct QuickActionButton: View {
     }
 }
 
-// MARK: - Updated Main Control Layout
+// MARK: - Tab-based Control Layout
+struct TabBasedViewerControls: View {
+    @Binding var selectedStyle: RenderStyle
+    @Binding var selectedColorMode: ColorMode
+    @State private var selectedTab: ControlTab = .style
+    @State private var showAdvancedControls = false
+    
+    enum ControlTab: String, CaseIterable {
+        case style = "A"
+        case color = "B"
+        
+        var title: String {
+            switch self {
+            case .style: return "Rendering Style"
+            case .color: return "Color Scheme"
+            }
+        }
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Tab selection
+            HStack(spacing: 0) {
+                ForEach(ControlTab.allCases, id: \.self) { tab in
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedTab = tab
+                        }
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: selectedTab == tab ? "largecircle.fill.circle" : "circle")
+                                .font(.title3)
+                                .foregroundColor(selectedTab == tab ? .blue : .gray)
+                            
+                            Text(tab.rawValue)
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(selectedTab == tab ? .blue : .primary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(selectedTab == tab ? Color.blue.opacity(0.1) : Color.clear)
+                        )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            
+            // Selected tab's options
+            VStack(spacing: 12) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        if selectedTab == .style {
+                            ForEach(RenderStyle.allCases, id: \.self) { style in
+                                TabOptionButton(
+                                    title: style.rawValue,
+                                    icon: style.icon,
+                                    isSelected: selectedStyle == style,
+                                    color: .blue
+                                ) {
+                                    selectedStyle = style
+                                }
+                            }
+                        } else {
+                            ForEach(ColorMode.allCases, id: \.self) { mode in
+                                TabOptionButton(
+                                    title: mode.rawValue,
+                                    icon: mode.icon,
+                                    isSelected: selectedColorMode == mode,
+                                    color: .green
+                                ) {
+                                    selectedColorMode = mode
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                
+                // Advanced controls (collapsible)
+                if showAdvancedControls {
+                    Divider()
+                        .padding(.horizontal, 16)
+                    
+                    EnhancedAdvancedControlsView()
+                        .transition(.opacity.combined(with: .slide))
+                }
+            }
+            .padding(.bottom, 12)
+            
+            // Expand/Collapse button
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showAdvancedControls.toggle()
+                }
+            }) {
+                HStack(spacing: 8) {
+                    Image(systemName: showAdvancedControls ? "chevron.down" : "chevron.up")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text(showAdvancedControls ? "Less Options" : "More Options")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 16)
+                .background(
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.gray.opacity(0.2), lineWidth: 0.5)
+                        )
+                )
+            }
+            .padding(.top, 8)
+        }
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+struct TabOptionButton: View {
+    let title: String
+    let icon: String
+    let isSelected: Bool
+    let color: Color
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(isSelected ? .white : color)
+                
+                Text(title)
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundColor(isSelected ? .white : .primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(width: 70, height: 60)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? color : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isSelected ? color : Color.gray.opacity(0.3), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Legacy UpdatedViewerControls (for backward compatibility)
 struct UpdatedViewerControls: View {
     @Binding var selectedStyle: RenderStyle
     @Binding var selectedColorMode: ColorMode
