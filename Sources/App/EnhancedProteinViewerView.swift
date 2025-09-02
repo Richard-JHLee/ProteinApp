@@ -195,7 +195,9 @@ struct EnhancedProteinViewerView: View {
                         },
                         highlightedChains: [], // Enhanced view에서는 highlight 기능 없음
                         highlightedLigands: [],
-                        highlightedPockets: []
+                        highlightedPockets: [],
+                        focusedElement: nil,
+                        onFocusRequest: { _ in }
                     )
                     .background(Color.black)
                     .cornerRadius(12)

@@ -130,6 +130,26 @@ enum ViewMode {
     case info
 }
 
+enum FocusedElement: Equatable {
+    case chain(String)
+    case ligand(String)
+    case pocket(String)
+    case atom(Int)
+    
+    var displayName: String {
+        switch self {
+        case .chain(let chainId):
+            return "Chain \(chainId)"
+        case .ligand(let ligandName):
+            return "Ligand \(ligandName)"
+        case .pocket(let pocketName):
+            return "Pocket \(pocketName)"
+        case .atom(let atomId):
+            return "Atom \(atomId)"
+        }
+    }
+}
+
 struct ProteinSceneContainer: View {
     let structure: PDBStructure?
     let proteinId: String?
@@ -148,6 +168,10 @@ struct ProteinSceneContainer: View {
     @State private var highlightedLigands: Set<String> = []
     @State private var highlightedPockets: Set<String> = []
     
+    // Focus state management
+    @State private var focusedElement: FocusedElement? = nil
+    @State private var isFocused: Bool = false
+    
     var body: some View {
         ZStack {
             if viewMode == .viewer {
@@ -161,7 +185,12 @@ struct ProteinSceneContainer: View {
                     showInfoBar: $showInfoBar,
                     highlightedChains: highlightedChains,
                     highlightedLigands: highlightedLigands,
-                    highlightedPockets: highlightedPockets
+                    highlightedPockets: highlightedPockets,
+                    focusedElement: focusedElement,
+                    onFocusRequest: { element in
+                        focusedElement = element
+                        isFocused = true
+                    }
                 )
                 .ignoresSafeArea()
                 
@@ -297,12 +326,29 @@ struct ProteinSceneContainer: View {
                                 .padding(.horizontal, 16)
                             }
                             
-                            // Clear highlights button
-                            if !highlightedChains.isEmpty || !highlightedLigands.isEmpty || !highlightedPockets.isEmpty {
+                            // Focus status indicator
+                            if let focusElement = focusedElement {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "scope.fill")
+                                        .foregroundColor(.green)
+                                    Text("Focused: \(focusElement.displayName)")
+                                        .font(.caption)
+                                        .foregroundColor(.green)
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.green.opacity(0.1))
+                                .cornerRadius(12)
+                            }
+                            
+                            // Clear highlights and focus button
+                            if !highlightedChains.isEmpty || !highlightedLigands.isEmpty || !highlightedPockets.isEmpty || isFocused {
                                 Button(action: {
                                     highlightedChains.removeAll()
                                     highlightedLigands.removeAll()
                                     highlightedPockets.removeAll()
+                                    focusedElement = nil
+                                    isFocused = false
                                 }) {
                                     HStack(spacing: 4) {
                                         Image(systemName: "xmark.circle.fill")
@@ -340,7 +386,12 @@ struct ProteinSceneContainer: View {
                                 showInfoBar: .constant(false),
                                 highlightedChains: highlightedChains,
                                 highlightedLigands: highlightedLigands,
-                                highlightedPockets: highlightedPockets
+                                highlightedPockets: highlightedPockets,
+                                focusedElement: focusedElement,
+                                onFocusRequest: { element in
+                                    focusedElement = element
+                                    isFocused = true
+                                }
                             )
                             .frame(height: 200)
                             .padding(.horizontal, 16)
@@ -594,17 +645,36 @@ struct ProteinSceneContainer: View {
                         }
                         
                         Button(action: {
-                            // Focus chain action
+                            // Toggle chain focus
+                            if let currentFocus = focusedElement,
+                               case .chain(let currentChain) = currentFocus,
+                               currentChain == chain {
+                                // Unfocus if already focused on this chain
+                                focusedElement = nil
+                                isFocused = false
+                            } else {
+                                // Focus on this chain
+                                focusedElement = .chain(chain)
+                                isFocused = true
+                            }
                         }) {
+                            let isCurrentlyFocused = {
+                                if let currentFocus = focusedElement,
+                                   case .chain(let currentChain) = currentFocus {
+                                    return currentChain == chain
+                                }
+                                return false
+                            }()
+                            
                             HStack {
-                                Image(systemName: "scope")
-                                Text("Focus")
+                                Image(systemName: isCurrentlyFocused ? "scope.fill" : "scope")
+                                Text(isCurrentlyFocused ? "Unfocus" : "Focus")
                             }
                             .font(.caption)
-                            .foregroundColor(.green)
+                            .foregroundColor(isCurrentlyFocused ? .white : .green)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(Color.green.opacity(0.1))
+                            .background(isCurrentlyFocused ? Color.green : Color.green.opacity(0.1))
                             .cornerRadius(16)
                         }
                         
@@ -922,17 +992,36 @@ struct ProteinSceneContainer: View {
                             }
                             
                             Button(action: {
-                                // Focus ligand action
+                                // Toggle ligand focus
+                                if let currentFocus = focusedElement,
+                                   case .ligand(let currentLigand) = currentFocus,
+                                   currentLigand == ligandName {
+                                    // Unfocus if already focused on this ligand
+                                    focusedElement = nil
+                                    isFocused = false
+                                } else {
+                                    // Focus on this ligand
+                                    focusedElement = .ligand(ligandName)
+                                    isFocused = true
+                                }
                             }) {
+                                let isCurrentlyFocused = {
+                                    if let currentFocus = focusedElement,
+                                       case .ligand(let currentLigand) = currentFocus {
+                                        return currentLigand == ligandName
+                                    }
+                                    return false
+                                }()
+                                
                                 HStack {
-                                    Image(systemName: "scope")
-                                    Text("Focus")
+                                    Image(systemName: isCurrentlyFocused ? "scope.fill" : "scope")
+                                    Text(isCurrentlyFocused ? "Unfocus" : "Focus")
                                 }
                                 .font(.caption)
-                                .foregroundColor(.green)
+                                .foregroundColor(isCurrentlyFocused ? .white : .green)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .background(Color.green.opacity(0.1))
+                                .background(isCurrentlyFocused ? Color.green : Color.green.opacity(0.1))
                                 .cornerRadius(16)
                             }
                             
@@ -1139,17 +1228,36 @@ struct ProteinSceneContainer: View {
                             }
                             
                             Button(action: {
-                                // Focus pocket action
+                                // Toggle pocket focus
+                                if let currentFocus = focusedElement,
+                                   case .pocket(let currentPocket) = currentFocus,
+                                   currentPocket == pocketName {
+                                    // Unfocus if already focused on this pocket
+                                    focusedElement = nil
+                                    isFocused = false
+                                } else {
+                                    // Focus on this pocket
+                                    focusedElement = .pocket(pocketName)
+                                    isFocused = true
+                                }
                             }) {
+                                let isCurrentlyFocused = {
+                                    if let currentFocus = focusedElement,
+                                       case .pocket(let currentPocket) = currentFocus {
+                                        return currentPocket == pocketName
+                                    }
+                                    return false
+                                }()
+                                
                                 HStack {
-                                    Image(systemName: "scope")
-                                    Text("Focus")
+                                    Image(systemName: isCurrentlyFocused ? "scope.fill" : "scope")
+                                    Text(isCurrentlyFocused ? "Unfocus" : "Focus")
                                 }
                                 .font(.caption)
-                                .foregroundColor(.green)
+                                .foregroundColor(isCurrentlyFocused ? .white : .green)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .background(Color.green.opacity(0.1))
+                                .background(isCurrentlyFocused ? Color.green : Color.green.opacity(0.1))
                                 .cornerRadius(16)
                             }
                             
@@ -1516,6 +1624,10 @@ struct ProteinSceneView: UIViewRepresentable {
     let highlightedChains: Set<String>
     let highlightedLigands: Set<String>
     let highlightedPockets: Set<String>
+    
+    // Focus parameters
+    let focusedElement: FocusedElement?
+    var onFocusRequest: ((FocusedElement) -> Void)? = nil
 
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView()
@@ -1534,7 +1646,19 @@ struct ProteinSceneView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: SCNView, context: Context) {
-        rebuild(view: uiView)
+        // Only rebuild if structure actually changed (compare by reference)
+        let coordinator = context.coordinator
+        if coordinator.lastStructure !== structure {
+            rebuild(view: uiView)
+            coordinator.lastStructure = structure
+        } else if let focusElement = focusedElement, coordinator.lastFocusElement != focusElement {
+            // Only focus changed, animate camera instead of rebuilding
+            if let structure = structure {
+                let (center, boundingSize) = calculateFocusBounds(structure: structure, focusElement: focusElement)
+                animateCameraToFocus(view: uiView, target: center, boundingSize: boundingSize)
+            }
+            coordinator.lastFocusElement = focusElement
+        }
         
         if autoRotate {
             let rotateAction = SCNAction.rotateBy(x: 0, y: CGFloat.pi * 2, z: 0, duration: 8.0)
@@ -1563,10 +1687,15 @@ struct ProteinSceneView: UIViewRepresentable {
             let proteinNode = createProteinNode(from: structure)
             scene.rootNode.addChildNode(proteinNode)
             
-            // Improved bounding box calculation
-            let (center, boundingSize) = calculateProteinBounds(structure: structure)
-            
-            print("Protein center: \(center), bounding size: \(boundingSize)")
+            // Calculate bounds based on focus state
+            let (center, boundingSize): (SCNVector3, Float)
+            if let focusElement = focusedElement {
+                (center, boundingSize) = calculateFocusBounds(structure: structure, focusElement: focusElement)
+                print("Focus bounds - center: \(center), size: \(boundingSize)")
+            } else {
+                (center, boundingSize) = calculateProteinBounds(structure: structure)
+                print("Protein center: \(center), bounding size: \(boundingSize)")
+            }
             
             // Move protein to origin
             proteinNode.position = SCNVector3(-center.x, -center.y, -center.z)
@@ -1627,6 +1756,55 @@ struct ProteinSceneView: UIViewRepresentable {
         var maxZ = -Float.greatestFiniteMagnitude
         
         for atom in structure.atoms {
+            minX = min(minX, atom.position.x)
+            maxX = max(maxX, atom.position.x)
+            minY = min(minY, atom.position.y)
+            maxY = max(maxY, atom.position.y)
+            minZ = min(minZ, atom.position.z)
+            maxZ = max(maxZ, atom.position.z)
+        }
+        
+        let center = SCNVector3(
+            (minX + maxX) / 2,
+            (minY + maxY) / 2,
+            (minZ + maxZ) / 2
+        )
+        
+        let sizeX = maxX - minX
+        let sizeY = maxY - minY
+        let sizeZ = maxZ - minZ
+        let maxSize = max(sizeX, max(sizeY, sizeZ))
+        
+        return (center, maxSize)
+    }
+    
+    // Focus-specific bounding box calculations
+    private func calculateFocusBounds(structure: PDBStructure, focusElement: FocusedElement) -> (center: SCNVector3, size: Float) {
+        let atoms: [Atom]
+        
+        switch focusElement {
+        case .chain(let chainId):
+            atoms = structure.atoms.filter { $0.chain == chainId }
+        case .ligand(let ligandName):
+            atoms = structure.atoms.filter { $0.residueName == ligandName }
+        case .pocket(let pocketName):
+            atoms = structure.atoms.filter { $0.residueName == pocketName }
+        case .atom(let atomId):
+            atoms = structure.atoms.filter { $0.id == atomId }
+        }
+        
+        guard !atoms.isEmpty else {
+            return calculateProteinBounds(structure: structure)
+        }
+        
+        var minX = Float.greatestFiniteMagnitude
+        var maxX = -Float.greatestFiniteMagnitude
+        var minY = Float.greatestFiniteMagnitude
+        var maxY = -Float.greatestFiniteMagnitude
+        var minZ = Float.greatestFiniteMagnitude
+        var maxZ = -Float.greatestFiniteMagnitude
+        
+        for atom in atoms {
             minX = min(minX, atom.position.x)
             maxX = max(maxX, atom.position.x)
             minY = min(minY, atom.position.y)
@@ -1735,31 +1913,46 @@ struct ProteinSceneView: UIViewRepresentable {
                            highlightedLigands.contains(atom.residueName) || 
                            highlightedPockets.contains(atom.residueName)
         
+        // Check if atom is in focus
+        let isInFocus = isAtomInFocus(atom)
+        
+        // Determine opacity based on focus and highlight state
+        let opacity: CGFloat
+        if isInFocus {
+            opacity = 1.0 // Full opacity for focused atoms
+        } else if isHighlighted {
+            opacity = 0.9 // High opacity for highlighted atoms
+        } else if focusedElement != nil {
+            opacity = 0.2 // Low opacity for non-focused atoms when something is focused
+        } else {
+            opacity = 0.4 // Normal opacity when nothing is focused
+        }
+        
         if isHighlighted {
             // Highlighted atoms: brighter colors and slightly larger
             radius = baseRadius * 1.2 * (atom.element.atomicRadius / 0.7)
             switch colorMode {
             case .element:
-                color = atom.element.color.withAlphaComponent(0.9)
+                color = atom.element.color.withAlphaComponent(opacity)
             case .chain:
-                color = chainColor(for: atom.chain).withAlphaComponent(0.9)
+                color = chainColor(for: atom.chain).withAlphaComponent(opacity)
             case .uniform:
-                color = uniformColor.withAlphaComponent(0.9)
+                color = uniformColor.withAlphaComponent(opacity)
             case .secondaryStructure:
-                color = atom.secondaryStructure.color.withAlphaComponent(0.9)
+                color = atom.secondaryStructure.color.withAlphaComponent(opacity)
             }
         } else {
-            // Normal atoms: standard colors with reduced opacity for non-highlighted
+            // Normal atoms: standard colors with appropriate opacity
             radius = baseRadius * (atom.element.atomicRadius / 0.7)
             switch colorMode {
             case .element:
-                color = atom.element.color.withAlphaComponent(0.4)
+                color = atom.element.color.withAlphaComponent(opacity)
             case .chain:
-                color = chainColor(for: atom.chain).withAlphaComponent(0.4)
+                color = chainColor(for: atom.chain).withAlphaComponent(opacity)
             case .uniform:
-                color = uniformColor.withAlphaComponent(0.4)
+                color = uniformColor.withAlphaComponent(opacity)
             case .secondaryStructure:
-                color = atom.secondaryStructure.color.withAlphaComponent(0.4)
+                color = atom.secondaryStructure.color.withAlphaComponent(opacity)
             }
         }
         
@@ -1858,6 +2051,46 @@ struct ProteinSceneView: UIViewRepresentable {
         return UIColor(hue: hue, saturation: 0.7, brightness: 0.8, alpha: 1.0)
     }
     
+    // Check if atom is in focus
+    private func isAtomInFocus(_ atom: Atom) -> Bool {
+        guard let focusElement = focusedElement else { return false }
+        
+        switch focusElement {
+        case .chain(let chainId):
+            return atom.chain == chainId
+        case .ligand(let ligandName):
+            return atom.residueName == ligandName
+        case .pocket(let pocketName):
+            return atom.residueName == pocketName
+        case .atom(let atomId):
+            return atom.id == atomId
+        }
+    }
+    
+    // Animate camera to focus on specific element
+    private func animateCameraToFocus(view: SCNView, target: SCNVector3, boundingSize: Float) {
+        guard let camera = view.pointOfView else { return }
+        
+        // Calculate new camera position
+        let distance = boundingSize * 2.5
+        let newPosition = SCNVector3(
+            target.x,
+            target.y + distance * 0.5,
+            target.z + distance
+        )
+        
+        // Animate camera movement
+        let moveAction = SCNAction.move(to: newPosition, duration: 1.0)
+        moveAction.timingMode = .easeInEaseOut
+        
+        camera.runAction(moveAction)
+        
+        // Look at target
+        let lookAtAction = SCNAction.rotateTo(x: CGFloat(-Float.pi / 6), y: 0, z: 0, duration: 1.0)
+        lookAtAction.timingMode = .easeInEaseOut
+        camera.runAction(lookAtAction)
+    }
+    
     // Bounding box visualization for debugging (optional)
     private func addBoundingBoxVisualization(to scene: SCNScene, center: SCNVector3, size: Float) {
         let box = SCNBox(width: CGFloat(size), height: CGFloat(size), length: CGFloat(size), chamferRadius: 0)
@@ -1873,6 +2106,8 @@ struct ProteinSceneView: UIViewRepresentable {
 
     class Coordinator: NSObject {
         var parent: ProteinSceneView
+        var lastStructure: PDBStructure?
+        var lastFocusElement: FocusedElement?
         
         init(parent: ProteinSceneView) {
             self.parent = parent

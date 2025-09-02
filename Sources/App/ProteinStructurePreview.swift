@@ -40,7 +40,9 @@ struct ProteinStructurePreview: View {
                     onSelectAtom: { _ in }, // 카드에서는 원자 선택 비활성화
                     highlightedChains: [], // 미리보기에서는 highlight 없음
                     highlightedLigands: [],
-                    highlightedPockets: []
+                    highlightedPockets: [],
+                    focusedElement: nil,
+                    onFocusRequest: { _ in }
                 )
                 .frame(width: 120, height: 120) // 크기를 2배로 증가
                 .clipShape(RoundedRectangle(cornerRadius: 12))
