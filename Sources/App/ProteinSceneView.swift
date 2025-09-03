@@ -168,7 +168,8 @@ struct ProteinSceneContainer: View {
     @State private var highlightedLigands: Set<String> = []
     @State private var highlightedPockets: Set<String> = []
     
-    // Focus state management
+    // Focus state management (enabled for testing)
+    @State private var enableFocusFeature: Bool = true
     @State private var focusedElement: FocusedElement? = nil
     @State private var isFocused: Bool = false
     
@@ -1646,19 +1647,12 @@ struct ProteinSceneView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: SCNView, context: Context) {
-        // Only rebuild if structure actually changed (compare by reference)
-        let coordinator = context.coordinator
-        if coordinator.lastStructure !== structure {
-            rebuild(view: uiView)
-            coordinator.lastStructure = structure
-        } else if let focusElement = focusedElement, coordinator.lastFocusElement != focusElement {
-            // Only focus changed, animate camera instead of rebuilding
-            if let structure = structure {
-                let (center, boundingSize) = calculateFocusBounds(structure: structure, focusElement: focusElement)
-                animateCameraToFocus(view: uiView, target: center, boundingSize: boundingSize)
-            }
-            coordinator.lastFocusElement = focusElement
-        }
+        // Always rebuild for now to maintain existing functionality
+        // Focus feature is disabled by default for safety
+        rebuild(view: uiView)
+        
+        // Focus functionality will be added later when needed
+        // For now, just maintain existing functionality
         
         if autoRotate {
             let rotateAction = SCNAction.rotateBy(x: 0, y: CGFloat.pi * 2, z: 0, duration: 8.0)
