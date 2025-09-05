@@ -1028,22 +1028,23 @@ struct ProteinSceneContainer: View {
                                     .font(.title2)
                                     .foregroundColor(.primary)
                             }
+                            .frame(minWidth: 44, minHeight: 44) // 터치 영역 확보
                             
                             Spacer()
                             
-                            VStack(spacing: 2) {
+                            VStack(spacing: 4) {
                                 if let id = proteinId {
                                     Text(id)
-                                        .font(.headline)
+                                        .font(.title3) // .headline에서 .title3로 개선
                                         .fontWeight(.semibold)
                                 }
                                 if let name = proteinName {
                                     Text(name)
-                                        .font(.subheadline)
+                                        .font(.callout) // .subheadline에서 .callout로 개선 (16pt)
                                         .foregroundColor(.secondary)
                                         .lineLimit(name.count > 40 ? 1 : 2)  // 동적 길이 조정
                                         .truncationMode(.tail)               // "..." 표시
-                                        .minimumScaleFactor(0.9)             // 필요시 텍스트 크기 축소
+                                        .minimumScaleFactor(0.85)            // 더 유연한 크기 조정
                                         .multilineTextAlignment(.center)     // 중앙 정렬
                                 }
                             }
@@ -1053,9 +1054,11 @@ struct ProteinSceneContainer: View {
                             if let onProteinLibraryTap = onProteinLibraryTap {
                                 Button(action: onProteinLibraryTap) {
                                     Text("Library")
-                                        .font(.subheadline)
+                                        .font(.callout) // .subheadline에서 .callout로 개선
+                                        .fontWeight(.medium)
                                         .foregroundColor(.primary)
                                 }
+                                .frame(minWidth: 44, minHeight: 44) // 터치 영역 확보
                             }
                             
                             Button(action: {
@@ -1065,16 +1068,17 @@ struct ProteinSceneContainer: View {
                                     .font(.title2)
                                     .foregroundColor(.primary)
                             }
+                            .frame(minWidth: 44, minHeight: 44) // 터치 영역 확보
                         }
-                                                    .padding(.horizontal, 16)
-                            .padding(.top, 44) // 시스템 상태바 높이
-                            .padding(.bottom, 8)
-                            .background(.ultraThinMaterial)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8) // Apple 표준: 상태바와의 적절한 간격
+                        .padding(.bottom, 12) // 여백 증가
+                        .background(.ultraThinMaterial)
                         
                         // Info tab buttons with clear highlights button
                         HStack {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 16) {
+                        ScrollView(.horizontal, showsIndicators: true) { // 스크롤 인디케이터 표시
+                            HStack(spacing: 20) { // 간격을 16에서 20으로 증가
                                 ForEach(InfoTabType.allCases, id: \.self) { tab in
                                     InfoTabButton(
                                         title: tab.rawValue,
@@ -1100,17 +1104,19 @@ struct ProteinSceneContainer: View {
                             
                             // Focus status indicator
                             if let focusElement = focusedElement {
-                                HStack(spacing: 4) {
+                                HStack(spacing: 6) { // 간격 증가
                                     Image(systemName: "scope.fill")
+                                        .font(.callout) // 아이콘 크기 증가
                                         .foregroundColor(.green)
                                     Text("Focused: \(focusElement.displayName)")
-                                        .font(.caption)
+                                        .font(.footnote) // .caption에서 .footnote로 개선 (13pt)
+                                        .fontWeight(.medium) // 가독성 향상
                                         .foregroundColor(.green)
                                 }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.green.opacity(0.1))
-                                .cornerRadius(12)
+                                .padding(.horizontal, 12) // 패딩 증가
+                                .padding(.vertical, 6) // 패딩 증가
+                                .background(Color.green.opacity(0.15)) // 배경 투명도 증가
+                                .cornerRadius(16) // 모서리 둥글기 증가
                             }
                             
                             // Clear highlights and focus button
@@ -1122,17 +1128,20 @@ struct ProteinSceneContainer: View {
                                     focusedElement = nil
                                     isFocused = false
                                 }) {
-                                    HStack(spacing: 4) {
+                                    HStack(spacing: 6) { // 간격 증가
                                         Image(systemName: "xmark.circle.fill")
+                                            .font(.callout) // 아이콘 크기 증가
                                         Text("Clear")
+                                            .font(.footnote) // .caption에서 .footnote로 개선
+                                            .fontWeight(.medium) // 가독성 향상
                                     }
-                                    .font(.caption)
                                     .foregroundColor(.white)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, 12) // 패딩 증가
+                                    .padding(.vertical, 8) // 패딩 증가
                                     .background(Color.red)
-                                    .cornerRadius(12)
+                                    .cornerRadius(16) // 모서리 둥글기 증가
                                 }
+                                .frame(minHeight: 44) // 터치 영역 확보
                                 .padding(.trailing, 16)
                             }
                         }
@@ -1142,9 +1151,10 @@ struct ProteinSceneContainer: View {
                                             }
                     
                     // 3D Structure Preview
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 12) { // 간격 증가
                         Text("3D Structure Preview")
-                            .font(.headline)
+                            .font(.title3) // .headline에서 .title3로 개선
+                            .fontWeight(.semibold) // 가독성 향상
                             .padding(.horizontal, 16)
                         
                         if let structure = structure {
@@ -1165,32 +1175,35 @@ struct ProteinSceneContainer: View {
                                     isFocused = true
                                 }
                             )
-                            .frame(height: 200)
+                            .frame(height: 220) // 높이를 200에서 220으로 증가
                             .padding(.horizontal, 16)
+                            .background(Color(.systemGray6).opacity(0.3)) // 배경 추가
+                            .cornerRadius(12) // 모서리 둥글기 추가
                         }
                     }
-                    .padding(.top, 8)
-                    .padding(.bottom, 12)
+                    .padding(.top, 12) // 패딩 증가
+                    .padding(.bottom, 16) // 패딩 증가
                     .background(Color(.systemBackground))
                     
                     // Scrollable tab content area below fixed elements
                     ScrollView {
-                        VStack(spacing: 16) {
+                        VStack(spacing: 20) { // 간격을 16에서 20으로 증가
                             if let structure = structure {
                                 if isTabLoading {
                                     // Tab loading indicator
-                                    VStack(spacing: 16) {
+                                    VStack(spacing: 20) { // 간격 증가
                                         ProgressView()
-                                            .scaleEffect(1.2)
+                                            .scaleEffect(1.3) // 크기 증가
                                             .progressViewStyle(CircularProgressViewStyle(tint: .blue))
                                         
                                         Text(tabLoadingProgress)
-                                            .font(.headline)
+                                            .font(.title3) // .headline에서 .title3로 개선
+                                            .fontWeight(.medium) // 가독성 향상
                                             .foregroundColor(.primary)
                                     }
-                                    .frame(maxWidth: .infinity, minHeight: 200)
+                                    .frame(maxWidth: .infinity, minHeight: 220) // 높이 증가
                                     .background(Color(.systemGray6))
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .clipShape(RoundedRectangle(cornerRadius: 16)) // 모서리 둥글기 증가
                                 } else {
                                     // Tab content
                                 switch selectedTab {
@@ -1213,13 +1226,17 @@ struct ProteinSceneContainer: View {
                             }
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 32)
+                        .padding(.top, 12) // 패딩 증가
+                        .padding(.bottom, 40) // 패딩 증가 (홈 인디케이터 고려)
                     }
                     .background(Color(.systemBackground))
-                                    }
-                    .background(Color(.systemBackground))
-                    .ignoresSafeArea(.all, edges: .top)
+                }
+                .background(Color(.systemBackground))
+                .safeAreaInset(edge: .top) {
+                    // 상태바 영역을 위한 투명한 공간
+                    Color.clear.frame(height: 0)
+                }
+                .ignoresSafeArea(.container, edges: .bottom) // 하단만 무시
             }
             
             // 3D Rendering Loading Overlay
@@ -1263,7 +1280,8 @@ struct ProteinSceneContainer: View {
             // Structure Information
             VStack(alignment: .leading, spacing: 12) {
                 Text("Structure Information")
-                    .font(.headline)
+                    .font(.title3) // .headline에서 .title3로 개선
+                    .fontWeight(.semibold) // 가독성 향상
                 
                 VStack(spacing: 8) {
                     InfoRow(title: "PDB ID", value: proteinId ?? "Unknown", description: "Protein Data Bank identifier - unique code for this structure")
@@ -1281,11 +1299,16 @@ struct ProteinSceneContainer: View {
             .padding()
             .background(Color.blue.opacity(0.1))
             .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.blue.opacity(0.3), lineWidth: 1) // 다크 모드에서 경계선 추가
+            )
             
             // Chemical Composition
             VStack(alignment: .leading, spacing: 12) {
                 Text("Chemical Composition")
-                    .font(.headline)
+                    .font(.title3) // .headline에서 .title3로 개선
+                    .fontWeight(.semibold) // 가독성 향상
                 
                 VStack(spacing: 8) {
                     let uniqueResidues = Set(structure.atoms.map { $0.residueName })
@@ -1304,11 +1327,16 @@ struct ProteinSceneContainer: View {
             .padding()
             .background(Color.green.opacity(0.1))
             .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.green.opacity(0.3), lineWidth: 1) // 다크 모드에서 경계선 추가
+            )
             
             // Experimental Details
             VStack(alignment: .leading, spacing: 12) {
                 Text("Experimental Details")
-                    .font(.headline)
+                    .font(.title3) // .headline에서 .title3로 개선
+                    .fontWeight(.semibold) // 가독성 향상
                 
                 VStack(spacing: 8) {
                     InfoRow(title: "Structure Type", value: "Protein", description: "This is a protein structure determined by experimental methods")
@@ -1323,6 +1351,10 @@ struct ProteinSceneContainer: View {
             .padding()
             .background(Color.orange.opacity(0.1))
             .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.orange.opacity(0.3), lineWidth: 1) // 다크 모드에서 경계선 추가
+            )
         }
     }
     
@@ -3672,14 +3704,15 @@ struct InfoTabButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.subheadline)
+                .font(.callout) // .subheadline에서 .callout로 개선 (16pt)
                 .fontWeight(isSelected ? .semibold : .medium)
                 .foregroundColor(isSelected ? .primary : .secondary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 20) // 패딩 증가
+                .padding(.vertical, 12) // 패딩 증가 (44pt 터치 영역 확보)
                 .background(isSelected ? Color.blue.opacity(0.2) : Color.clear)
-                .cornerRadius(20)
+                .cornerRadius(24) // 모서리 둥글기 증가
         }
+        .frame(minHeight: 44) // 최소 터치 영역 확보
     }
 }
 
@@ -3689,21 +3722,23 @@ struct InfoRow: View {
     let description: String
     
     var body: some View {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) { // 간격 증가
             HStack {
                 Text(title)
-                    .font(.subheadline)
+                    .font(.callout) // .subheadline에서 .callout로 개선 (16pt)
                     .fontWeight(.medium)
                 Spacer()
                 Text(value)
-                    .font(.subheadline)
+                    .font(.callout) // .subheadline에서 .callout로 개선 (16pt)
+                    .fontWeight(.medium) // 가독성 향상
                     .foregroundColor(.primary)
             }
             Text(description)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                .font(.footnote) // .caption에서 .footnote로 개선 (13pt)
+                .foregroundColor(.secondary)
+                .lineLimit(3) // 최대 3줄로 제한
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8) // 패딩 증가
     }
 }
 
