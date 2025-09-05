@@ -110,7 +110,7 @@ enum ColorMode: String, CaseIterable {
         case .element: return "atom"
         case .chain: return "link"
         case .uniform: return "paintbrush"
-        case .secondaryStructure: return "dna"
+        case .secondaryStructure: return "waveform.path"
         }
     }
 }
@@ -128,6 +128,820 @@ enum InfoTabType: String, CaseIterable {
 enum ViewMode {
     case viewer
     case info
+}
+
+enum BottomPanel {
+    case none
+    case rendering
+    case color
+}
+
+enum SecondaryBarType {
+    case none
+    case renderingStyles
+    case colorSchemes
+    case options
+}
+
+// MARK: - Viewer Mode UI Components
+struct ViewerModeUI: View {
+    let structure: PDBStructure?
+    let proteinId: String?
+    let proteinName: String?
+    @Binding var selectedStyle: RenderStyle
+    @Binding var selectedColorMode: ColorMode
+    @Binding var highlightedChains: Set<String>
+    @Binding var focusedElement: FocusedElement?
+    @Binding var viewMode: ViewMode
+    @Binding var isRendering3D: Bool
+    @Binding var renderingProgress: String
+    
+    @State private var activePanel: BottomPanel = .none
+    @AppStorage("highlightAllChains") private var highlightAllChains: Bool = false
+    @State private var showSecondaryBar: Bool = false
+    @State private var secondaryBarType: SecondaryBarType = .none
+    @State private var rotationEnabled: Bool = false
+    @State private var zoomLevel: Double = 1.0
+    @State private var transparency: Double = 1.0
+    @State private var atomSize: Double = 1.0
+    
+    var body: some View {
+        ZStack {
+            // 3D Viewer (기존 ProteinSceneView)
+                ProteinSceneView(
+                    structure: structure,
+                    style: selectedStyle,
+                    colorMode: selectedColorMode,
+                    uniformColor: .systemBlue,
+                        autoRotate: rotationEnabled,
+                    isInfoMode: false,
+                        showInfoBar: .constant(false),
+                        highlightedChains: highlightedChains,
+                        highlightedLigands: [],
+                        highlightedPockets: [],
+                        focusedElement: focusedElement,
+                        onFocusRequest: { element in
+                            focusedElement = element
+                        },
+                        isRendering3D: $isRendering3D,
+                        renderingProgress: $renderingProgress,
+                        zoomLevel: zoomLevel,
+                        transparency: transparency,
+                        atomSize: atomSize
+                )
+                .ignoresSafeArea()
+                
+                                // Viewer Mode UI Overlay
+                    VStack(spacing: 0) {
+                        // Top Bar
+                        ViewerTopBar(viewMode: $viewMode)
+                        
+                        Spacer()
+                        
+                        // Bottom Secondary Bar (동적, Primary 위에)
+                        if showSecondaryBar {
+                            SecondaryOptionsBar(
+                                type: secondaryBarType,
+                                selectedStyle: $selectedStyle,
+                                selectedColorMode: $selectedColorMode,
+                                showSecondaryBar: $showSecondaryBar,
+                                rotationEnabled: $rotationEnabled,
+                                zoomLevel: $zoomLevel,
+                                transparency: $transparency,
+                                atomSize: $atomSize,
+                                highlightAllChains: $highlightAllChains,
+                                highlightedChains: $highlightedChains,
+                                structure: structure
+                            )
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                        }
+                
+                        // Bottom Primary Bar (맨 아래 고정)
+                        PrimaryOptionsBar(
+                            activePanel: $activePanel,
+                            selectedStyle: $selectedStyle,
+                            selectedColorMode: $selectedColorMode,
+                            highlightedChains: $highlightedChains,
+                            focusedElement: $focusedElement,
+                            highlightAllChains: $highlightAllChains,
+                            structure: structure,
+                            showSecondaryBar: $showSecondaryBar,
+                            secondaryBarType: $secondaryBarType
+                        )
+                    }
+            
+            // Bottom Sheet Panels
+            if activePanel != .none {
+                ViewerBottomSheet(
+                    activePanel: activePanel,
+                    selectedStyle: $selectedStyle,
+                    selectedColorMode: $selectedColorMode,
+                    activePanelBinding: $activePanel
+                )
+            }
+            
+            // Background tap to close secondary bar
+            if showSecondaryBar {
+                Color.clear
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.28)) {
+                            showSecondaryBar = false
+                            secondaryBarType = .none
+                        }
+                    }
+            }
+        }
+    }
+}
+
+// MARK: - Viewer Top Bar
+struct ViewerTopBar: View {
+    @Binding var viewMode: ViewMode
+    
+    var body: some View {
+                        HStack {
+            // Back to Info Mode
+                            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                                viewMode = .info
+                }
+                            }) {
+                Image(systemName: "chevron.left")
+                    .font(.title2)
+                                    .foregroundColor(.primary)
+                            }
+            .accessibilityLabel("Back to Info")
+                            
+                            Spacer()
+                            
+            // Settings
+            Button(action: { 
+                // TODO: Implement viewer settings
+            }) {
+                Image(systemName: "gearshape.fill")
+                    .font(.title2)
+                    .foregroundColor(.primary)
+            }
+            .accessibilityLabel("Viewer Settings")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
+        .cornerRadius(16)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+}
+
+// MARK: - Secondary Options Bar
+struct SecondaryOptionsBar: View {
+    let type: SecondaryBarType
+    @Binding var selectedStyle: RenderStyle
+    @Binding var selectedColorMode: ColorMode
+    @Binding var showSecondaryBar: Bool
+    @Binding var rotationEnabled: Bool
+    @Binding var zoomLevel: Double
+    @Binding var transparency: Double
+    @Binding var atomSize: Double
+    @Binding var highlightAllChains: Bool
+    @Binding var highlightedChains: Set<String>
+    let structure: PDBStructure?
+    
+    private func toggleHighlightAllChains() {
+        highlightAllChains.toggle()
+        
+        if highlightAllChains {
+            // Highlight all chains
+            if let structure = structure {
+                let allChains = Set(structure.atoms.map { $0.chain })
+                highlightedChains = allChains
+            }
+        } else {
+            // Clear all highlights
+            highlightedChains.removeAll()
+        }
+        
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Top separator
+            Rectangle()
+                .frame(height: 0.5)
+                .foregroundColor(Color(UIColor.separator))
+                .frame(maxWidth: .infinity)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 0) {
+                    switch type {
+                    case .renderingStyles:
+                        ForEach(RenderStyle.allCases, id: \.self) { style in
+                            Button(action: {
+                                selectedStyle = style
+                                // Secondary bar 유지
+                            }) {
+                                VStack(spacing: 6) {
+                                    Image(systemName: style.icon)
+                                        .font(.system(size: 20, weight: .medium))
+                                    Text(style.rawValue)
+                                        .font(.caption2)
+                                        .lineLimit(1)
+                                }
+                                .foregroundColor(selectedStyle == style ? .blue : .primary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 8)
+                                .background(selectedStyle == style ? Color.blue.opacity(0.1) : Color.clear)
+                                .cornerRadius(8)
+                                .frame(maxWidth: .infinity)
+                            }
+                        }
+                        
+                        // Highlight All Chains 버튼 추가
+                        Button(action: { toggleHighlightAllChains() }) {
+                            VStack(spacing: 6) {
+                                Image(systemName: highlightAllChains ? "lightbulb.circle.fill" : "lightbulb.circle")
+                                    .font(.system(size: 20, weight: .medium))
+                                Text("Highlight All")
+                                    .font(.caption2)
+                                    .lineLimit(1)
+                            }
+                            .foregroundColor(highlightAllChains ? .yellow : .primary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 8)
+                            .background(highlightAllChains ? Color.yellow.opacity(0.1) : Color.clear)
+                            .cornerRadius(8)
+                            .frame(maxWidth: .infinity)
+                        }
+                    case .colorSchemes:
+                        ForEach(ColorMode.allCases, id: \.self) { mode in
+                            Button(action: {
+                                selectedColorMode = mode
+                                // Secondary bar 유지
+                            }) {
+                                VStack(spacing: 6) {
+                                    Image(systemName: mode.icon)
+                                        .font(.system(size: 20, weight: .medium))
+                                    Text(mode.rawValue)
+                                        .font(.caption2)
+                                        .lineLimit(1)
+                                }
+                                .foregroundColor(selectedColorMode == mode ? .green : .primary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 8)
+                                .background(selectedColorMode == mode ? Color.green.opacity(0.1) : Color.clear)
+                                .cornerRadius(8)
+                                .frame(maxWidth: .infinity)
+                            }
+                        }
+                    case .options:
+                        OptionsSecondaryBar(
+                            rotationEnabled: $rotationEnabled,
+                            zoomLevel: $zoomLevel,
+                            transparency: $transparency,
+                            atomSize: $atomSize
+                        )
+                    case .none:
+                        EmptyView()
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .frame(height: 60)
+        }
+        .background(.ultraThinMaterial)
+        .ignoresSafeArea(.container, edges: .bottom)
+    }
+}
+
+// MARK: - Options Secondary Bar
+struct OptionsSecondaryBar: View {
+    @Binding var rotationEnabled: Bool
+    @Binding var zoomLevel: Double
+    @Binding var transparency: Double
+    @Binding var atomSize: Double
+    
+    var body: some View {
+        HStack(spacing: 0) {
+            // Rotation Toggle
+            Button(action: {
+                rotationEnabled.toggle()
+            }) {
+                VStack(spacing: 4) {
+                    Image(systemName: rotationEnabled ? "rotate.3d.fill" : "rotate.3d")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(rotationEnabled ? .orange : .primary)
+                    Text("Rotate")
+                        .font(.caption2)
+                        .foregroundColor(rotationEnabled ? .orange : .secondary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(rotationEnabled ? Color.orange.opacity(0.1) : Color.clear)
+                .cornerRadius(8)
+                .frame(maxWidth: .infinity)
+            }
+            
+            // Zoom Level
+            VStack(spacing: 4) {
+                HStack {
+                    Image(systemName: "minus.magnifyingglass")
+                        .font(.caption)
+                    Spacer()
+                    Text("Zoom")
+                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                    Spacer()
+                    Image(systemName: "plus.magnifyingglass")
+                        .font(.caption)
+                }
+                Slider(value: $zoomLevel, in: 0.5...3.0, step: 0.1)
+                    .frame(width: 60)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(8)
+            .frame(maxWidth: .infinity)
+            
+            // Transparency
+            VStack(spacing: 4) {
+                HStack {
+                    Image(systemName: "eye.slash")
+                        .font(.caption)
+                            Spacer()
+                    Text("Opacity")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Image(systemName: "eye")
+                        .font(.caption)
+                }
+                Slider(value: $transparency, in: 0.1...1.0, step: 0.1)
+                    .frame(width: 60)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(Color.purple.opacity(0.1))
+            .cornerRadius(8)
+            .frame(maxWidth: .infinity)
+            
+            // Atom Size
+            VStack(spacing: 4) {
+                HStack {
+                    Image(systemName: "circle")
+                        .font(.caption)
+                    Spacer()
+                    Text("Size")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Image(systemName: "circle.fill")
+                        .font(.caption)
+                }
+                Slider(value: $atomSize, in: 0.5...2.0, step: 0.1)
+                    .frame(width: 60)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(Color.green.opacity(0.1))
+            .cornerRadius(8)
+            .frame(maxWidth: .infinity)
+            
+            // Reset Button
+                            Button(action: {
+                resetToDefaults()
+            }) {
+                VStack(spacing: 4) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(.red)
+                    Text("Reset")
+                        .font(.caption2)
+                        .foregroundColor(.red)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(Color.red.opacity(0.1))
+                .cornerRadius(8)
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .frame(height: 60)
+    }
+    
+    private func resetToDefaults() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            rotationEnabled = false
+            zoomLevel = 1.0
+            transparency = 1.0
+            atomSize = 1.0
+        }
+        
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+    }
+}
+
+// MARK: - Primary Options Bar
+struct PrimaryOptionsBar: View {
+    @Binding var activePanel: BottomPanel
+    @Binding var selectedStyle: RenderStyle
+    @Binding var selectedColorMode: ColorMode
+    @Binding var highlightedChains: Set<String>
+    @Binding var focusedElement: FocusedElement?
+    @Binding var highlightAllChains: Bool
+    let structure: PDBStructure?
+    @Binding var showSecondaryBar: Bool
+    @Binding var secondaryBarType: SecondaryBarType
+    
+    var body: some View {
+        HStack(spacing: 0) {
+            // Rendering Style
+            Button(action: { toggleRenderingStyle() }) {
+                VStack(spacing: 4) {
+                    Image(systemName: "circle.grid.2x2.fill")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(showSecondaryBar && secondaryBarType == .renderingStyles ? .blue : .primary)
+                    Text("Style")
+                        .font(.caption2)
+                        .foregroundColor(showSecondaryBar && secondaryBarType == .renderingStyles ? .blue : .secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+            }
+            .accessibilityLabel("Rendering Style")
+            
+            // Options Menu
+            Button(action: { toggleOptionsMenu() }) {
+                VStack(spacing: 4) {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(showSecondaryBar && secondaryBarType == .options ? .orange : .primary)
+                    Text("Options")
+                        .font(.caption2)
+                        .foregroundColor(showSecondaryBar && secondaryBarType == .options ? .orange : .secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+            }
+            .accessibilityLabel("Options Menu")
+            
+            // Color Scheme
+            Button(action: { toggleColorScheme() }) {
+                VStack(spacing: 4) {
+                    Image(systemName: "globe")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(showSecondaryBar && secondaryBarType == .colorSchemes ? .green : .primary)
+                    Text("Colors")
+                        .font(.caption2)
+                        .foregroundColor(showSecondaryBar && secondaryBarType == .colorSchemes ? .green : .secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+            }
+            .accessibilityLabel("Color Scheme")
+        }
+        .padding(.horizontal, 0)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 0))
+        .overlay(
+            Rectangle()
+                .frame(height: 0.5)
+                .foregroundColor(Color(UIColor.separator))
+                .frame(maxWidth: .infinity),
+            alignment: .top
+        )
+        .ignoresSafeArea(.container, edges: .bottom)
+    }
+    
+    // MARK: - Action Functions
+    private func toggleRenderingStyle() {
+        withAnimation(.easeInOut(duration: 0.28)) {
+            if showSecondaryBar && secondaryBarType == .renderingStyles {
+                // 이미 열려있으면 닫기
+                showSecondaryBar = false
+                secondaryBarType = .none
+            } else {
+                // 렌더링 스타일 Secondary bar 열기
+                showSecondaryBar = true
+                secondaryBarType = .renderingStyles
+            }
+        }
+        
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+    }
+    
+    private func toggleOptionsMenu() {
+        withAnimation(.easeInOut(duration: 0.28)) {
+            if showSecondaryBar && secondaryBarType == .options {
+                // 이미 열려있으면 닫기
+                showSecondaryBar = false
+                secondaryBarType = .none
+            } else {
+                // Options Secondary bar 열기
+                showSecondaryBar = true
+                secondaryBarType = .options
+            }
+        }
+        
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+    }
+    
+    private func toggleColorScheme() {
+        withAnimation(.easeInOut(duration: 0.28)) {
+            if showSecondaryBar && secondaryBarType == .colorSchemes {
+                // 이미 열려있으면 닫기
+                showSecondaryBar = false
+                secondaryBarType = .none
+            } else {
+                // 색상 스킴 Secondary bar 열기
+                showSecondaryBar = true
+                secondaryBarType = .colorSchemes
+            }
+        }
+        
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+    }
+}
+
+// MARK: - Viewer Bottom Controls (기존, 호환성을 위해 유지)
+struct ViewerBottomControls: View {
+    @Binding var activePanel: BottomPanel
+    @Binding var selectedStyle: RenderStyle
+    @Binding var selectedColorMode: ColorMode
+    @Binding var highlightedChains: Set<String>
+    @Binding var focusedElement: FocusedElement?
+    @Binding var highlightAllChains: Bool
+    let structure: PDBStructure?
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            // Row 1: Quick Options
+            HStack(spacing: 16) {
+                // Rendering Style
+                Button(action: { togglePanel(.rendering) }) {
+                    Image(systemName: "circle.grid.2x2.fill")
+                        .font(.title2)
+                        .foregroundColor(activePanel == .rendering ? .blue : .primary)
+                }
+                .accessibilityLabel("Rendering Style")
+                
+                // Chain Highlight Toggle
+                Button(action: { toggleHighlightAllChains() }) {
+                    Image(systemName: highlightAllChains ? "lightbulb.circle.fill" : "lightbulb.circle")
+                        .font(.title2)
+                        .foregroundColor(highlightAllChains ? .yellow : .primary)
+                }
+                .accessibilityLabel("Highlight All Chains")
+                
+                // Focus
+                Button(action: { focusOnCurrentSelection() }) {
+                    Image(systemName: "scope")
+                                    .font(.title2)
+                                    .foregroundColor(.primary)
+                }
+                .accessibilityLabel("Focus")
+                
+                // Color Scheme
+                Button(action: { togglePanel(.color) }) {
+                    Image(systemName: "globe")
+                        .font(.title2)
+                        .foregroundColor(activePanel == .color ? .blue : .primary)
+                }
+                .accessibilityLabel("Color Scheme")
+            }
+            
+            // Row 2: Primary Actions
+            HStack(spacing: 16) {
+                // Apply
+                Button(action: { applyViewerSettings() }) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.green)
+                }
+                .accessibilityLabel("Apply Settings")
+                
+                // Reset
+                Button(action: { resetViewerToDefaults() }) {
+                    Image(systemName: "arrow.counterclockwise.circle")
+                        .font(.title2)
+                        .foregroundColor(.orange)
+                }
+                .accessibilityLabel("Reset")
+                
+                // More
+                Button(action: { showViewerMoreOptions() }) {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title2)
+                        .foregroundColor(.primary)
+                }
+                .accessibilityLabel("More Options")
+                            }
+                        }
+                        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
+                        .background(.ultraThinMaterial)
+        .cornerRadius(16)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 16)
+    }
+    
+    // MARK: - Action Functions
+    private func togglePanel(_ panel: BottomPanel) {
+        withAnimation(.easeInOut(duration: 0.28)) {
+            if activePanel == panel {
+                activePanel = .none
+            } else {
+                activePanel = panel
+            }
+        }
+        
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+    }
+    
+    private func toggleHighlightAllChains() {
+        highlightAllChains.toggle()
+        
+        if highlightAllChains {
+            // Highlight all chains
+            if let structure = structure {
+                let allChains = Set(structure.atoms.map { $0.chain })
+                highlightedChains = allChains
+            }
+        } else {
+            // Clear all highlights
+            highlightedChains.removeAll()
+        }
+        
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+    }
+    
+    private func focusOnCurrentSelection() {
+        // Focus on whole protein
+        focusedElement = nil
+        
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+    }
+    
+    private func applyViewerSettings() {
+        // Settings are already applied in real-time
+        // This is mainly for haptic feedback
+        
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+    }
+    
+    private func resetViewerToDefaults() {
+        // Reset to defaults
+        selectedStyle = .spheres
+        selectedColorMode = .element
+        highlightedChains.removeAll()
+        focusedElement = nil
+        activePanel = .none
+        highlightAllChains = false
+        
+        // Haptic feedback
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+    }
+    
+    private func showViewerMoreOptions() {
+        // TODO: Implement more options action sheet
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+    }
+}
+
+// MARK: - Viewer Bottom Sheet
+struct ViewerBottomSheet: View {
+    let activePanel: BottomPanel
+    @Binding var selectedStyle: RenderStyle
+    @Binding var selectedColorMode: ColorMode
+    @Binding var activePanelBinding: BottomPanel
+    
+    var body: some View {
+        VStack {
+            Spacer()
+            
+            VStack(spacing: 16) {
+                switch activePanel {
+                case .rendering:
+                    RenderingStylePanel(selectedStyle: $selectedStyle, activePanel: $activePanelBinding)
+                case .color:
+                    ColorSchemePanel(selectedColorMode: $selectedColorMode, activePanel: $activePanelBinding)
+                case .none:
+                    EmptyView()
+                }
+            }
+            .padding(16)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+            .shadow(radius: 10)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 16)
+        }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .onTapGesture {
+            // Prevent tap from propagating
+        }
+        .background(
+            Color.black.opacity(0.3)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.28)) {
+                        activePanelBinding = .none
+                    }
+                }
+        )
+    }
+}
+
+// MARK: - Rendering Style Panel
+struct RenderingStylePanel: View {
+    @Binding var selectedStyle: RenderStyle
+    @Binding var activePanel: BottomPanel
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("Rendering Style")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
+                ForEach(RenderStyle.allCases, id: \.self) { style in
+                    Button(action: {
+                        selectedStyle = style
+                        withAnimation(.easeInOut(duration: 0.28)) {
+                            activePanel = .none
+                        }
+                    }) {
+                        VStack(spacing: 8) {
+                            Image(systemName: style.icon)
+                                .font(.title2)
+                            Text(style.rawValue)
+                                .font(.caption)
+                        }
+                        .foregroundColor(selectedStyle == style ? .blue : .primary)
+                        .padding()
+                        .background(selectedStyle == style ? Color.blue.opacity(0.1) : Color.clear)
+                        .cornerRadius(12)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Color Scheme Panel
+struct ColorSchemePanel: View {
+    @Binding var selectedColorMode: ColorMode
+    @Binding var activePanel: BottomPanel
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("Color Scheme")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
+                ForEach(ColorMode.allCases, id: \.self) { mode in
+                    Button(action: {
+                        selectedColorMode = mode
+                        withAnimation(.easeInOut(duration: 0.28)) {
+                            activePanel = .none
+                        }
+                    }) {
+                        VStack(spacing: 8) {
+                            Image(systemName: mode.icon)
+                                .font(.title2)
+                            Text(mode.rawValue)
+                                .font(.caption)
+                        }
+                        .foregroundColor(selectedColorMode == mode ? .green : .primary)
+                        .padding()
+                        .background(selectedColorMode == mode ? Color.green.opacity(0.1) : Color.clear)
+                        .cornerRadius(12)
+                    }
+                }
+            }
+        }
+    }
 }
 
 enum FocusedElement: Equatable {
@@ -163,6 +977,10 @@ struct ProteinSceneContainer: View {
     @State private var showAdvancedControls = false
     @State private var showInfoBar = true
     
+    // Tab loading state
+    @State private var isTabLoading: Bool = false
+    @State private var tabLoadingProgress: String = ""
+    
     // Chain highlight state management
     @State private var highlightedChains: Set<String> = []
     @State private var highlightedLigands: Set<String> = []
@@ -173,87 +991,29 @@ struct ProteinSceneContainer: View {
     @State private var focusedElement: FocusedElement? = nil
     @State private var isFocused: Bool = false
     
+    // 3D Rendering loading state
+    @State private var isRendering3D: Bool = false
+    @State private var renderingProgress: String = ""
+    
+    // Viewer Mode UI state
+    @State private var activePanel: BottomPanel = .none
+    @AppStorage("highlightAllChains") private var highlightAllChains: Bool = false
+    
     var body: some View {
         ZStack {
             if viewMode == .viewer {
-                ProteinSceneView(
+                ViewerModeUI(
                     structure: structure,
-                    style: selectedStyle,
-                    colorMode: selectedColorMode,
-                    uniformColor: .systemBlue,
-                    autoRotate: false,
-                    isInfoMode: false,
-                    showInfoBar: $showInfoBar,
-                    highlightedChains: highlightedChains,
-                    highlightedLigands: highlightedLigands,
-                    highlightedPockets: highlightedPockets,
-                    focusedElement: focusedElement,
-                    onFocusRequest: { element in
-                        focusedElement = element
-                        isFocused = true
-                    }
+                    proteinId: proteinId,
+                    proteinName: proteinName,
+                    selectedStyle: $selectedStyle,
+                    selectedColorMode: $selectedColorMode,
+                    highlightedChains: $highlightedChains,
+                    focusedElement: $focusedElement,
+                    viewMode: $viewMode,
+                    isRendering3D: $isRendering3D,
+                    renderingProgress: $renderingProgress
                 )
-                .ignoresSafeArea()
-                
-                // Viewer mode overlay
-                .overlay(alignment: .top) {
-                    VStack(spacing: 0) {
-                        // Simplified navigation header
-                        HStack {
-                            Button(action: {
-                                viewMode = .info
-                            }) {
-                                Text("Back")
-                                    .font(.subheadline)
-                                    .foregroundColor(.primary)
-                            }
-                            
-                            Spacer()
-                            
-                            // Title centered
-                            VStack(spacing: 2) {
-                                if let id = proteinId {
-                                    Text(id)
-                                        .font(.headline)
-                                        .fontWeight(.semibold)
-                                }
-                                if let name = proteinName {
-                                    Text(name)
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(name.count > 40 ? 1 : 2)  // 동적 길이 조정
-                                        .truncationMode(.tail)               // "..." 표시
-                                        .minimumScaleFactor(0.9)             // 필요시 텍스트 크기 축소
-                                        .multilineTextAlignment(.center)     // 중앙 정렬
-                                }
-                            }
-                            
-                            Spacer()
-                            
-                            // Settings or additional functionality
-                            Button(action: {
-                                // Settings action
-                            }) {
-                                Image(systemName: "gear")
-                                    .font(.title2)
-                                    .foregroundColor(.primary)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(.ultraThinMaterial)
-                        .safeAreaInset(edge: .top) { Color.clear.frame(height: 0) }
-                    }
-                }
-                .overlay(alignment: .bottom) {
-                    // Tab-based control layout
-                    TabBasedViewerControls(
-                        selectedStyle: $selectedStyle,
-                        selectedColorMode: $selectedColorMode
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 20)
-                }
         } else {
                 // Info mode
                 VStack(spacing: 0) {
@@ -313,18 +1073,29 @@ struct ProteinSceneContainer: View {
                         
                         // Info tab buttons with clear highlights button
                         HStack {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 16) {
-                                    ForEach(InfoTabType.allCases, id: \.self) { tab in
-                                        InfoTabButton(
-                                            title: tab.rawValue,
-                                            isSelected: selectedTab == tab
-                                        ) {
-                                            selectedTab = tab
-                                        }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 16) {
+                                ForEach(InfoTabType.allCases, id: \.self) { tab in
+                                    InfoTabButton(
+                                        title: tab.rawValue,
+                                        isSelected: selectedTab == tab
+                                    ) {
+                                        selectedTab = tab
+                                            isTabLoading = true
+                                            tabLoadingProgress = "Loading \(tab.rawValue)..."
+                                            
+                                            // Simulate tab data loading
+                                            Task {
+                                                try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+                                                await MainActor.run {
+                                                    isTabLoading = false
+                                                    tabLoadingProgress = ""
+                                                }
+                                            }
                                     }
                                 }
-                                .padding(.horizontal, 16)
+                            }
+                            .padding(.horizontal, 16)
                             }
                             
                             // Focus status indicator
@@ -406,6 +1177,22 @@ struct ProteinSceneContainer: View {
                     ScrollView {
                         VStack(spacing: 16) {
                             if let structure = structure {
+                                if isTabLoading {
+                                    // Tab loading indicator
+                                    VStack(spacing: 16) {
+                                        ProgressView()
+                                            .scaleEffect(1.2)
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                                        
+                                        Text(tabLoadingProgress)
+                                            .font(.headline)
+                                            .foregroundColor(.primary)
+                                    }
+                                    .frame(maxWidth: .infinity, minHeight: 200)
+                                    .background(Color(.systemGray6))
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                } else {
+                                    // Tab content
                                 switch selectedTab {
                                 case .overview:
                                     overviewContent(structure: structure)
@@ -421,6 +1208,7 @@ struct ProteinSceneContainer: View {
                                     sequenceContent(structure: structure)
                                 case .annotations:
                                     annotationsContent(structure: structure)
+                                    }
                                 }
                             }
                         }
@@ -432,6 +1220,31 @@ struct ProteinSceneContainer: View {
                                     }
                     .background(Color(.systemBackground))
                     .ignoresSafeArea(.all, edges: .top)
+            }
+            
+            // 3D Rendering Loading Overlay
+            if isRendering3D {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .overlay(
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            
+                            Text("Rendering 3D Structure...")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            if !renderingProgress.isEmpty {
+                                Text(renderingProgress)
+                                    .font(.subheadline)
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                            }
+                        }
+                    )
             }
         }
         .background(Color(.systemBackground))
@@ -1629,6 +2442,37 @@ struct ProteinSceneView: UIViewRepresentable {
     // Focus parameters
     let focusedElement: FocusedElement?
     var onFocusRequest: ((FocusedElement) -> Void)? = nil
+    
+    // Loading parameters
+    var isRendering3D: Binding<Bool>? = nil
+    var renderingProgress: Binding<String>? = nil
+    
+    // Options parameters (기본값 설정으로 기존 코드 영향 최소화)
+    let zoomLevel: Double
+    let transparency: Double
+    let atomSize: Double
+    
+    // 기본 초기화
+    init(structure: PDBStructure?, style: RenderStyle, colorMode: ColorMode, uniformColor: UIColor, autoRotate: Bool, isInfoMode: Bool, showInfoBar: Binding<Bool>? = nil, onSelectAtom: ((Atom) -> Void)? = nil, highlightedChains: Set<String>, highlightedLigands: Set<String>, highlightedPockets: Set<String>, focusedElement: FocusedElement?, onFocusRequest: ((FocusedElement) -> Void)? = nil, isRendering3D: Binding<Bool>? = nil, renderingProgress: Binding<String>? = nil, zoomLevel: Double = 1.0, transparency: Double = 1.0, atomSize: Double = 1.0) {
+        self.structure = structure
+        self.style = style
+        self.colorMode = colorMode
+        self.uniformColor = uniformColor
+        self.autoRotate = autoRotate
+        self.isInfoMode = isInfoMode
+        self.showInfoBar = showInfoBar
+        self.onSelectAtom = onSelectAtom
+        self.highlightedChains = highlightedChains
+        self.highlightedLigands = highlightedLigands
+        self.highlightedPockets = highlightedPockets
+        self.focusedElement = focusedElement
+        self.onFocusRequest = onFocusRequest
+        self.isRendering3D = isRendering3D
+        self.renderingProgress = renderingProgress
+        self.zoomLevel = zoomLevel
+        self.transparency = transparency
+        self.atomSize = atomSize
+    }
 
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView()
@@ -1647,6 +2491,13 @@ struct ProteinSceneView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: SCNView, context: Context) {
+        // 디바운싱으로 무한 루프 방지 (0.1초 이내 중복 호출 방지)
+        let currentTime = Date().timeIntervalSince1970
+        if currentTime - context.coordinator.lastUpdateTime < 0.1 {
+            return
+        }
+        context.coordinator.lastUpdateTime = currentTime
+        
         // Always rebuild for now to maintain existing functionality
         // Focus feature is disabled by default for safety
         rebuild(view: uiView)
@@ -1669,16 +2520,43 @@ struct ProteinSceneView: UIViewRepresentable {
 
     // Improved rebuild method for ProteinSceneView
     private func rebuild(view: SCNView) {
-        let scene = SCNScene()
-        scene.rootNode.childNodes.forEach { $0.removeFromParentNode() }
+        // Protein structure rebuild
+        // Start loading indicator
+        DispatchQueue.main.async {
+            self.isRendering3D?.wrappedValue = true
+            self.renderingProgress?.wrappedValue = "Initializing 3D scene..."
+        }
+        
+        // Scene 재사용 로직 - 기존 scene이 있으면 재사용, 없으면 새로 생성
+        let scene: SCNScene
+        if view.scene == nil {
+            scene = SCNScene()
+            view.scene = scene
+        } else {
+            scene = view.scene!
+            // 기존 proteinNode만 제거
+            scene.rootNode.childNodes.forEach { node in
+                if node.name == "protein" {
+                    node.removeFromParentNode()
+                }
+            }
+        }
 
         // Improved lighting setup
+        DispatchQueue.main.async {
+            self.renderingProgress?.wrappedValue = "Setting up lighting..."
+        }
         setupLighting(scene: scene)
 
         if let structure = structure {
             print("Creating protein node with \(structure.atoms.count) atoms and \(structure.bonds.count) bonds")
             
+            DispatchQueue.main.async {
+                self.renderingProgress?.wrappedValue = "Creating protein structure..."
+            }
+            
             let proteinNode = createProteinNode(from: structure)
+            proteinNode.name = "protein"
             scene.rootNode.addChildNode(proteinNode)
             
             // Calculate bounds based on focus state
@@ -1688,13 +2566,16 @@ struct ProteinSceneView: UIViewRepresentable {
                 print("Focus bounds - center: \(center), size: \(boundingSize)")
             } else {
                 (center, boundingSize) = calculateProteinBounds(structure: structure)
-                print("Protein center: \(center), bounding size: \(boundingSize)")
+            print("Protein center: \(center), bounding size: \(boundingSize)")
             }
             
             // Move protein to origin
             proteinNode.position = SCNVector3(-center.x, -center.y, -center.z)
             
             // Improved camera setup
+            DispatchQueue.main.async {
+                self.renderingProgress?.wrappedValue = "Setting up camera..."
+            }
             setupCamera(scene: scene, view: view, boundingSize: boundingSize)
             
         } else {
@@ -1704,6 +2585,12 @@ struct ProteinSceneView: UIViewRepresentable {
         }
 
         view.scene = scene
+        
+        // End loading indicator
+        DispatchQueue.main.async {
+            self.isRendering3D?.wrappedValue = false
+            self.renderingProgress?.wrappedValue = ""
+        }
     }
 
     private func createProteinNode(from structure: PDBStructure) -> SCNNode {
@@ -1711,10 +2598,18 @@ struct ProteinSceneView: UIViewRepresentable {
         
         print("Creating \(structure.atoms.count) atoms...")
         
-        // Create atoms
+        // Create atoms with progress updates
+        let totalAtoms = structure.atoms.count
         for (index, atom) in structure.atoms.enumerated() {
             let atomNode = createAtomNode(atom)
             rootNode.addChildNode(atomNode)
+            
+            // Update progress every 100 atoms or at the end
+            if index % 100 == 0 || index == totalAtoms - 1 {
+                DispatchQueue.main.async {
+                    self.renderingProgress?.wrappedValue = "Creating atoms (\(index + 1)/\(totalAtoms))..."
+                }
+            }
             
             if index < 5 { // Log first 5 atoms for debugging
                 print("Atom \(index): \(atom.element) at position \(atom.position)")
@@ -1723,10 +2618,18 @@ struct ProteinSceneView: UIViewRepresentable {
         
         print("Creating \(structure.bonds.count) bonds...")
         
-        // Create bonds
+        // Create bonds with progress updates
+        let totalBonds = structure.bonds.count
         for (index, bond) in structure.bonds.enumerated() {
             let bondNode = createBondNode(bond, atoms: structure.atoms)
             rootNode.addChildNode(bondNode)
+            
+            // Update progress every 100 bonds or at the end
+            if index % 100 == 0 || index == totalBonds - 1 {
+                DispatchQueue.main.async {
+                    self.renderingProgress?.wrappedValue = "Creating bonds (\(index + 1)/\(totalBonds))..."
+                }
+            }
             
             if index < 5 { // Log first 5 bonds for debugging
                 print("Bond \(index): \(bond.atomA) - \(bond.atomB)")
@@ -1837,7 +2740,10 @@ struct ProteinSceneView: UIViewRepresentable {
         let baseCameraDistance: Float = max(boundingSize * multiplier, 20.0)
         let cameraDistance = min(baseCameraDistance, 200.0) // Maximum value limit
         
-        cameraNode.position = SCNVector3(0, 0, cameraDistance)
+        // Zoom Level 적용
+        let adjustedDistance = cameraDistance / Float(zoomLevel)
+        
+        cameraNode.position = SCNVector3(0, 0, adjustedDistance)
         cameraNode.look(at: SCNVector3(0, 0, 0))
         
         print("Camera positioned at distance: \(cameraDistance), bounding size: \(boundingSize), isInfoMode: \(isInfoMode)")
@@ -1911,33 +2817,36 @@ struct ProteinSceneView: UIViewRepresentable {
         let isInFocus = isAtomInFocus(atom)
         
         // Determine opacity based on focus and highlight state
-        let opacity: CGFloat
+        let baseOpacity: CGFloat
         if isInFocus {
-            opacity = 1.0 // Full opacity for focused atoms
+            baseOpacity = 1.0 // Full opacity for focused atoms
         } else if isHighlighted {
-            opacity = 0.9 // High opacity for highlighted atoms
+            baseOpacity = 0.9 // High opacity for highlighted atoms
         } else if focusedElement != nil {
-            opacity = 0.2 // Low opacity for non-focused atoms when something is focused
+            baseOpacity = 0.2 // Low opacity for non-focused atoms when something is focused
         } else {
-            opacity = 0.4 // Normal opacity when nothing is focused
+            baseOpacity = 0.4 // Normal opacity when nothing is focused
         }
+        
+        // Apply transparency slider
+        let opacity = baseOpacity * CGFloat(transparency)
         
         if isHighlighted {
             // Highlighted atoms: brighter colors and slightly larger
-            radius = baseRadius * 1.2 * (atom.element.atomicRadius / 0.7)
-            switch colorMode {
-            case .element:
+            radius = baseRadius * 1.2 * (atom.element.atomicRadius / 0.7) * CGFloat(atomSize)
+        switch colorMode {
+        case .element:
                 color = atom.element.color.withAlphaComponent(opacity)
-            case .chain:
+        case .chain:
                 color = chainColor(for: atom.chain).withAlphaComponent(opacity)
-            case .uniform:
+        case .uniform:
                 color = uniformColor.withAlphaComponent(opacity)
-            case .secondaryStructure:
+        case .secondaryStructure:
                 color = atom.secondaryStructure.color.withAlphaComponent(opacity)
             }
         } else {
             // Normal atoms: standard colors with appropriate opacity
-            radius = baseRadius * (atom.element.atomicRadius / 0.7)
+            radius = baseRadius * (atom.element.atomicRadius / 0.7) * CGFloat(atomSize)
             switch colorMode {
             case .element:
                 color = atom.element.color.withAlphaComponent(opacity)
@@ -1958,11 +2867,11 @@ struct ProteinSceneView: UIViewRepresentable {
         case .spheres:
             geometry = GeometryCache.shared.lodSphere(radius: finalRadius, color: color)
         case .sticks:
-            geometry = GeometryCache.shared.lodSphere(radius: finalRadius * 0.4, color: color)
+            geometry = GeometryCache.shared.lodSphere(radius: finalRadius * 0.5, color: color)
         case .cartoon:
-            geometry = GeometryCache.shared.lodSphere(radius: finalRadius * 0.6, color: color)
+            geometry = createCartoonGeometry(for: atom, radius: finalRadius, color: color)
         case .surface:
-            geometry = GeometryCache.shared.lodSphere(radius: finalRadius * 0.8, color: color)
+            geometry = createSurfaceGeometry(for: atom, radius: finalRadius, color: color)
         }
         
         let node = SCNNode(geometry: geometry)
@@ -1989,8 +2898,28 @@ struct ProteinSceneView: UIViewRepresentable {
         // Skip if distance is too small
         guard distance > 0.01 else { return SCNNode() }
         
-        let bondRadius: CGFloat = style == .sticks ? 0.2 : 0.1
-        let cylinder = GeometryCache.shared.unitLodCylinder(radius: bondRadius, color: .lightGray)
+        let bondRadius: CGFloat
+        let bondColor: UIColor
+        
+        switch style {
+        case .sticks:
+            bondRadius = 0.2
+            bondColor = .lightGray
+        case .cartoon:
+            bondRadius = 0.3  // Thicker bonds for cartoon style
+            bondColor = .systemBlue
+        case .surface:
+            bondRadius = 0.0  // No visible bonds for surface style
+            bondColor = .clear
+        default:
+            bondRadius = 0.1
+            bondColor = .lightGray
+        }
+        
+        // Skip bond creation for surface style
+        guard style != .surface else { return SCNNode() }
+        
+        let cylinder = GeometryCache.shared.unitLodCylinder(radius: bondRadius, color: bondColor)
         let node = SCNNode(geometry: cylinder)
         
         // Midpoint position
@@ -2037,6 +2966,30 @@ struct ProteinSceneView: UIViewRepresentable {
         case .cartoon: return 1.2
         case .surface: return 0.9
         }
+    }
+    
+    // Create cartoon-style geometry (small sphere for atoms)
+    private func createCartoonGeometry(for atom: Atom, radius: CGFloat, color: UIColor) -> SCNGeometry {
+        // Cartoon style: small spheres for atoms, bonds will be handled separately
+        let smallRadius = radius * 0.25 // Much smaller than normal spheres
+        return GeometryCache.shared.lodSphere(radius: smallRadius, color: color)
+    }
+    
+    // Create surface-style geometry (larger sphere with surface-like appearance)
+    private func createSurfaceGeometry(for atom: Atom, radius: CGFloat, color: UIColor) -> SCNGeometry {
+        // Surface style: larger spheres that represent the molecular surface
+        let surfaceRadius = radius * 1.2 // Larger than normal spheres
+        let sphere = GeometryCache.shared.lodSphere(radius: surfaceRadius, color: color)
+        
+        // Apply surface-like material properties
+        if let material = sphere.firstMaterial {
+            material.transparency = 0.7 // Semi-transparent
+            material.specular.contents = UIColor.white
+            material.shininess = 0.8
+            material.lightingModel = .physicallyBased
+        }
+        
+        return sphere
     }
     
     // Improved chain-specific color generation
@@ -2102,6 +3055,7 @@ struct ProteinSceneView: UIViewRepresentable {
         var parent: ProteinSceneView
         var lastStructure: PDBStructure?
         var lastFocusElement: FocusedElement?
+        var lastUpdateTime: TimeInterval = 0
         
         init(parent: ProteinSceneView) {
             self.parent = parent

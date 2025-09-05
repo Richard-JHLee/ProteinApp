@@ -3,10 +3,12 @@ import SwiftUI
 struct ContentView: View {
     @State private var structure: PDBStructure? = nil
     @State private var isLoading = false
+    @State private var loadingProgress: String = ""
     @State private var error: String? = nil
     @State private var showingProteinLibrary: Bool = false
     @State private var currentProteinId: String = ""
     @State private var currentProteinName: String = ""
+    @State private var showingSideMenu: Bool = false
     
     var body: some View {
         NavigationView {
@@ -23,8 +25,23 @@ struct ContentView: View {
                 } else {
                     VStack(spacing: 20) {
                         if isLoading {
-                            ProgressView("Loading protein structure...")
-                                .font(.headline)
+                            VStack(spacing: 16) {
+                                ProgressView()
+                                    .scaleEffect(1.2)
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                                
+                                Text("Loading protein structure...")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                
+                                if !loadingProgress.isEmpty {
+                                    Text(loadingProgress)
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal)
+                                }
+                            }
                         } else {
                             VStack(spacing: 16) {
                                 Image(systemName: "atom")
@@ -69,6 +86,21 @@ struct ContentView: View {
                 loadSelectedProtein(selectedProteinId)
             }
         }
+        .sheet(isPresented: $showingSideMenu) {
+            // SideMenuView() - 임시로 주석 처리
+            Text("Side Menu - Coming Soon")
+                .font(.title)
+                .padding()
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: { showingSideMenu = true }) {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.title2)
+                        .foregroundColor(.primary)
+                }
+            }
+        }
         .preferredColorScheme(.light)
         .statusBarHidden(false)
         .supportedOrientations(.allButUpsideDown)
@@ -110,6 +142,7 @@ struct ContentView: View {
     
     private func loadSelectedProtein(_ pdbId: String) {
         isLoading = true
+        loadingProgress = "Initializing..."
         error = nil
         
         Task {
@@ -120,11 +153,19 @@ struct ContentView: View {
                 
                 print("Loading PDB structure for: \(formattedPdbId)")
                 
+                await MainActor.run {
+                    self.loadingProgress = "Downloading PDB file..."
+                }
+                
                 let (data, response) = try await URLSession.shared.data(from: url)
                 
                 guard let httpResponse = response as? HTTPURLResponse,
                       httpResponse.statusCode == 200 else {
                     throw URLError(.badServerResponse)
+                }
+                
+                await MainActor.run {
+                    self.loadingProgress = "Parsing PDB structure..."
                 }
                 
                 let pdbText = String(decoding: data, as: UTF8.self)
@@ -138,12 +179,14 @@ struct ContentView: View {
                     self.currentProteinId = formattedPdbId
                     self.currentProteinName = actualProteinName
                     self.isLoading = false
+                    self.loadingProgress = ""
                     print("Successfully loaded PDB structure: \(formattedPdbId) with name: \(actualProteinName)")
                 }
             } catch {
                 await MainActor.run {
                     self.error = "Failed to load protein structure for \(pdbId): \(error.localizedDescription)"
                     self.isLoading = false
+                    self.loadingProgress = ""
                     print("Error loading PDB structure: \(error)")
                 }
             }

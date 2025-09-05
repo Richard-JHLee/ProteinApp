@@ -138,6 +138,10 @@ struct EnhancedProteinViewerView: View {
     // Tab Selection
     // ✅ Tab Selection (주석 해제/복원)
     @State private var selectedTab: ViewerTab = .chains
+    
+    // Tab loading state
+    @State private var isTabLoading: Bool = false
+    @State private var tabLoadingProgress: String = ""
 
     // ✅ 전역 enum 삭제하고, 이 중첩 enum만 사용
     enum ViewerTab: String, CaseIterable {
@@ -475,24 +479,41 @@ struct EnhancedProteinViewerView: View {
             tabSelector
             
             // Tab Content
-            TabView(selection: $selectedTab) {
-                chainsTabView
-                    .tag(ViewerTab.chains)
-                
-                residuesTabView
-                    .tag(ViewerTab.residues)
-                
-                ligandsTabView
-                    .tag(ViewerTab.ligands)
-                
-                pocketsTabView
-                    .tag(ViewerTab.pockets)
-                
-                annotationsTabView
-                    .tag(ViewerTab.annotations)
+            if isTabLoading {
+                // Tab loading indicator
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.2)
+                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                    
+                    Text(tabLoadingProgress)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                }
+                .frame(height: 280)
+                .frame(maxWidth: .infinity)
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else {
+                TabView(selection: $selectedTab) {
+                    chainsTabView
+                        .tag(ViewerTab.chains)
+                    
+                    residuesTabView
+                        .tag(ViewerTab.residues)
+                    
+                    ligandsTabView
+                        .tag(ViewerTab.ligands)
+                    
+                    pocketsTabView
+                        .tag(ViewerTab.pockets)
+                    
+                    annotationsTabView
+                        .tag(ViewerTab.annotations)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(height: 280)
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 280)
         }
         .background(.ultraThinMaterial)
     }
@@ -500,7 +521,20 @@ struct EnhancedProteinViewerView: View {
     private var tabSelector: some View {
         HStack(spacing: 0) {
             ForEach(ViewerTab.allCases, id: \.self) { tab in
-                Button(action: { selectedTab = tab }) {
+                Button(action: { 
+                    selectedTab = tab
+                    isTabLoading = true
+                    tabLoadingProgress = "Loading \(tab.rawValue)..."
+                    
+                    // Simulate tab data loading
+                    Task {
+                        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+                        await MainActor.run {
+                            isTabLoading = false
+                            tabLoadingProgress = ""
+                        }
+                    }
+                }) {
                     VStack(spacing: 4) {
                         Image(systemName: tab.icon)
                             .font(.title3)

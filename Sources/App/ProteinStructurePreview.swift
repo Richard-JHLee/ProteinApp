@@ -9,15 +9,23 @@ struct ProteinStructurePreview: View {
     @State private var error: String?
     
     var body: some View {
-        Group {
+        VStack {
             if isLoading {
                 VStack(spacing: 8) {
                     ProgressView()
                         .scaleEffect(0.8)
+                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
                     Text("Loading...")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
+                .frame(width: 120, height: 120)
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color(.systemGray4), lineWidth: 1)
+                )
             } else if error != nil {
                 VStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle")

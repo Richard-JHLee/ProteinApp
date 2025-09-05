@@ -20,6 +20,14 @@
 		7972842D2E587417000842BE /* MainInfoSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284282E587417000842BE /* MainInfoSectionView.swift */; };
 		7972842E2E587417000842BE /* ActionButtonsSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284242E587417000842BE /* ActionButtonsSectionView.swift */; };
 		7972842F2E587417000842BE /* DetailedInfoSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284262E587417000842BE /* DetailedInfoSectionView.swift */; };
+		79D906062E6ABD3800C202D2 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D906052E6ABD3800C202D2 /* AboutView.swift */; };
+		79D9060E2E6ABD4800C202D2 /* LicenseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D906082E6ABD4800C202D2 /* LicenseView.swift */; };
+		79D9060F2E6ABD4800C202D2 /* FeaturesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D906072E6ABD4800C202D2 /* FeaturesView.swift */; };
+		79D906102E6ABD4800C202D2 /* SideMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D9060C2E6ABD4800C202D2 /* SideMenuView.swift */; };
+		79D906112E6ABD4800C202D2 /* MenuDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D906092E6ABD4800C202D2 /* MenuDetailView.swift */; };
+		79D906122E6ABD4800C202D2 /* UserGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D9060D2E6ABD4800C202D2 /* UserGuideView.swift */; };
+		79D906132E6ABD4800C202D2 /* MenuItemRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D9060A2E6ABD4800C202D2 /* MenuItemRow.swift */; };
+		79D906142E6ABD4800C202D2 /* MenuItemType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D9060B2E6ABD4800C202D2 /* MenuItemType.swift */; };
 		ABF56BC87AF826996205F340 /* ProteinSceneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABDBD862116CF498A63A4482 /* ProteinSceneView.swift */; };
 		BB44BDF9E6313690D82218D8 /* SceneKitExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D9F412DFA7AD49E2AF30C0 /* SceneKitExtensions.swift */; };
 		BC849FBAF9245F690738D7DB /* SceneKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1E552674910C4E6B9E6BCBCD /* SceneKit.framework */; };
@@ -43,6 +51,14 @@
 		797284272E587417000842BE /* HeaderSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderSectionView.swift; sourceTree = "<group>"; };
 		797284282E587417000842BE /* MainInfoSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainInfoSectionView.swift; sourceTree = "<group>"; };
 		797284292E587417000842BE /* UIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIComponents.swift; sourceTree = "<group>"; };
+		79D906052E6ABD3800C202D2 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		79D906072E6ABD4800C202D2 /* FeaturesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeaturesView.swift; sourceTree = "<group>"; };
+		79D906082E6ABD4800C202D2 /* LicenseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseView.swift; sourceTree = "<group>"; };
+		79D906092E6ABD4800C202D2 /* MenuDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuDetailView.swift; sourceTree = "<group>"; };
+		79D9060A2E6ABD4800C202D2 /* MenuItemRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItemRow.swift; sourceTree = "<group>"; };
+		79D9060B2E6ABD4800C202D2 /* MenuItemType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItemType.swift; sourceTree = "<group>"; };
+		79D9060C2E6ABD4800C202D2 /* SideMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenuView.swift; sourceTree = "<group>"; };
+		79D9060D2E6ABD4800C202D2 /* UserGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserGuideView.swift; sourceTree = "<group>"; };
 		ABDBD862116CF498A63A4482 /* ProteinSceneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProteinSceneView.swift; sourceTree = "<group>"; };
 		B697830EAB8BA6ABE13919E5 /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = Base; path = Base.lproj/ProteinApp.entitlements; sourceTree = "<group>"; };
 		D9D9F412DFA7AD49E2AF30C0 /* SceneKitExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneKitExtensions.swift; sourceTree = "<group>"; };
@@ -94,6 +110,14 @@
 			children = (
 				797284222E587182000842BE /* InfoSheet.swift */,
 				797284242E587417000842BE /* ActionButtonsSectionView.swift */,
+				79D906052E6ABD3800C202D2 /* AboutView.swift */,
+				79D906072E6ABD4800C202D2 /* FeaturesView.swift */,
+				79D906082E6ABD4800C202D2 /* LicenseView.swift */,
+				79D906092E6ABD4800C202D2 /* MenuDetailView.swift */,
+				79D9060A2E6ABD4800C202D2 /* MenuItemRow.swift */,
+				79D9060B2E6ABD4800C202D2 /* MenuItemType.swift */,
+				79D9060C2E6ABD4800C202D2 /* SideMenuView.swift */,
+				79D9060D2E6ABD4800C202D2 /* UserGuideView.swift */,
 				797284252E587417000842BE /* AdditionalInfoSectionView.swift */,
 				797284262E587417000842BE /* DetailedInfoSectionView.swift */,
 				797284272E587417000842BE /* HeaderSectionView.swift */,
@@ -196,9 +220,17 @@
 			files = (
 				7972842A2E587417000842BE /* AdditionalInfoSectionView.swift in Sources */,
 				7972842B2E587417000842BE /* HeaderSectionView.swift in Sources */,
+				79D906062E6ABD3800C202D2 /* AboutView.swift in Sources */,
 				7972842C2E587417000842BE /* UIComponents.swift in Sources */,
 				7972842D2E587417000842BE /* MainInfoSectionView.swift in Sources */,
 				7972842E2E587417000842BE /* ActionButtonsSectionView.swift in Sources */,
+				79D9060E2E6ABD4800C202D2 /* LicenseView.swift in Sources */,
+				79D9060F2E6ABD4800C202D2 /* FeaturesView.swift in Sources */,
+				79D906102E6ABD4800C202D2 /* SideMenuView.swift in Sources */,
+				79D906112E6ABD4800C202D2 /* MenuDetailView.swift in Sources */,
+				79D906122E6ABD4800C202D2 /* UserGuideView.swift in Sources */,
+				79D906132E6ABD4800C202D2 /* MenuItemRow.swift in Sources */,
+				79D906142E6ABD4800C202D2 /* MenuItemType.swift in Sources */,
 				7972842F2E587417000842BE /* DetailedInfoSectionView.swift in Sources */,
 				4E618D2CB3A72FAA015CBD99 /* ContentView.swift in Sources */,
 				3EFDF2053CD3A6B58C54AA8E /* MiniProteinViewer.swift in Sources */,

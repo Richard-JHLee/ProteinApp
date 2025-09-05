@@ -4,11 +4,41 @@ import UIKit
 
 // MARK: - Mini 3D Protein Viewer
 
-struct MiniProteinViewer: UIViewRepresentable {
+struct MiniProteinViewer: View {
     let pdbId: String
     let category: ProteinCategory
-    @State private var structure: PDBStructure? = nil
     @State private var isLoading = true
+    
+    var body: some View {
+        ZStack {
+            MiniProteinViewerRepresentable(
+                pdbId: pdbId,
+                category: category,
+                isLoading: $isLoading
+            )
+            
+            if isLoading {
+                VStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                    Text("Loading...")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemGray6).opacity(0.8))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+    }
+}
+
+struct MiniProteinViewerRepresentable: UIViewRepresentable {
+    let pdbId: String
+    let category: ProteinCategory
+    @Binding var isLoading: Bool
+    @State private var structure: PDBStructure? = nil
     
     func makeUIView(context: Context) -> SCNView {
         let view = SCNView()

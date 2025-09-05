@@ -9,6 +9,7 @@ struct InfoSheet: View {
     @State private var proteinStructure: PDBStructure? = nil
     @State private var isLoadingStructure = false
     @State private var structureError: String? = nil
+    @State private var showingSideMenu: Bool = false
 
     init(protein: ProteinInfo, onProteinSelected: ((String) -> Void)? = nil) {
         self.protein = protein
@@ -124,9 +125,19 @@ struct InfoSheet: View {
             }
         }
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: { showingSideMenu = true }) {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.title2)
+                        .foregroundColor(.primary)
+                }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Done") { dismiss() }
             }
+        }
+        .sheet(isPresented: $showingSideMenu) {
+            SideMenuView()
         }
         .onChange(of: showingProteinView) { newValue in
             if newValue && proteinStructure == nil {
