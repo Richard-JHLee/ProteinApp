@@ -1,38 +1,52 @@
 import SwiftUI
 
 struct SideMenuView: View {
-    @Environment(\.dismiss) private var dismiss
+    @Binding var isPresented: Bool
     @State private var selectedItem: MenuItemType? = nil
     @State private var showingDetailView = false
+    @State private var isProcessing = false // 중복 탭 방지
+    
+    init(isPresented: Binding<Bool> = .constant(false)) {
+        self._isPresented = isPresented
+    }
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // 헤더
-                menuHeader
-                
-                // 메뉴 아이템 리스트
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(MenuItemType.allCases, id: \.self) { item in
-                            MenuItemRow(
+        VStack(spacing: 0) {
+            // 헤더
+            menuHeader
+            
+            // 메뉴 아이템 리스트
+            ScrollView {
+                LazyVStack(spacing: 8) {
+                    ForEach(MenuItemType.allCases, id: \.self) { item in
+                                                    MenuItemRow(
                                 item: item,
                                 isSelected: selectedItem == item
                             ) {
+                                guard !isProcessing else { return }
+                                isProcessing = true
                                 selectedItem = item
                                 showingDetailView = true
+                                // 메뉴 아이템 선택 시 사이드 메뉴 닫기
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    isPresented = false
+                                }
+                                // 애니메이션 완료 후 처리 상태 리셋
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                    isProcessing = false
+                                }
                             }
-                        }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 20)
                 }
-                
-                // 하단 라이센스 정보
-                licenseFooter
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
             }
-            .navigationBarHidden(true)
+            
+            // 하단 라이센스 정보
+            licenseFooter
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground))
         .sheet(isPresented: $showingDetailView) {
             if let item = selectedItem {
                 MenuDetailView(item: item)
@@ -62,14 +76,25 @@ struct SideMenuView: View {
                 Spacer()
                 
                 // 닫기 버튼
-                Button(action: { dismiss() }) {
+                Button(action: { 
+                    guard !isProcessing else { return }
+                    isProcessing = true
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isPresented = false
+                    }
+                    // 애니메이션 완료 후 처리 상태 리셋
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        isProcessing = false
+                    }
+                }) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title2)
                         .foregroundColor(.secondary)
                 }
+                .disabled(isProcessing)
             }
             .padding(.horizontal, 20)
-            .padding(.top, 20)
+            .padding(.top, 8) // Safe Area 고려하여 조정
             
             // 구분선
             Divider()

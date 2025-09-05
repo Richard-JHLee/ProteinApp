@@ -995,6 +995,9 @@ struct ProteinSceneContainer: View {
     @State private var isRendering3D: Bool = false
     @State private var renderingProgress: String = ""
     
+    // Side menu state
+    @State private var showingSideMenu: Bool = false
+    
     // Viewer Mode UI state
     @State private var activePanel: BottomPanel = .none
     @AppStorage("highlightAllChains") private var highlightAllChains: Bool = false
@@ -1022,9 +1025,12 @@ struct ProteinSceneContainer: View {
                         // Info mode header
                         HStack {
                             Button(action: {
-                                // Back to previous screen action
+                                // 사이드 메뉴 표시 (애니메이션과 함께)
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    showingSideMenu = true
+                                }
                             }) {
-                                Image(systemName: "chevron.left")
+                                Image(systemName: "line.3.horizontal")
                                     .font(.title2)
                                     .foregroundColor(.primary)
                             }
@@ -1237,6 +1243,29 @@ struct ProteinSceneContainer: View {
                     Color.clear.frame(height: 0)
                 }
                 .ignoresSafeArea(.container, edges: .bottom) // 하단만 무시
+                .overlay(
+                    // 사이드 메뉴 오버레이
+                    Group {
+                        if showingSideMenu {
+                            ZStack {
+                                // 배경 오버레이
+                                Color.black.opacity(0.3)
+                                    .ignoresSafeArea()
+                                    .onTapGesture {
+                                        withAnimation(.easeInOut(duration: 0.3)) {
+                                            showingSideMenu = false
+                                        }
+                                    }
+                                
+                                // 사이드 메뉴 (전체 화면)
+                                SideMenuView(isPresented: $showingSideMenu)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .background(Color(.systemBackground))
+                                    .transition(.move(edge: .leading))
+                            }
+                        }
+                    }
+                )
             }
             
             // 3D Rendering Loading Overlay
