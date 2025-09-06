@@ -1600,12 +1600,16 @@ struct ProteinSceneContainer: View {
                     // Interactive buttons
                     HStack(spacing: 12) {
                         Button(action: {
-                            // Toggle chain highlight
+                            // Toggle chain highlight - 즉시 UI 피드백
                             if highlightedChains.contains(chain) {
                                 highlightedChains.remove(chain)
                             } else {
                                 highlightedChains.insert(chain)
                             }
+                            
+                            // Haptic feedback for immediate response
+                            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                            impactFeedback.impactOccurred()
                         }) {
                             HStack {
                                 Image(systemName: highlightedChains.contains(chain) ? "highlighter.fill" : "highlighter")
@@ -2652,20 +2656,36 @@ struct ProteinSceneView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: SCNView, context: Context) {
-        // 디바운싱으로 무한 루프 방지 (0.1초 이내 중복 호출 방지)
-        let currentTime = Date().timeIntervalSince1970
-        if currentTime - context.coordinator.lastUpdateTime < 0.1 {
-            return
+        // 실제 변경된 경우에만 빌드 (성능 최적화)
+        let structureChanged = context.coordinator.lastStructure?.atoms.count != structure?.atoms.count
+        let styleChanged = context.coordinator.lastStyle != style
+        let colorModeChanged = context.coordinator.lastColorMode != colorMode
+        let chainsChanged = context.coordinator.lastHighlightedChains != highlightedChains
+        let needsRebuild = structureChanged || styleChanged || colorModeChanged || chainsChanged
+        
+        if needsRebuild {
+            print("🔧 3D 구조 변경 감지 - 한 번만 빌드")
+            
+            // Loading 시작
+            DispatchQueue.main.async {
+                self.isRendering3D?.wrappedValue = true
+                if chainsChanged {
+                    self.renderingProgress?.wrappedValue = "Updating highlights..."
+                } else {
+                    self.renderingProgress?.wrappedValue = "Updating 3D structure..."
+                }
+            }
+            
+            rebuild(view: uiView)
+            
+            // 현재 상태 저장
+            context.coordinator.lastStructure = structure
+            context.coordinator.lastStyle = style
+            context.coordinator.lastColorMode = colorMode
+            context.coordinator.lastHighlightedChains = highlightedChains
         }
-        context.coordinator.lastUpdateTime = currentTime
         
-        // Always rebuild for now to maintain existing functionality
-        // Focus feature is disabled by default for safety
-        rebuild(view: uiView)
-        
-        // Focus functionality will be added later when needed
-        // For now, just maintain existing functionality
-        
+        // autoRotate는 별도 처리 (빌드와 무관)
         if autoRotate {
             let rotateAction = SCNAction.rotateBy(x: 0, y: CGFloat.pi * 2, z: 0, duration: 8.0)
             let repeatAction = SCNAction.repeatForever(rotateAction)
@@ -2757,11 +2777,44 @@ struct ProteinSceneView: UIViewRepresentable {
     private func createProteinNode(from structure: PDBStructure) -> SCNNode {
         let rootNode = SCNNode()
         
-        print("Creating \(structure.atoms.count) atoms...")
+        // Performance optimization settings
+        let maxAtomsLimit = UserDefaults.standard.integer(forKey: "maxAtomsLimit")
+        let enableOptimization = UserDefaults.standard.bool(forKey: "enableOptimization")
+        let samplingRatio = UserDefaults.standard.double(forKey: "samplingRatio")
+        
+        // Use default values if not set
+        let effectiveMaxAtoms = maxAtomsLimit > 0 ? maxAtomsLimit : 2000
+        let effectiveSamplingRatio = samplingRatio > 0 ? samplingRatio : 0.12
+        
+        print("🔧 Performance settings: maxAtoms=\(effectiveMaxAtoms), optimization=\(enableOptimization), sampling=\(effectiveSamplingRatio)")
+        
+        // Apply optimization if enabled
+        let atomsToRender: [Atom]
+        if enableOptimization && structure.atoms.count > effectiveMaxAtoms {
+            print("🔧 Applying optimization: \(structure.atoms.count) atoms → max \(effectiveMaxAtoms)")
+            
+            // Proportional sampling to maintain overall shape
+            let chainAtoms = Dictionary(grouping: structure.atoms) { $0.chain }
+            let totalAtoms = structure.atoms.count
+            let samplingRatio = Double(effectiveMaxAtoms) / Double(totalAtoms)
+            
+            var proportionalAtoms: [Atom] = []
+            for (chainId, atoms) in chainAtoms {
+                let targetCount = Int(Double(atoms.count) * samplingRatio)
+                let selectedAtoms = sampleAtomsEvenly(atoms, targetCount: targetCount)
+                proportionalAtoms.append(contentsOf: selectedAtoms)
+                print("🔧 Chain \(chainId): \(atoms.count) → \(selectedAtoms.count) atoms (\(String(format: "%.1f", Double(selectedAtoms.count) / Double(atoms.count) * 100))%)")
+            }
+            atomsToRender = proportionalAtoms
+        } else {
+            atomsToRender = structure.atoms
+        }
+        
+        print("Creating \(atomsToRender.count) atoms...")
         
         // Create atoms with progress updates
-        let totalAtoms = structure.atoms.count
-        for (index, atom) in structure.atoms.enumerated() {
+        let totalAtoms = atomsToRender.count
+        for (index, atom) in atomsToRender.enumerated() {
             let atomNode = createAtomNode(atom)
             rootNode.addChildNode(atomNode)
             
@@ -2777,12 +2830,18 @@ struct ProteinSceneView: UIViewRepresentable {
             }
         }
         
-        print("Creating \(structure.bonds.count) bonds...")
+        // Filter bonds to only include those between rendered atoms
+        let renderedAtomIds = Set(atomsToRender.map { $0.id })
+        let filteredBonds = structure.bonds.filter { bond in
+            renderedAtomIds.contains(bond.atomA) && renderedAtomIds.contains(bond.atomB)
+        }
+        
+        print("Creating \(filteredBonds.count) bonds...")
         
         // Create bonds with progress updates
-        let totalBonds = structure.bonds.count
-        for (index, bond) in structure.bonds.enumerated() {
-            let bondNode = createBondNode(bond, atoms: structure.atoms)
+        let totalBonds = filteredBonds.count
+        for (index, bond) in filteredBonds.enumerated() {
+            let bondNode = createBondNode(bond, atoms: atomsToRender)
             rootNode.addChildNode(bondNode)
             
             // Update progress every 100 bonds or at the end
@@ -2798,6 +2857,25 @@ struct ProteinSceneView: UIViewRepresentable {
         }
         
         return rootNode
+    }
+    
+    // Helper function for proportional sampling
+    private func sampleAtomsEvenly(_ atoms: [Atom], targetCount: Int) -> [Atom] {
+        if atoms.count <= targetCount {
+            return atoms
+        }
+        
+        let step = Double(atoms.count) / Double(targetCount)
+        var sampledAtoms: [Atom] = []
+        
+        for i in 0..<targetCount {
+            let index = Int(Double(i) * step)
+            if index < atoms.count {
+                sampledAtoms.append(atoms[index])
+            }
+        }
+        
+        return sampledAtoms
     }
     
     // Improved bounding box calculation
@@ -3215,6 +3293,9 @@ struct ProteinSceneView: UIViewRepresentable {
     class Coordinator: NSObject {
         var parent: ProteinSceneView
         var lastStructure: PDBStructure?
+        var lastStyle: RenderStyle?
+        var lastColorMode: ColorMode?
+        var lastHighlightedChains: Set<String> = []
         var lastFocusElement: FocusedElement?
         var lastUpdateTime: TimeInterval = 0
         

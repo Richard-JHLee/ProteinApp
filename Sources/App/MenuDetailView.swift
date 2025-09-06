@@ -44,17 +44,226 @@ struct MenuDetailView: View {
 // MARK: - Additional Views for Menu Items
 
 struct SettingsView: View {
+    // Performance optimization settings
+    @AppStorage("maxAtomsLimit") private var maxAtomsLimit: Int = 2000
+    @AppStorage("enableOptimization") private var enableOptimization: Bool = true
+    @AppStorage("samplingRatio") private var samplingRatio: Double = 0.12
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Settings")
-                .font(.title)
-                .fontWeight(.bold)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                // Performance Settings Section
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("성능 최적화")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text("대용량 단백질 구조의 렌더링 성능을 조절할 수 있습니다.")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    // Enable Optimization Toggle
+                    VStack(alignment: .leading, spacing: 8) {
+                        Toggle("성능 최적화 활성화", isOn: $enableOptimization)
+                            .font(.headline)
+                        
+                        Text("활성화하면 대용량 단백질의 원자 수를 제한하여 성능을 향상시킵니다.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+                    
+                    if enableOptimization {
+                        // Max Atoms Limit Slider
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("최대 원자 수")
+                                    .font(.headline)
+                                
+                                Spacer()
+                                
+                                Text("\(maxAtomsLimit)")
+                                    .font(.headline)
+                                    .foregroundColor(.blue)
+                            }
+                            
+                            Slider(value: Binding(
+                                get: { Double(maxAtomsLimit) },
+                                set: { maxAtomsLimit = Int($0) }
+                            ), in: 500...5000, step: 100)
+                            
+                            HStack {
+                                Text("500")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                Spacer()
+                                
+                                Text("빠른 렌더링")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                Spacer()
+                                
+                                Text("5000")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                Spacer()
+                                
+                                Text("고품질")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Text("원자 수가 많을수록 렌더링 품질이 높아지지만 성능이 저하됩니다.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(8)
+                        
+                        // Sampling Ratio Slider
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("샘플링 비율")
+                                    .font(.headline)
+                                
+                                Spacer()
+                                
+                                Text("\(String(format: "%.1f", samplingRatio * 100))%")
+                                    .font(.headline)
+                                    .foregroundColor(.blue)
+                            }
+                            
+                            Slider(value: $samplingRatio, in: 0.05...0.5, step: 0.01)
+                            
+                            HStack {
+                                Text("5%")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                Spacer()
+                                
+                                Text("빠른 처리")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                Spacer()
+                                
+                                Text("50%")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                Spacer()
+                                
+                                Text("고품질")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Text("각 체인에서 샘플링할 원자의 비율을 설정합니다.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(8)
+                    }
+                }
+                
+                // Performance Info Section
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("성능 가이드")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        PerformanceInfoItem(
+                            icon: "speedometer",
+                            title: "빠른 렌더링",
+                            description: "원자 수 500-1000개, 샘플링 5-10%",
+                            color: .green
+                        )
+                        
+                        PerformanceInfoItem(
+                            icon: "balance",
+                            title: "균형",
+                            description: "원자 수 1500-2500개, 샘플링 10-20%",
+                            color: .orange
+                        )
+                        
+                        PerformanceInfoItem(
+                            icon: "star.fill",
+                            title: "고품질",
+                            description: "원자 수 3000-5000개, 샘플링 20-50%",
+                            color: .blue
+                        )
+                    }
+                }
+                
+                // Reset Button
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("설정 초기화")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Button(action: {
+                        resetToDefaults()
+                    }) {
+                        HStack {
+                            Image(systemName: "arrow.clockwise")
+                            Text("기본값으로 초기화")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(.systemRed).opacity(0.1))
+                        .foregroundColor(.red)
+                        .cornerRadius(8)
+                    }
+                }
+            }
+            .padding()
+        }
+    }
+    
+    private func resetToDefaults() {
+        maxAtomsLimit = 2000
+        enableOptimization = true
+        samplingRatio = 0.12
+    }
+}
+
+struct PerformanceInfoItem: View {
+    let icon: String
+    let title: String
+    let description: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(color)
+                .frame(width: 24, height: 24)
             
-            Text("앱 설정 기능은 추후 업데이트에서 제공될 예정입니다.")
-                .font(.body)
-                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
         }
         .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(8)
     }
 }
 
