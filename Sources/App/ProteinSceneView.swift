@@ -997,6 +997,8 @@ struct ProteinSceneContainer: View {
     
     // Side menu state
     @State private var showingSideMenu: Bool = false
+    @State private var showingDetailView = false
+    @State private var selectedMenuItem: MenuItemType? = nil
     
     // Viewer Mode UI state
     @State private var activePanel: BottomPanel = .none
@@ -1258,14 +1260,26 @@ struct ProteinSceneContainer: View {
                                     }
                                 
                                 // 사이드 메뉴 (전체 화면)
-                                SideMenuView(isPresented: $showingSideMenu)
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .background(Color(.systemBackground))
-                                    .transition(.move(edge: .leading))
+                                SideMenuView(
+                                    isPresented: $showingSideMenu,
+                                    onItemSelected: { item in
+                                        selectedMenuItem = item
+                                        showingDetailView = true
+                                        showingSideMenu = false
+                                    }
+                                )
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(Color(.systemBackground))
+                                .transition(.move(edge: .leading))
                             }
                         }
                     }
                 )
+            }
+            .sheet(isPresented: $showingDetailView) {
+                if let item = selectedMenuItem {
+                    MenuDetailView(item: item)
+                }
             }
             
             // 3D Rendering Loading Overlay
