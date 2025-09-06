@@ -91,17 +91,11 @@ struct InfoSheet: View {
                                 .scaleEffect(1.2)
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             
-                            Text("Loading 3D Structure...")
+                            Text(structureLoadingProgress.isEmpty ? "Loading 3D Structure..." : structureLoadingProgress)
                                 .font(.headline)
                                 .foregroundColor(.white)
-                            
-                            if !structureLoadingProgress.isEmpty {
-                                Text(structureLoadingProgress)
-                                    .font(.subheadline)
-                                    .foregroundColor(.white.opacity(0.8))
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal)
-                            }
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
                         }
                     )
             }

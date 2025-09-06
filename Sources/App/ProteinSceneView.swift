@@ -1359,18 +1359,12 @@ struct ProteinSceneContainer: View {
                                 .scaleEffect(1.2)
                                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             
-                            Text("Loading 3D Structure...")
+                            let progressText = externalIs3DStructureLoading ? externalStructureLoadingProgress : renderingProgress
+                            Text(progressText.isEmpty ? "Loading 3D Structure..." : progressText)
                                 .font(.headline)
                                 .foregroundColor(.white)
-                            
-                            let progressText = externalIs3DStructureLoading ? externalStructureLoadingProgress : renderingProgress
-                            if !progressText.isEmpty {
-                                Text(progressText)
-                                    .font(.subheadline)
-                                    .foregroundColor(.white.opacity(0.8))
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal)
-                            }
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
                         }
                     )
             }
