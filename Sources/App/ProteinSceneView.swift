@@ -1276,11 +1276,6 @@ struct ProteinSceneContainer: View {
                     }
                 )
             }
-            .sheet(isPresented: $showingDetailView) {
-                if let item = selectedMenuItem {
-                    MenuDetailView(item: item)
-                }
-            }
             
             // 3D Rendering Loading Overlay
             if isRendering3D {
@@ -1308,6 +1303,19 @@ struct ProteinSceneContainer: View {
             }
         }
         .background(Color(.systemBackground))
+        .sheet(
+            isPresented: $showingDetailView,
+            onDismiss: {
+                // Sheet가 닫힐 때 사이드 메뉴 다시 열기
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showingSideMenu = true
+                }
+            }
+        ) {
+            if let item = selectedMenuItem {
+                MenuDetailView(item: item)
+            }
+        }
     }
     
     // Content functions
