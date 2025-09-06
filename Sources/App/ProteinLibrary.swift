@@ -3660,33 +3660,53 @@ struct ProteinLibraryView: View {
                                     }
                                 }
                                 
-                                // 단백질 리스트
-                                ForEach(displayedProteins) { protein in
-                                    ProteinRowCard(
-                                        protein: protein,
-                                        isFavorite: database.favorites.contains(protein.id),
-                                        onSelect: {
-                                            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                                            impactFeedback.impactOccurred()
-                                            
-                                            // 즉시 단백질 정보 표시 (로딩 제거)
-                                            selectedProtein = protein
-                                            showingInfoSheet = true
-                                        },
-                                        onFavoriteToggle: {
-                                            database.toggleFavorite(protein.id)
-                                            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                                            impactFeedback.impactOccurred()
+                                // 단백질 리스트 영역 (로딩 오버레이 포함)
+                                ZStack {
+                                    VStack(spacing: 16) {
+                                        // 단백질 리스트
+                                        ForEach(displayedProteins) { protein in
+                                            ProteinRowCard(
+                                                protein: protein,
+                                                isFavorite: database.favorites.contains(protein.id),
+                                                onSelect: {
+                                                    let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                                                    impactFeedback.impactOccurred()
+                                                    
+                                                    // 즉시 단백질 정보 표시 (로딩 제거)
+                                                    selectedProtein = protein
+                                                    showingInfoSheet = true
+                                                },
+                                                onFavoriteToggle: {
+                                                    database.toggleFavorite(protein.id)
+                                                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                                    impactFeedback.impactOccurred()
+                                                }
+                                            )
                                         }
-                                    )
-                                }
-                                
-                                // Load More Button
-                                if hasMoreData {
-                                    LoadMoreButton(isLoading: isLoadingMore) {
-                                        loadMoreProteins()
+                                        
+                                        // Load More Button
+                                        if hasMoreData {
+                                            LoadMoreButton(isLoading: isLoadingMore) {
+                                                loadMoreProteins()
+                                            }
+                                            .padding(.top, 8)
+                                        }
                                     }
-                                    .padding(.top, 8)
+                                    
+                                    // 로딩 오버레이 (카테고리 선택 시 빈 화면 방지)
+                                    if database.isLoading {
+                                        VStack(spacing: 12) {
+                                            ProgressView()
+                                                .scaleEffect(1.2)
+                                                .tint(.blue)
+                                            
+                                            Text("Loading \(selectedCategory?.rawValue ?? "") proteins...")
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .background(Color(.systemBackground).opacity(0.8))
+                                    }
                                 }
                             }
                         }
