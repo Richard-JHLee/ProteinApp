@@ -970,6 +970,19 @@ struct ProteinSceneContainer: View {
     let proteinName: String?
     let onProteinLibraryTap: (() -> Void)?
     
+    // External loading state (optional)
+    @Binding var externalIsProteinLoading: Bool
+    @Binding var externalProteinLoadingProgress: String
+    
+    init(structure: PDBStructure?, proteinId: String?, proteinName: String?, onProteinLibraryTap: (() -> Void)? = nil, externalIsProteinLoading: Binding<Bool> = .constant(false), externalProteinLoadingProgress: Binding<String> = .constant("")) {
+        self.structure = structure
+        self.proteinId = proteinId
+        self.proteinName = proteinName
+        self.onProteinLibraryTap = onProteinLibraryTap
+        self._externalIsProteinLoading = externalIsProteinLoading
+        self._externalProteinLoadingProgress = externalProteinLoadingProgress
+    }
+    
     @State private var selectedStyle: RenderStyle = .spheres
     @State private var selectedColorMode: ColorMode = .element
     @State private var selectedTab: InfoTabType = .overview
@@ -999,6 +1012,10 @@ struct ProteinSceneContainer: View {
     @State private var showingSideMenu: Bool = false
     @State private var showingDetailView = false
     @State private var selectedMenuItem: MenuItemType? = nil
+    
+    // Protein loading state
+    @State private var isProteinLoading: Bool = false
+    @State private var proteinLoadingProgress: String = ""
     
     // Viewer Mode UI state
     @State private var activePanel: BottomPanel = .none
@@ -1301,6 +1318,32 @@ struct ProteinSceneContainer: View {
                         }
                     )
             }
+            
+            // Protein Loading Overlay
+            if isProteinLoading || externalIsProteinLoading {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .overlay(
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            
+                            Text("Loading Protein Data...")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            let progressText = externalIsProteinLoading ? externalProteinLoadingProgress : proteinLoadingProgress
+                            if !progressText.isEmpty {
+                                Text(progressText)
+                                    .font(.subheadline)
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                            }
+                        }
+                    )
+            }
         }
         .background(Color(.systemBackground))
         .sheet(
@@ -1316,6 +1359,17 @@ struct ProteinSceneContainer: View {
                 MenuDetailView(item: item)
             }
         }
+    }
+    
+    // MARK: - Protein Loading Functions
+    func startProteinLoading(progress: String = "Loading protein data...") {
+        isProteinLoading = true
+        proteinLoadingProgress = progress
+    }
+    
+    func stopProteinLoading() {
+        isProteinLoading = false
+        proteinLoadingProgress = ""
     }
     
     // Content functions

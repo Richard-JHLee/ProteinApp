@@ -3296,6 +3296,8 @@ struct ProteinLibraryView: View {
     @State private var showingCustomSearchSheet = false
     @State private var showingInfoSheet = false
     @State private var selectedProtein: ProteinInfo? = nil
+    @State private var isProteinLoading = false
+    @State private var proteinLoadingProgress = ""
     @Environment(\.dismiss) private var dismiss
     
     let onProteinSelected: (String) -> Void
@@ -3672,9 +3674,22 @@ struct ProteinLibraryView: View {
                                                     let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
                                                     impactFeedback.impactOccurred()
                                                     
-                                                    // 즉시 단백질 정보 표시 (로딩 제거)
+                                                    // 단백질 로딩 시작
+                                                    isProteinLoading = true
+                                                    proteinLoadingProgress = "Loading \(protein.id)..."
+                                                    
+                                                    // 단백질 정보 표시
                                                     selectedProtein = protein
                                                     showingInfoSheet = true
+                                                    
+                                                    // 로딩 완료 시뮬레이션 (실제로는 단백질 데이터 로드 완료 시)
+                                                    Task {
+                                                        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1초
+                                                        await MainActor.run {
+                                                            isProteinLoading = false
+                                                            proteinLoadingProgress = ""
+                                                        }
+                                                    }
                                                 },
                                                 onFavoriteToggle: {
                                                     database.toggleFavorite(protein.id)
@@ -3784,6 +3799,31 @@ struct ProteinLibraryView: View {
         .overlay {
             if showingLoadingPopup || database.isLoading {
                 LoadingPopup()
+            }
+            
+            // Protein Loading Overlay
+            if isProteinLoading {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .overlay(
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            
+                            Text("Loading Protein Data...")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            if !proteinLoadingProgress.isEmpty {
+                                Text(proteinLoadingProgress)
+                                    .font(.subheadline)
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                            }
+                        }
+                    )
             }
         }
         .sheet(isPresented: $showingCustomSearchSheet) {

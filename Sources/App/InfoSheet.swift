@@ -10,6 +10,8 @@ struct InfoSheet: View {
     @State private var isLoadingStructure = false
     @State private var structureError: String? = nil
     @State private var showingSideMenu: Bool = false
+    @State private var isProteinLoading = false
+    @State private var proteinLoadingProgress = ""
 
     init(protein: ProteinInfo, onProteinSelected: ((String) -> Void)? = nil) {
         self.protein = protein
@@ -69,8 +71,24 @@ struct InfoSheet: View {
                     structure: structure,
                     proteinId: protein.id,
                     proteinName: protein.name,
-                    onProteinLibraryTap: nil // InfoSheet에서는 Protein Library 기능 불필요
+                    onProteinLibraryTap: nil, // InfoSheet에서는 Protein Library 기능 불필요
+                    externalIsProteinLoading: $isProteinLoading,
+                    externalProteinLoadingProgress: $proteinLoadingProgress
                 )
+                .onAppear {
+                    // 단백질 로딩 시작
+                    isProteinLoading = true
+                    proteinLoadingProgress = "Loading \(protein.id)..."
+                    
+                    // 로딩 완료 시뮬레이션 (실제로는 단백질 데이터 로드 완료 시)
+                    Task {
+                        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1초
+                        await MainActor.run {
+                            isProteinLoading = false
+                            proteinLoadingProgress = ""
+                        }
+                    }
+                }
             } else if isLoadingStructure {
                 VStack(spacing: 20) {
                     ProgressView("Loading protein structure...")
