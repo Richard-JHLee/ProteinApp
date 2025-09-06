@@ -2765,6 +2765,13 @@ class ProteinDatabase: ObservableObject {
         }
         
         if let category = category {
+            // Storage 카테고리 특별 디버깅
+            if category == .storage {
+                print("🔍 STORAGE loadProteins 함수 진입!")
+                print("   - category: \(category.rawValue)")
+                print("   - refresh: \(refresh)")
+            }
+            
             // 특정 카테고리의 첫 페이지 로드 (실제 API 데이터 우선, 실패 시 샘플 데이터 유지)
             print("🔍 \(category.rawValue) 카테고리 실제 데이터 로딩 시작...")
             
@@ -3694,9 +3701,27 @@ struct ProteinLibraryView: View {
         .onChange(of: selectedCategory) { newCategory in 
             resetPagination()
             print("Category changed to: \(newCategory?.rawValue ?? "All")")
+            
+            // Storage 카테고리 특별 디버깅
+            if newCategory == .storage {
+                print("🔍 STORAGE 카테고리 선택 감지!")
+                print("   - onChange 트리거됨")
+                print("   - loadProteins 호출 예정")
+            }
+            
             Task {
+                if newCategory == .storage {
+                    print("🔍 STORAGE loadProteins 호출 시작...")
+                }
                 await database.loadProteins(for: newCategory)
                 print("Loaded proteins count: \(database.proteins.count)")
+                
+                if newCategory == .storage {
+                    print("🔍 STORAGE loadProteins 완료!")
+                    print("   - 전체 단백질 수: \(database.proteins.count)")
+                    let storageProteins = database.proteins.filter { $0.category == .storage }
+                    print("   - Storage 단백질 수: \(storageProteins.count)")
+                }
             }
         }
         .onChange(of: showingFavoritesOnly) { _ in resetPagination() }
