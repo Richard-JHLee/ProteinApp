@@ -1302,27 +1302,36 @@ class PDBAPIService {
         ]
     }
     
-    // 저장 단백질 검색 쿼리 (개선된 버전)
+    // 저장 단백질 검색 쿼리 (PDB API 검증된 개선 버전)
     private func buildStorageQuery() -> [String: Any] {
         return [
             "type": "group",
             "logical_operator": "or",
             "nodes": [
-                // 공식 키워드 기반 (가장 정확)
-                buildTextSearchNode("struct_keywords.pdbx_keywords", "STORAGE PROTEIN", caseSensitive: false),
-                buildTextSearchNode("struct_keywords.pdbx_keywords", "METAL BINDING", caseSensitive: false),
-                buildTextSearchNode("struct_keywords.pdbx_keywords", "LIGAND BINDING", caseSensitive: false),
-                // 대표적인 저장 단백질들
+                // 1단계: 검증된 단백질명 (높은 정확도, PDB API 테스트 완료)
                 buildTextSearchNode("struct.title", "ferritin", caseSensitive: false),
                 buildTextSearchNode("struct.title", "albumin", caseSensitive: false),
+                buildTextSearchNode("struct.title", "casein", caseSensitive: false),
+                buildTextSearchNode("struct.title", "ovalbumin", caseSensitive: false),
+                buildTextSearchNode("struct.title", "lactoferrin", caseSensitive: false),
+                buildTextSearchNode("struct.title", "vitellogenin", caseSensitive: false),
                 buildTextSearchNode("struct.title", "transferrin", caseSensitive: false),
                 buildTextSearchNode("struct.title", "ceruloplasmin", caseSensitive: false),
-                // 기능적 키워드
+                
+                // 2단계: 일반적 키워드 (중간 정확도, PDB API 테스트 완료)
                 buildTextSearchNode("struct.title", "storage", caseSensitive: false),
                 buildTextSearchNode("struct.title", "binding", caseSensitive: false),
                 buildTextSearchNode("struct.title", "reserve", caseSensitive: false),
                 buildTextSearchNode("struct.title", "depot", caseSensitive: false),
-                buildTextSearchNode("struct.title", "accumulation", caseSensitive: false)
+                buildTextSearchNode("struct.title", "accumulation", caseSensitive: false),
+                buildTextSearchNode("struct.title", "sequestration", caseSensitive: false),
+                buildTextSearchNode("struct.title", "retention", caseSensitive: false),
+                
+                // 3단계: 공식 키워드 (낮은 정확도, 백업용)
+                buildTextSearchNode("struct_keywords.pdbx_keywords", "STORAGE PROTEIN", caseSensitive: false),
+                buildTextSearchNode("struct_keywords.pdbx_keywords", "METAL BINDING", caseSensitive: false),
+                buildTextSearchNode("struct_keywords.pdbx_keywords", "LIGAND BINDING", caseSensitive: false),
+                buildTextSearchNode("struct_keywords.pdbx_keywords", "PLANT PROTEIN", caseSensitive: false)
             ]
         ]
     }
@@ -1694,6 +1703,142 @@ class PDBAPIService {
         return ([], 0)
     }
     
+    // Storage 카테고리 전용 fallback 검색 (PDB API 검증된 검색어 사용)
+    private func searchStorageFallback(limit: Int, skip: Int = 0) async throws -> ([String], Int) {
+        print("🔄 Storage 전용 fallback 검색 시작... (skip: \(skip), limit: \(limit))")
+        
+        // 여러 단계의 fallback 검색 시도 (PDB API 테스트에서 검증된 검색어 사용)
+        let fallbackQueries: [[String: Any]] = [
+            // 1단계: 검증된 단백질명 기반 (높은 정확도)
+            [
+                "query": [
+                    "type": "group",
+                    "logical_operator": "or",
+                    "nodes": [
+                        [
+                            "type": "terminal",
+                            "service": "text",
+                            "parameters": [
+                                "attribute": "struct.title",
+                                "operator": "contains_words",
+                                "value": "ferritin"
+                            ]
+                        ] as [String: Any],
+                        [
+                            "type": "terminal",
+                            "service": "text",
+                            "parameters": [
+                                "attribute": "struct.title",
+                                "operator": "contains_words",
+                                "value": "albumin"
+                            ]
+                        ] as [String: Any],
+                        [
+                            "type": "terminal",
+                            "service": "text",
+                            "parameters": [
+                                "attribute": "struct.title",
+                                "operator": "contains_words",
+                                "value": "casein"
+                            ]
+                        ] as [String: Any]
+                    ]
+                ] as [String: Any],
+                "return_type": "entry",
+                "request_options": [
+                    "paginate": [
+                        "start": skip,
+                        "rows": limit
+                    ]
+                ]
+            ] as [String: Any],
+            
+            // 2단계: 일반적 키워드 기반 (중간 정확도)
+            [
+                "query": [
+                    "type": "group",
+                    "logical_operator": "or",
+                    "nodes": [
+                        [
+                            "type": "terminal",
+                            "service": "text",
+                            "parameters": [
+                                "attribute": "struct.title",
+                                "operator": "contains_words",
+                                "value": "storage"
+                            ]
+                        ] as [String: Any],
+                        [
+                            "type": "terminal",
+                            "service": "text",
+                            "parameters": [
+                                "attribute": "struct.title",
+                                "operator": "contains_words",
+                                "value": "binding"
+                            ]
+                        ] as [String: Any]
+                    ]
+                ] as [String: Any],
+                "return_type": "entry",
+                "request_options": [
+                    "paginate": [
+                        "start": skip,
+                        "rows": limit
+                    ]
+                ]
+            ] as [String: Any],
+            
+            // 3단계: 공식 키워드 기반 (낮은 정확도, 백업용)
+            [
+                "query": [
+                    "type": "group",
+                    "logical_operator": "or",
+                    "nodes": [
+                        [
+                            "type": "terminal",
+                            "service": "text",
+                            "parameters": [
+                                "attribute": "struct_keywords.pdbx_keywords",
+                                "operator": "contains_words",
+                                "value": "STORAGE PROTEIN"
+                            ]
+                        ] as [String: Any],
+                        [
+                            "type": "terminal",
+                            "service": "text",
+                            "parameters": [
+                                "attribute": "struct_keywords.pdbx_keywords",
+                                "operator": "contains_words",
+                                "value": "METAL BINDING"
+                            ]
+                        ] as [String: Any]
+                    ]
+                ] as [String: Any],
+                "return_type": "entry",
+                "request_options": [
+                    "paginate": [
+                        "start": skip,
+                        "rows": limit
+                    ]
+                ]
+            ] as [String: Any]
+        ]
+        
+        // 각 단계별로 시도
+        for (index, query) in fallbackQueries.enumerated() {
+            print("🔄 Storage fallback \(index + 1)단계 시도...")
+            let (identifiers, totalCount) = try await executeSearchQuery(query: query, description: "Storage fallback \(index + 1)")
+            
+            if identifiers.count > 0 {
+                print("✅ Storage fallback \(index + 1)단계 성공: \(identifiers.count)개, 전체: \(totalCount)개")
+                return (identifiers, totalCount)
+            }
+        }
+        
+        print("⚠️ 모든 Storage fallback 검색 실패")
+        return ([], 0)
+    }
+    
     // GraphQL을 통한 일괄 상세 정보 수집 (의도된 카테고리 정보 포함)
     private func fetchProteinDetails(batch: [String], intendedCategory: ProteinCategory? = nil) async throws -> [ProteinInfo] {
         guard !batch.isEmpty else { return [] }
@@ -2033,6 +2178,11 @@ class PDBAPIService {
             return try await searchStructuralFallback(limit: limit, skip: skip)
         }
         
+        // Storage 카테고리 전용 특별 처리 (PDB API 검증된 검색어 사용)
+        if category == .storage {
+            return try await searchStorageFallback(limit: limit, skip: skip)
+        }
+        
         // 더 포괄적인 검색을 위해 여러 필드에서 검색
         let simpleQuery: [String: Any] = [
             "query": [
@@ -2325,7 +2475,7 @@ class PDBAPIService {
         case .hormones:
             return ["insulin", "hormone", "growth", "cytokine", "signaling", "receptor", "factor", "regulator", "activator", "inhibitor"]
         case .storage:
-            return ["ferritin", "albumin", "storage", "binding", "carrier", "reserve", "depot", "accumulation", "sequestration", "retention"]
+            return ["ferritin", "albumin", "casein", "ovalbumin", "lactoferrin", "vitellogenin", "transferrin", "ceruloplasmin", "storage", "binding", "reserve", "depot", "accumulation", "sequestration", "retention", "metal", "iron", "calcium", "zinc"]
         case .receptors:
             return ["receptor", "gpcr", "neurotransmitter", "agonist", "antagonist", "ligand", "binding", "membrane", "signaling", "activation"]
         case .membrane:
