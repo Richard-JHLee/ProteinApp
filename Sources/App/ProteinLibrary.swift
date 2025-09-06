@@ -370,6 +370,13 @@ class PDBAPIService {
     func searchProteinsByCategory(category: ProteinCategory, limit: Int = 200, skip: Int = 0, customTerms: [String] = []) async throws -> ([String], Int) {
         print("🔍 [\(category.rawValue)] 카테고리 검색 시작 (limit: \(limit), skip: \(skip), custom terms: \(customTerms.count))")
         
+        // Storage 카테고리 특별 디버깅
+        if category == .storage {
+            print("🔍 STORAGE searchProteinsByCategory 시작:")
+            print("   - limit: \(limit), skip: \(skip)")
+            print("   - customTerms: \(customTerms)")
+        }
+        
         // 사용자 정의 검색어가 있으면 커스텀 쿼리 사용
         if !customTerms.isEmpty {
             print("🔍 [\(category.rawValue)] 사용자 정의 검색어로 검색 시도...")
@@ -503,8 +510,36 @@ class PDBAPIService {
     
     // 고급 검색 (카테고리별 전문 쿼리)
     private func performAdvancedSearch(category: ProteinCategory, limit: Int, skip: Int = 0) async throws -> ([String], Int) {
+        print("🔍 [\(category.rawValue)] 고급 검색 시작...")
+        
+        // Storage 카테고리 특별 디버깅
+        if category == .storage {
+            print("🔍 STORAGE performAdvancedSearch 시작:")
+            print("   - limit: \(limit), skip: \(skip)")
+        }
+        
         let query = buildAdvancedSearchQuery(category: category, limit: limit, skip: skip)
-        return try await executeSearchQuery(query: query, description: "고급 검색")
+        
+        // Storage 카테고리 쿼리 디버깅
+        if category == .storage {
+            print("🔍 STORAGE 고급 검색 쿼리:")
+            if let queryData = try? JSONSerialization.data(withJSONObject: query, options: .prettyPrinted),
+               let queryString = String(data: queryData, encoding: .utf8) {
+                print("   - 쿼리 내용: \(String(queryString.prefix(500)))...")
+            }
+        }
+        
+        let result = try await executeSearchQuery(query: query, description: "고급 검색")
+        
+        // Storage 카테고리 결과 디버깅
+        if category == .storage {
+            print("🔍 STORAGE 고급 검색 결과:")
+            print("   - 받은 ID 개수: \(result.0.count)")
+            print("   - 전체 개수: \(result.1)")
+            print("   - 첫 5개 ID: \(Array(result.0.prefix(5)))")
+        }
+        
+        return result
     }
     
     // 기본 검색 (카테고리 이름 기반)
@@ -675,6 +710,12 @@ class PDBAPIService {
     // Legacy 호환성을 위한 래퍼 함수 (페이지네이션 지원 추가)
     func searchProteins(category: ProteinCategory? = nil, limit: Int = 100, skip: Int = 0) async throws -> [ProteinInfo] {
         if let category = category {
+            // Storage 카테고리 특별 디버깅
+            if category == .storage {
+                print("🔍 STORAGE searchProteins 시작:")
+                print("   - limit: \(limit), skip: \(skip)")
+            }
+            
             // 새로운 2단계 파이프라인 사용 (페이지네이션 지원)
             // skip 매개변수를 API 호출에 올바르게 적용
             let (pdbIds, _) = try await searchProteinsByCategory(
@@ -685,11 +726,30 @@ class PDBAPIService {
             
             print("📄 페이지네이션 적용: skip=\(skip), limit=\(limit), 받은 결과=\(pdbIds.count)개")
             
+            // Storage 카테고리 특별 디버깅
+            if category == .storage {
+                print("🔍 STORAGE searchProteinsByCategory 결과:")
+                print("   - 받은 PDB ID 개수: \(pdbIds.count)")
+                print("   - 첫 5개 ID: \(Array(pdbIds.prefix(5)))")
+                if pdbIds.isEmpty {
+                    print("   - ⚠️ searchProteinsByCategory에서 빈 결과!")
+                }
+            }
+            
             // ⚠️ 중요: limit 개수만큼만 처리하여 정확한 페이지네이션 보장
             let limitedPdbIds = Array(pdbIds.prefix(limit))
             print("✂️ limit 적용: \(pdbIds.count)개 → \(limitedPdbIds.count)개로 제한")
             
-            return try await fetchProteinDetails(batch: limitedPdbIds, intendedCategory: category)
+            let proteinDetails = try await fetchProteinDetails(batch: limitedPdbIds, intendedCategory: category)
+            
+            // Storage 카테고리 최종 디버깅
+            if category == .storage {
+                print("🔍 STORAGE fetchProteinDetails 결과:")
+                print("   - 최종 단백질 개수: \(proteinDetails.count)")
+                print("   - 첫 3개 단백질: \(proteinDetails.prefix(3).map { "\($0.id): \($0.name)" })")
+            }
+            
+            return proteinDetails
         } else {
             // 전체 검색의 경우 기존 방식 유지 (성능상)
             return try await searchProteinsLegacy(limit: limit)
@@ -2785,9 +2845,22 @@ class ProteinDatabase: ObservableObject {
             
             print("📡 API 호출: skip=\(skip), limit=\(limit)")
             print("🗒 예상 로드 개수: \(limit)개 (해당 카테고리의 API 데이터만)")
+            print("🔍 Storage 카테고리 디버그: API 호출 시작...")
             let newProteins = try await apiService.searchProteins(category: category, limit: limit, skip: skip)
             print("✅ \(category.rawValue): \(newProteins.count)개 실제 단백질 로드 완료 (페이지 \(currentPage + 1))")
             print("🔍 받은 데이터 상세: \(newProteins.count)/\(limit) (샘플 데이터 제외)")
+            
+            // Storage 카테고리 특별 디버깅
+            if category == .storage {
+                print("🔍 STORAGE 디버그:")
+                print("   - API 응답 개수: \(newProteins.count)")
+                print("   - 요청한 개수: \(limit)")
+                print("   - 받은 단백질 ID들: \(newProteins.map { $0.id }.prefix(5))")
+                if newProteins.isEmpty {
+                    print("   - ⚠️ Storage API에서 빈 결과 반환!")
+                    print("   - searchProteins 함수 내부 로직 확인 필요")
+                }
+            }
             
             // API 데이터가 30개 미만이면 원인 디버깅
             if newProteins.count < limit {
