@@ -1642,7 +1642,7 @@ struct ProteinSceneContainer: View {
                             }
                         }) {
                             HStack {
-                                Image(systemName: highlightedChains.contains(chain) ? "highlighter.fill" : "highlighter")
+                                Image(systemName: highlightedChains.contains(chain) ? "pencil.and.outline" : "pencil")
                                 Text(highlightedChains.contains(chain) ? "Unhighlight" : "Highlight")
                             }
                             .font(.caption)
@@ -2823,18 +2823,18 @@ struct ProteinSceneView: UIViewRepresentable {
         
         // Performance optimization settings
         let maxAtomsLimit = UserDefaults.standard.integer(forKey: "maxAtomsLimit")
-        let enableOptimization = UserDefaults.standard.bool(forKey: "enableOptimization")
         let samplingRatio = UserDefaults.standard.double(forKey: "samplingRatio")
         
-        // Use default values if not set
+        // Use default values if not set - Always enable optimization by default
         let effectiveMaxAtoms = maxAtomsLimit > 0 ? maxAtomsLimit : 2000
         let effectiveSamplingRatio = samplingRatio > 0 ? samplingRatio : 0.12
+        let effectiveOptimization = true // Always enable optimization for better performance
         
-        print("🔧 Performance settings: maxAtoms=\(effectiveMaxAtoms), optimization=\(enableOptimization), sampling=\(effectiveSamplingRatio)")
+        print("🔧 Performance settings: maxAtoms=\(effectiveMaxAtoms), optimization=\(effectiveOptimization), sampling=\(effectiveSamplingRatio)")
         
         // Apply optimization if enabled
         let atomsToRender: [Atom]
-        if enableOptimization && structure.atoms.count > effectiveMaxAtoms {
+        if effectiveOptimization && structure.atoms.count > effectiveMaxAtoms {
             print("🔧 Applying optimization: \(structure.atoms.count) atoms → max \(effectiveMaxAtoms)")
             
             // Proportional sampling to maintain overall shape
