@@ -994,6 +994,9 @@ struct ProteinSceneContainer: View {
     @State private var showAdvancedControls = false
     @State private var showInfoBar = true
     
+    // Auto-switch to overview tab when 3D structure is loading
+    @State private var shouldSwitchToOverview = false
+    
     // Tab loading state
     @State private var isTabLoading: Bool = false
     @State private var tabLoadingProgress: String = ""
@@ -1381,6 +1384,23 @@ struct ProteinSceneContainer: View {
         ) {
             if let item = selectedMenuItem {
                 MenuDetailView(item: item)
+            }
+        }
+        .onChange(of: externalIs3DStructureLoading) { isLoading in
+            if isLoading {
+                // 3D structure 로딩이 시작되면 overview tab으로 자동 전환
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    selectedTab = .overview
+                    shouldSwitchToOverview = true
+                }
+            }
+        }
+        .onChange(of: shouldSwitchToOverview) { shouldSwitch in
+            if shouldSwitch {
+                // overview tab으로 전환 완료 후 플래그 리셋
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    shouldSwitchToOverview = false
+                }
             }
         }
     }
