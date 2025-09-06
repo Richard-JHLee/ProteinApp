@@ -3606,7 +3606,7 @@ struct ProteinLibraryView: View {
                 
                 // Main Content
                 ScrollView {
-                    LazyVStack(spacing: 16, pinnedViews: []) {
+                    VStack(spacing: 16) {
                         if selectedCategory == nil {
                             // All Categories - 카테고리 선택 인터페이스
                             VStack(spacing: 20) {
@@ -3760,6 +3760,7 @@ struct ProteinLibraryView: View {
                     let storageProteins = database.proteins.filter { $0.category == .storage }
                     print("   - Storage 단백질 수: \(storageProteins.count)")
                 }
+                
             }
         }
         .onChange(of: showingFavoritesOnly) { _ in resetPagination() }
