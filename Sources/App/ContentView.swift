@@ -9,6 +9,8 @@ struct ContentView: View {
     @State private var currentProteinId: String = ""
     @State private var currentProteinName: String = ""
     @State private var showingSideMenu: Bool = false
+    @State private var is3DStructureLoading = false
+    @State private var structureLoadingProgress = ""
     
     var body: some View {
         NavigationView {
@@ -20,7 +22,9 @@ struct ContentView: View {
                         proteinName: currentProteinName,
                         onProteinLibraryTap: {
                             showingProteinLibrary = true
-                        }
+                        },
+                        externalIs3DStructureLoading: $is3DStructureLoading,
+                        externalStructureLoadingProgress: $structureLoadingProgress
                     )
                 } else {
                     VStack(spacing: 20) {
@@ -62,6 +66,31 @@ struct ContentView: View {
                     .background(Color(.systemBackground))
 
                 }
+                
+                // 3D Structure Loading Overlay
+                if is3DStructureLoading {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .overlay(
+                            VStack(spacing: 16) {
+                                ProgressView()
+                                    .scaleEffect(1.2)
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                
+                                Text("Loading 3D Structure...")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                
+                                if !structureLoadingProgress.isEmpty {
+                                    Text(structureLoadingProgress)
+                                        .font(.subheadline)
+                                        .foregroundColor(.white.opacity(0.8))
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal)
+                                }
+                            }
+                        )
+                }
             }
             .onAppear {
                 loadDefaultProtein()
@@ -82,8 +111,22 @@ struct ContentView: View {
                 // Handle protein selection from library
                 print("Selected protein ID: \(selectedProteinId)")
                 showingProteinLibrary = false
+                
+                // 3D 구조 로딩 시작
+                is3DStructureLoading = true
+                structureLoadingProgress = "Loading 3D structure for \(selectedProteinId)..."
+                
                 // Load the selected protein structure
                 loadSelectedProtein(selectedProteinId)
+                
+                // 3D 구조 로딩 완료 시뮬레이션 (실제로는 구조 데이터 로드 완료 시)
+                Task {
+                    try? await Task.sleep(nanoseconds: 3_000_000_000) // 3초
+                    await MainActor.run {
+                        is3DStructureLoading = false
+                        structureLoadingProgress = ""
+                    }
+                }
             }
         }
         .sheet(isPresented: $showingSideMenu) {

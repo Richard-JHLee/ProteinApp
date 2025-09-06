@@ -3298,6 +3298,8 @@ struct ProteinLibraryView: View {
     @State private var selectedProtein: ProteinInfo? = nil
     @State private var isProteinLoading = false
     @State private var proteinLoadingProgress = ""
+    @State private var is3DStructureLoading = false
+    @State private var structureLoadingProgress = ""
     @Environment(\.dismiss) private var dismiss
     
     let onProteinSelected: (String) -> Void
@@ -3817,6 +3819,31 @@ struct ProteinLibraryView: View {
                             
                             if !proteinLoadingProgress.isEmpty {
                                 Text(proteinLoadingProgress)
+                                    .font(.subheadline)
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                            }
+                        }
+                    )
+            }
+            
+            // 3D Structure Loading Overlay
+            if is3DStructureLoading {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .overlay(
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            
+                            Text("Loading 3D Structure...")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            if !structureLoadingProgress.isEmpty {
+                                Text(structureLoadingProgress)
                                     .font(.subheadline)
                                     .foregroundColor(.white.opacity(0.8))
                                     .multilineTextAlignment(.center)
