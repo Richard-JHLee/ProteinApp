@@ -1242,7 +1242,14 @@ struct ProteinSceneContainer: View {
                                 case .overview:
                                     overviewContent(structure: structure)
                                 case .chains:
-                                    chainsContent(structure: structure)
+                                    chainsContent(
+                                        structure: structure,
+                                        highlightedChains: $highlightedChains,
+                                        focusedElement: $focusedElement,
+                                        isFocused: $isFocused,
+                                        isRendering3D: $isRendering3D,
+                                        renderingProgress: $renderingProgress
+                                    )
                                 case .residues:
                                     residuesContent(structure: structure)
                                 case .ligands:
@@ -1507,7 +1514,14 @@ struct ProteinSceneContainer: View {
         }
     }
     
-    private func chainsContent(structure: PDBStructure) -> some View {
+    private func chainsContent(
+        structure: PDBStructure,
+        highlightedChains: Binding<Set<String>>,
+        focusedElement: Binding<FocusedElement?>,
+        isFocused: Binding<Bool>,
+        isRendering3D: Binding<Bool>,
+        renderingProgress: Binding<String>
+    ) -> some View {
         VStack(spacing: 16) {
             let chains = Set(structure.atoms.map { $0.chain })
             
@@ -1621,44 +1635,68 @@ struct ProteinSceneContainer: View {
                     HStack(spacing: 12) {
                         Button(action: {
                             // Toggle chain highlight - 즉시 UI 피드백
-                            if highlightedChains.contains(chain) {
-                                highlightedChains.remove(chain)
+                            if highlightedChains.wrappedValue.contains(chain) {
+                                highlightedChains.wrappedValue.remove(chain)
                             } else {
-                                highlightedChains.insert(chain)
+                                highlightedChains.wrappedValue.insert(chain)
                             }
+                            
+                            // 3D 이미지 업데이트를 위한 로딩 상태 시작
+                            isRendering3D.wrappedValue = true
+                            renderingProgress.wrappedValue = "Updating highlights..."
                             
                             // Haptic feedback for immediate response
                             let impactFeedback = UIImpactFeedbackGenerator(style: .light)
                             impactFeedback.impactOccurred()
+                            
+                            // 로딩 상태를 잠시 후 자동으로 해제 (실제로는 3D 렌더링 완료 시 해제됨)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                isRendering3D.wrappedValue = false
+                                renderingProgress.wrappedValue = ""
+                            }
                         }) {
                             HStack {
-                                Image(systemName: highlightedChains.contains(chain) ? "highlighter.fill" : "highlighter")
-                                Text(highlightedChains.contains(chain) ? "Unhighlight" : "Highlight")
+                                Image(systemName: highlightedChains.wrappedValue.contains(chain) ? "highlighter.fill" : "highlighter")
+                                Text(highlightedChains.wrappedValue.contains(chain) ? "Unhighlight" : "Highlight")
                             }
                             .font(.caption)
-                            .foregroundColor(highlightedChains.contains(chain) ? .white : .blue)
+                            .foregroundColor(highlightedChains.wrappedValue.contains(chain) ? .white : .blue)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(highlightedChains.contains(chain) ? Color.blue : Color.blue.opacity(0.1))
+                            .background(highlightedChains.wrappedValue.contains(chain) ? Color.blue : Color.blue.opacity(0.1))
                             .cornerRadius(16)
                         }
                         
                         Button(action: {
                             // Toggle chain focus
-                            if let currentFocus = focusedElement,
+                            if let currentFocus = focusedElement.wrappedValue,
                                case .chain(let currentChain) = currentFocus,
                                currentChain == chain {
                                 // Unfocus if already focused on this chain
-                                focusedElement = nil
-                                isFocused = false
+                                focusedElement.wrappedValue = nil
+                                isFocused.wrappedValue = false
                             } else {
                                 // Focus on this chain
-                                focusedElement = .chain(chain)
-                                isFocused = true
+                                focusedElement.wrappedValue = .chain(chain)
+                                isFocused.wrappedValue = true
+                            }
+                            
+                            // 3D 이미지 업데이트를 위한 로딩 상태 시작
+                            isRendering3D.wrappedValue = true
+                            renderingProgress.wrappedValue = "Updating focus..."
+                            
+                            // Haptic feedback for immediate response
+                            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                            impactFeedback.impactOccurred()
+                            
+                            // 로딩 상태를 잠시 후 자동으로 해제 (실제로는 3D 렌더링 완료 시 해제됨)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                isRendering3D.wrappedValue = false
+                                renderingProgress.wrappedValue = ""
                             }
                         }) {
                             let isCurrentlyFocused = {
-                                if let currentFocus = focusedElement,
+                                if let currentFocus = focusedElement.wrappedValue,
                                    case .chain(let currentChain) = currentFocus {
                                     return currentChain == chain
                                 }
