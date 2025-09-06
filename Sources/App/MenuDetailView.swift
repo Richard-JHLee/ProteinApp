@@ -168,17 +168,37 @@ struct TermsView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     TermsSection(
                         title: "서비스 이용",
-                        content: "ProteinApp은 교육 목적으로 제공되는 무료 서비스입니다."
+                        content: "ProteinApp은 유료 서비스입니다. 서비스 이용을 위해서는 구독 또는 일회성 결제가 필요합니다."
+                    )
+                    
+                    TermsSection(
+                        title: "결제 및 구독",
+                        content: "• 구독 결제는 App Store를 통해 처리됩니다.\n• 구독은 자동 갱신되며, 갱신 24시간 전에 취소할 수 있습니다.\n• 일회성 결제는 환불이 불가능합니다.\n• 구독 취소는 App Store 설정에서 가능합니다."
+                    )
+                    
+                    TermsSection(
+                        title: "서비스 범위",
+                        content: "• 기본 단백질 구조 보기: 무료\n• 고급 3D 렌더링: 유료\n• 고급 분석 도구: 유료\n• 클라우드 저장: 유료\n• 우선 고객 지원: 유료"
+                    )
+                    
+                    TermsSection(
+                        title: "환불 정책",
+                        content: "• App Store 정책에 따라 구독 환불은 제한적입니다.\n• 기술적 문제로 인한 서비스 장애 시에만 환불을 고려합니다.\n• 환불 요청은 앱 내 고객 지원을 통해 접수해주세요."
+                    )
+                    
+                    TermsSection(
+                        title: "서비스 중단",
+                        content: "• 서비스 중단 시 30일 전 사전 공지합니다.\n• 중단 시 미사용 구독료는 환불됩니다.\n• 서비스 중단으로 인한 데이터 손실에 대해 책임지지 않습니다."
                     )
                     
                     TermsSection(
                         title: "책임 제한",
-                        content: "앱 사용으로 인한 손해에 대해 개발자는 책임지지 않습니다."
+                        content: "앱 사용으로 인한 손해에 대해 개발자는 책임지지 않습니다. 유료 서비스 이용 시에도 동일하게 적용됩니다."
                     )
                     
                     TermsSection(
                         title: "서비스 변경",
-                        content: "서비스는 사전 통지 없이 변경될 수 있습니다."
+                        content: "서비스는 사전 통지 없이 변경될 수 있습니다. 유료 기능의 변경 시에는 7일 전 공지합니다."
                     )
                 }
             }
