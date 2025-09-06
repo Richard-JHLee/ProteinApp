@@ -3524,6 +3524,15 @@ struct ProteinLibraryView: View {
                                     } else {
                                         selectedCategory = category
                                         resetPagination()
+                                        
+                                        // Storage 카테고리 선택 시 직접 API 데이터 로드
+                                        if category == .storage {
+                                            print("🔍 STORAGE 카테고리 직접 로드 시작...")
+                                            Task {
+                                                await database.loadProteins(for: category)
+                                                print("✅ STORAGE 카테고리 직접 로드 완료")
+                                            }
+                                        }
                                     }
                                 }
                             }
