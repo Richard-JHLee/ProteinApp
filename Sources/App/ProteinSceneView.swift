@@ -1116,18 +1116,24 @@ struct ProteinSceneContainer: View {
                                         title: tab.rawValue,
                                         isSelected: selectedTab == tab
                                     ) {
+                                        // 즉시 상태 변경 (highlight 버튼처럼)
                                         selectedTab = tab
-                                            isTabLoading = true
-                                            tabLoadingProgress = "Loading \(tab.rawValue)..."
-                                            
-                                            // Simulate tab data loading
-                                            Task {
-                                                try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
-                                                await MainActor.run {
-                                                    isTabLoading = false
-                                                    tabLoadingProgress = ""
-                                                }
+                                        
+                                        // 햅틱 피드백
+                                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                        impactFeedback.impactOccurred()
+                                        
+                                        isTabLoading = true
+                                        tabLoadingProgress = "Loading \(tab.rawValue)..."
+                                        
+                                        // Simulate tab data loading
+                                        Task {
+                                            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+                                            await MainActor.run {
+                                                isTabLoading = false
+                                                tabLoadingProgress = ""
                                             }
+                                        }
                                     }
                                 }
                             }
