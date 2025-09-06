@@ -3533,6 +3533,15 @@ struct ProteinLibraryView: View {
                                                 print("✅ STORAGE 카테고리 직접 로드 완료")
                                             }
                                         }
+                                        
+                                        // Hormones 카테고리 선택 시 직접 API 데이터 로드
+                                        if category == .hormones {
+                                            print("🔍 HORMONES 카테고리 직접 로드 시작...")
+                                            Task {
+                                                await database.loadProteins(for: category)
+                                                print("✅ HORMONES 카테고리 직접 로드 완료")
+                                            }
+                                        }
                                     }
                                 }
                             }
