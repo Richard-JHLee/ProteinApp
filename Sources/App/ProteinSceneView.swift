@@ -2752,6 +2752,15 @@ struct ProteinSceneView: UIViewRepresentable {
             self.renderingProgress?.wrappedValue = "Initializing 3D scene..."
         }
         
+        // 비동기로 3D 렌더링 처리
+        Task {
+            await performAsyncRendering(view: view)
+        }
+    }
+    
+    @MainActor
+    private func performAsyncRendering(view: SCNView) async {
+        
         // Scene 재사용 로직 - 기존 scene이 있으면 재사용, 없으면 새로 생성
         let scene: SCNScene
         if view.scene == nil {
@@ -2768,19 +2777,19 @@ struct ProteinSceneView: UIViewRepresentable {
         }
 
         // Improved lighting setup
-        DispatchQueue.main.async {
-            self.renderingProgress?.wrappedValue = "Setting up lighting..."
-        }
+        self.renderingProgress?.wrappedValue = "Setting up lighting..."
         setupLighting(scene: scene)
 
         if let structure = structure {
             print("Creating protein node with \(structure.atoms.count) atoms and \(structure.bonds.count) bonds")
             
-            DispatchQueue.main.async {
-                self.renderingProgress?.wrappedValue = "Creating protein structure..."
-            }
+            self.renderingProgress?.wrappedValue = "Creating protein structure..."
             
-            let proteinNode = createProteinNode(from: structure)
+            // 백그라운드에서 무거운 3D 처리
+            let proteinNode = await Task.detached {
+                return await self.createProteinNode(from: structure)
+            }.value
+            
             proteinNode.name = "protein"
             scene.rootNode.addChildNode(proteinNode)
             
@@ -2798,9 +2807,7 @@ struct ProteinSceneView: UIViewRepresentable {
             proteinNode.position = SCNVector3(-center.x, -center.y, -center.z)
             
             // Improved camera setup
-            DispatchQueue.main.async {
-                self.renderingProgress?.wrappedValue = "Setting up camera..."
-            }
+            self.renderingProgress?.wrappedValue = "Setting up camera..."
             setupCamera(scene: scene, view: view, boundingSize: boundingSize)
             
         } else {
@@ -2812,10 +2819,8 @@ struct ProteinSceneView: UIViewRepresentable {
         view.scene = scene
         
         // End loading indicator
-        DispatchQueue.main.async {
-            self.isRendering3D?.wrappedValue = false
-            self.renderingProgress?.wrappedValue = ""
-        }
+        self.isRendering3D?.wrappedValue = false
+        self.renderingProgress?.wrappedValue = ""
     }
 
     private func createProteinNode(from structure: PDBStructure) -> SCNNode {
@@ -2831,6 +2836,7 @@ struct ProteinSceneView: UIViewRepresentable {
         let effectiveOptimization = true // Always enable optimization for better performance
         
         print("🔧 Performance settings: maxAtoms=\(effectiveMaxAtoms), optimization=\(effectiveOptimization), sampling=\(effectiveSamplingRatio)")
+        print("🔧 Structure atoms: \(structure.atoms.count), condition: \(structure.atoms.count > effectiveMaxAtoms)")
         
         // Apply optimization if enabled
         let atomsToRender: [Atom]
