@@ -12,6 +12,8 @@ struct InfoSheet: View {
     @State private var showingSideMenu: Bool = false
     @State private var isProteinLoading = false
     @State private var proteinLoadingProgress = ""
+    @State private var is3DStructureLoading = false
+    @State private var structureLoadingProgress = ""
 
     init(protein: ProteinInfo, onProteinSelected: ((String) -> Void)? = nil) {
         self.protein = protein
@@ -47,11 +49,24 @@ struct InfoSheet: View {
                     ActionButtonsSectionView(
                         protein: protein,
                         onView3D: {
+                            // 3D 구조 로딩 시작
+                            is3DStructureLoading = true
+                            structureLoadingProgress = "Loading 3D structure for \(protein.id)..."
+                            
                             if let onProteinSelected {
                                 onProteinSelected(protein.id)
                                 dismiss()
                             } else {
                                 showingProteinView = true
+                                
+                                // 3D 구조 로딩 시뮬레이션 (실제로는 구조 데이터 로드 완료 시)
+                                Task {
+                                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2초
+                                    await MainActor.run {
+                                        is3DStructureLoading = false
+                                        structureLoadingProgress = ""
+                                    }
+                                }
                             }
                         },
                         onFavorite: {
@@ -65,6 +80,32 @@ struct InfoSheet: View {
             .navigationTitle("Protein Details")
             .navigationBarTitleDisplayMode(.inline)
         }
+        .overlay {
+            // 3D Structure Loading Overlay
+            if is3DStructureLoading {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .overlay(
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            
+                            Text("Loading 3D Structure...")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            if !structureLoadingProgress.isEmpty {
+                                Text(structureLoadingProgress)
+                                    .font(.subheadline)
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                            }
+                        }
+                    )
+            }
+        }
         .sheet(isPresented: $showingProteinView) {
             if let structure = proteinStructure {
                 ProteinSceneContainer(
@@ -73,7 +114,9 @@ struct InfoSheet: View {
                     proteinName: protein.name,
                     onProteinLibraryTap: nil, // InfoSheet에서는 Protein Library 기능 불필요
                     externalIsProteinLoading: $isProteinLoading,
-                    externalProteinLoadingProgress: $proteinLoadingProgress
+                    externalProteinLoadingProgress: $proteinLoadingProgress,
+                    externalIs3DStructureLoading: $is3DStructureLoading,
+                    externalStructureLoadingProgress: $structureLoadingProgress
                 )
                 .onAppear {
                     // 단백질 로딩 시작

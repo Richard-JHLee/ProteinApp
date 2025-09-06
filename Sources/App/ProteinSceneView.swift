@@ -973,14 +973,18 @@ struct ProteinSceneContainer: View {
     // External loading state (optional)
     @Binding var externalIsProteinLoading: Bool
     @Binding var externalProteinLoadingProgress: String
+    @Binding var externalIs3DStructureLoading: Bool
+    @Binding var externalStructureLoadingProgress: String
     
-    init(structure: PDBStructure?, proteinId: String?, proteinName: String?, onProteinLibraryTap: (() -> Void)? = nil, externalIsProteinLoading: Binding<Bool> = .constant(false), externalProteinLoadingProgress: Binding<String> = .constant("")) {
+    init(structure: PDBStructure?, proteinId: String?, proteinName: String?, onProteinLibraryTap: (() -> Void)? = nil, externalIsProteinLoading: Binding<Bool> = .constant(false), externalProteinLoadingProgress: Binding<String> = .constant(""), externalIs3DStructureLoading: Binding<Bool> = .constant(false), externalStructureLoadingProgress: Binding<String> = .constant("")) {
         self.structure = structure
         self.proteinId = proteinId
         self.proteinName = proteinName
         self.onProteinLibraryTap = onProteinLibraryTap
         self._externalIsProteinLoading = externalIsProteinLoading
         self._externalProteinLoadingProgress = externalProteinLoadingProgress
+        self._externalIs3DStructureLoading = externalIs3DStructureLoading
+        self._externalStructureLoadingProgress = externalStructureLoadingProgress
     }
     
     @State private var selectedStyle: RenderStyle = .spheres
@@ -1334,6 +1338,32 @@ struct ProteinSceneContainer: View {
                                 .foregroundColor(.white)
                             
                             let progressText = externalIsProteinLoading ? externalProteinLoadingProgress : proteinLoadingProgress
+                            if !progressText.isEmpty {
+                                Text(progressText)
+                                    .font(.subheadline)
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                            }
+                        }
+                    )
+            }
+            
+            // 3D Structure Loading Overlay
+            if isRendering3D || externalIs3DStructureLoading {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .overlay(
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            
+                            Text("Loading 3D Structure...")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            
+                            let progressText = externalIs3DStructureLoading ? externalStructureLoadingProgress : renderingProgress
                             if !progressText.isEmpty {
                                 Text(progressText)
                                     .font(.subheadline)
