@@ -3486,6 +3486,7 @@ struct ProteinLibraryView: View {
         // 전체 카테고리 보기에서만 로컬 페이지네이션 적용
         let totalItems = min(currentPage * itemsPerPage, allFilteredProteins.count)
         print("📺 전체 카테고리 보기: \(totalItems)/\(allFilteredProteins.count)개 표시")
+        print("📺 페이지네이션 정보: currentPage=\(currentPage), itemsPerPage=\(itemsPerPage)")
         return Array(allFilteredProteins.prefix(totalItems))
     }
     
@@ -3506,46 +3507,78 @@ struct ProteinLibraryView: View {
             EmptyView()
         } else {
             // 검색 결과가 있는 경우 - 단백질 리스트 표시
-            LazyVStack(spacing: 12) {
-                ForEach(displayedProteins) { protein in
-                    ProteinRowCard(
-                        protein: protein,
-                        isFavorite: database.favorites.contains(protein.id),
-                        onSelect: {
-                            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                            impactFeedback.impactOccurred()
-                            
-                            // 단백질 로딩 시작
-                            isProteinLoading = true
-                            proteinLoadingProgress = "Loading \(protein.id)..."
-                            
-                            // 단백질 선택 및 상세보기 표시
-                            selectedProtein = protein
-                            showingInfoSheet = true
-                            
-                            // 로딩 완료 시뮬레이션
-                            Task {
-                                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초
-                                await MainActor.run {
-                                    isProteinLoading = false
-                                    proteinLoadingProgress = ""
+            VStack(spacing: 16) {
+                LazyVStack(spacing: 12) {
+                    ForEach(displayedProteins) { protein in
+                        ProteinRowCard(
+                            protein: protein,
+                            isFavorite: database.favorites.contains(protein.id),
+                            onSelect: {
+                                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                                impactFeedback.impactOccurred()
+                                
+                                // 단백질 로딩 시작
+                                isProteinLoading = true
+                                proteinLoadingProgress = "Loading \(protein.id)..."
+                                
+                                // 단백질 선택 및 상세보기 표시
+                                selectedProtein = protein
+                                showingInfoSheet = true
+                                
+                                // 로딩 완료 시뮬레이션
+                                Task {
+                                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초
+                                    await MainActor.run {
+                                        isProteinLoading = false
+                                        proteinLoadingProgress = ""
+                                    }
+                                }
+                            },
+                            onFavoriteToggle: {
+                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                impactFeedback.impactOccurred()
+                                
+                                if database.favorites.contains(protein.id) {
+                                    database.favorites.remove(protein.id)
+                                } else {
+                                    database.favorites.insert(protein.id)
                                 }
                             }
-                        },
-                        onFavoriteToggle: {
-                            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                            impactFeedback.impactOccurred()
-                            
-                            if database.favorites.contains(protein.id) {
-                                database.favorites.remove(protein.id)
+                        )
+                    }
+                }
+                .padding(.horizontal, 20)
+                
+                // More 버튼 (검색 결과가 30개 이상일 때)
+                if !searchText.isEmpty && allFilteredProteins.count > displayedProteins.count {
+                    Button(action: {
+                        loadMoreSearchResults()
+                    }) {
+                        HStack(spacing: 8) {
+                            if isLoadingMore {
+                                ProgressView()
+                                    .scaleEffect(0.8)
                             } else {
-                                database.favorites.insert(protein.id)
+                                Image(systemName: "arrow.down.circle.fill")
+                                    .font(.title2)
                             }
+                            Text(isLoadingMore ? "Loading more..." : "Load More Results")
+                                .font(.headline.weight(.medium))
                         }
-                    )
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 25)
+                                .fill(.blue)
+                        )
+                        .shadow(color: .blue.opacity(0.3), radius: 4, x: 0, y: 2)
+                    }
+                    .disabled(isLoadingMore)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
                 }
             }
-            .padding(.horizontal, 20)
         }
     }
     
@@ -4193,6 +4226,7 @@ struct ProteinLibraryView: View {
     private func performSearchBasedDataLoad() async {
         await MainActor.run {
             showingLoadingPopup = true
+            currentPage = 1 // 검색 시 페이지 리셋
         }
         
         do {
@@ -4232,6 +4266,27 @@ struct ProteinLibraryView: View {
         
         await MainActor.run {
             showingLoadingPopup = false
+        }
+    }
+    
+    // 검색 결과 더 로드 (페이지네이션)
+    private func loadMoreSearchResults() {
+        guard !isLoadingMore else { return }
+        
+        isLoadingMore = true
+        
+        // 페이지 증가
+        currentPage += 1
+        
+        print("🔄 검색 결과 더 로드: 페이지 \(currentPage)")
+        
+        // 로딩 완료 시뮬레이션 (실제로는 이미 데이터가 로드되어 있음)
+        Task {
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초
+            await MainActor.run {
+                isLoadingMore = false
+                print("✅ 검색 결과 더 로드 완료: \(displayedProteins.count)개 표시")
+            }
         }
     }
     
