@@ -21,8 +21,25 @@ struct AdditionalInfoSectionView: View {
             }
 
             VStack(alignment: .leading, spacing: 12) {
-                Text("Related Proteins")
-                    .font(.subheadline.weight(.semibold))
+                HStack {
+                    Text("Related Proteins")
+                        .font(.subheadline.weight(.semibold))
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        // Related 상세 화면으로 이동
+                    }) {
+                        HStack {
+                            Text("View All")
+                                .font(.caption.weight(.medium))
+                            Image(systemName: "arrow.right.circle.fill")
+                                .font(.caption)
+                        }
+                        .foregroundColor(protein.category.color)
+                    }
+                    .buttonStyle(.plain)
+                }
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {

@@ -16,10 +16,25 @@ struct MainInfoSectionView: View {
             InfoCard(icon: "function",
                      title: "Function Summary",
                      tint: protein.category.color) {
-                Text(protein.description)
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(protein.description)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    Button(action: {
+                        // Function 상세 화면으로 이동
+                    }) {
+                        HStack {
+                            Text("View Details")
+                                .font(.caption.weight(.medium))
+                            Image(systemName: "arrow.right.circle.fill")
+                                .font(.caption)
+                        }
+                        .foregroundColor(protein.category.color)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
             // 핵심 포인트

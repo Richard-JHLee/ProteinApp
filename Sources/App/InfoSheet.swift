@@ -22,63 +22,93 @@ struct InfoSheet: View {
 
     var body: some View {
         NavigationView {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 24) {
-                    HeaderSectionView(protein: protein)
-
-                    MainInfoSectionView(
-                        protein: protein,
-                        showingPDBWebsite: $showingPDBWebsite
-                    )
-
-                    DetailedInfoSectionView(protein: protein)
-
-                    AdditionalInfoSectionView(
-                        protein: protein,
-                        onRelatedTapped: { id in
-                            // 관련 단백질 선택 시 동일 동작
-                            if let onProteinSelected {
-                                onProteinSelected(id)
-                                dismiss()
-                            } else {
-                                showingProteinView = true
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 24) {
+                        // 1단계: Overview Section
+                        HeaderSectionView(protein: protein) { section in
+                            withAnimation(.easeInOut(duration: 0.5)) {
+                                proxy.scrollTo(section, anchor: .top)
                             }
                         }
-                    )
+                        .id("overview")
 
-                    ActionButtonsSectionView(
-                        protein: protein,
-                        onView3D: {
-                            // 3D 구조 로딩 시작
-                            is3DStructureLoading = true
-                            structureLoadingProgress = "Loading 3D structure for \(protein.id)..."
-                            
-                            if let onProteinSelected {
-                                onProteinSelected(protein.id)
-                                dismiss()
-                            } else {
-                                showingProteinView = true
-                                
-                                // 3D 구조 로딩 시뮬레이션 (실제로는 구조 데이터 로드 완료 시)
-                                Task {
-                                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2초
-                                    await MainActor.run {
-                                        is3DStructureLoading = false
-                                        structureLoadingProgress = ""
-                                    }
+                        // 2단계: Function Section
+                        MainInfoSectionView(
+                            protein: protein,
+                            showingPDBWebsite: $showingPDBWebsite
+                        )
+                        .id("function")
+
+                        // 3단계: Structure Section
+                        DetailedInfoSectionView(protein: protein)
+                            .id("structure")
+
+                        // 4단계: Related Section
+                        AdditionalInfoSectionView(
+                            protein: protein,
+                            onRelatedTapped: { id in
+                                // 관련 단백질 선택 시 동일 동작
+                                if let onProteinSelected {
+                                    onProteinSelected(id)
+                                    dismiss()
+                                } else {
+                                    showingProteinView = true
                                 }
                             }
-                        },
-                        onFavorite: {
-                            // TODO: 즐겨찾기 토글
-                        }
-                    )
+                        )
+                        .id("related")
+
+                        // Action Buttons
+                        ActionButtonsSectionView(
+                            protein: protein,
+                            onView3D: {
+                                // 3D 구조 로딩 시작
+                                is3DStructureLoading = true
+                                structureLoadingProgress = "Loading 3D structure for \(protein.id)..."
+                                
+                                if let onProteinSelected {
+                                    onProteinSelected(protein.id)
+                                    dismiss()
+                                } else {
+                                    showingProteinView = true
+                                    
+                                    // 3D 구조 로딩 시뮬레이션 (실제로는 구조 데이터 로드 완료 시)
+                                    Task {
+                                        try? await Task.sleep(nanoseconds: 2_000_000_000) // 2초
+                                        await MainActor.run {
+                                            is3DStructureLoading = false
+                                            structureLoadingProgress = ""
+                                        }
+                                    }
+                                }
+                            },
+                            onFavorite: {
+                                // TODO: 즐겨찾기 토글
+                            }
+                        )
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 30)
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 30)
+                .navigationTitle("Protein Details")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button(action: { showingSideMenu = true }) {
+                            Image(systemName: "line.3.horizontal")
+                                .font(.title2)
+                                .foregroundColor(.primary)
+                        }
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") { dismiss() }
+                    }
+                }
+                .sheet(isPresented: $showingSideMenu) {
+                    SideMenuView()
+                }
             }
-            .navigationTitle("Protein Details")
-            .navigationBarTitleDisplayMode(.inline)
         }
         .overlay {
             // 3D Structure Loading Overlay
@@ -178,21 +208,6 @@ struct InfoSheet: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(.systemBackground))
             }
-        }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: { showingSideMenu = true }) {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.title2)
-                        .foregroundColor(.primary)
-                }
-            }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Done") { dismiss() }
-            }
-        }
-        .sheet(isPresented: $showingSideMenu) {
-            SideMenuView()
         }
         .onChange(of: showingProteinView) { newValue in
             if newValue && proteinStructure == nil {

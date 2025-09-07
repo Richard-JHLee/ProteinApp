@@ -12,6 +12,20 @@ struct DetailedInfoSectionView: View {
                 infoRow(title: "Resolution",     value: "2.5 Å",    icon: "scope")
                 infoRow(title: "Organism",       value: "Homo sapiens",      icon: "person")
                 infoRow(title: "Expression",     value: "E. coli",    icon: "leaf")
+                
+                Button(action: {
+                    // Structure 상세 화면으로 이동
+                }) {
+                    HStack {
+                        Text("View Details")
+                            .font(.caption.weight(.medium))
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.gray)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 8)
             }
         }
     }
