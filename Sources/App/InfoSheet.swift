@@ -14,6 +14,12 @@ struct InfoSheet: View {
     @State private var proteinLoadingProgress = ""
     @State private var is3DStructureLoading = false
     @State private var structureLoadingProgress = ""
+    
+    // 1,2,3,4 단계 팝업 상태 변수들
+    @State private var showingPrimaryStructure = false
+    @State private var showingSecondaryStructure = false
+    @State private var showingTertiaryStructure = false
+    @State private var showingQuaternaryStructure = false
 
     init(protein: ProteinInfo, onProteinSelected: ((String) -> Void)? = nil) {
         self.protein = protein
@@ -26,11 +32,15 @@ struct InfoSheet: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 24) {
                         // 1단계: Overview Section
-                        HeaderSectionView(protein: protein) { section in
-                            withAnimation(.easeInOut(duration: 0.5)) {
-                                proxy.scrollTo(section, anchor: .top)
-                            }
-                        }
+                        HeaderSectionView(protein: protein, 
+                                        onScrollToSection: { section in
+                                            withAnimation(.easeInOut(duration: 0.5)) {
+                                                proxy.scrollTo(section, anchor: .top)
+                                            }
+                                        },
+                                        onStructureLevelTap: { level in
+                                            showStructureLevelPopup(level)
+                                        })
                         .id("overview")
 
                         // 2단계: Function Section
@@ -41,7 +51,10 @@ struct InfoSheet: View {
                         .id("function")
 
                         // 3단계: Structure Section
-                        DetailedInfoSectionView(protein: protein)
+                        DetailedInfoSectionView(protein: protein,
+                                              onStructureLevelTap: { level in
+                                                  showStructureLevelPopup(level)
+                                              })
                             .id("structure")
 
                         // 4단계: Related Section
@@ -55,6 +68,9 @@ struct InfoSheet: View {
                                 } else {
                                     showingProteinView = true
                                 }
+                            },
+                            onStructureLevelTap: { level in
+                                showStructureLevelPopup(level)
                             }
                         )
                         .id("related")
@@ -108,6 +124,19 @@ struct InfoSheet: View {
                 .sheet(isPresented: $showingSideMenu) {
                     SideMenuView()
                 }
+                // 1,2,3,4 단계 팝업 화면들 (임시로 주석 처리)
+                // .sheet(isPresented: $showingPrimaryStructure) {
+                //     PrimaryStructureView(protein: protein)
+                // }
+                // .sheet(isPresented: $showingSecondaryStructure) {
+                //     SecondaryStructureView(protein: protein)
+                // }
+                // .sheet(isPresented: $showingTertiaryStructure) {
+                //     TertiaryStructureView(protein: protein)
+                // }
+                // .sheet(isPresented: $showingQuaternaryStructure) {
+                //     QuaternaryStructureView(protein: protein)
+                // }
             }
         }
         .overlay {
@@ -242,6 +271,19 @@ struct InfoSheet: View {
                     self.structureError = "Failed to load \(protein.id): \(error.localizedDescription)"
                     self.isLoadingStructure = false
                 }
+            }
+        }
+    }
+    
+    // MARK: - Structure Level Popup
+    private func showStructureLevelPopup(_ level: Int) {
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+            switch level {
+            case 1: showingPrimaryStructure = true
+            case 2: showingSecondaryStructure = true
+            case 3: showingTertiaryStructure = true
+            case 4: showingQuaternaryStructure = true
+            default: break
             }
         }
     }
