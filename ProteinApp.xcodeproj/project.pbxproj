@@ -32,6 +32,8 @@
 		79D9061A2E6D603B00C202D2 /* TertiaryStructureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D906182E6D603B00C202D2 /* TertiaryStructureView.swift */; };
 		79D9061B2E6D603B00C202D2 /* SecondaryStructureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D906172E6D603B00C202D2 /* SecondaryStructureView.swift */; };
 		79D9061C2E6D603B00C202D2 /* QuaternaryStructureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D906162E6D603B00C202D2 /* QuaternaryStructureView.swift */; };
+		79D9061E2E6D6AE200C202D2 /* FunctionDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D9061D2E6D6AE200C202D2 /* FunctionDetailsView.swift */; };
+		79D906202E6D6CF000C202D2 /* RelatedProteinsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D9061F2E6D6CF000C202D2 /* RelatedProteinsView.swift */; };
 		ABF56BC87AF826996205F340 /* ProteinSceneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABDBD862116CF498A63A4482 /* ProteinSceneView.swift */; };
 		BB44BDF9E6313690D82218D8 /* SceneKitExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D9F412DFA7AD49E2AF30C0 /* SceneKitExtensions.swift */; };
 		BC849FBAF9245F690738D7DB /* SceneKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1E552674910C4E6B9E6BCBCD /* SceneKit.framework */; };
@@ -67,6 +69,8 @@
 		79D906162E6D603B00C202D2 /* QuaternaryStructureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuaternaryStructureView.swift; sourceTree = "<group>"; };
 		79D906172E6D603B00C202D2 /* SecondaryStructureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecondaryStructureView.swift; sourceTree = "<group>"; };
 		79D906182E6D603B00C202D2 /* TertiaryStructureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TertiaryStructureView.swift; sourceTree = "<group>"; };
+		79D9061D2E6D6AE200C202D2 /* FunctionDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FunctionDetailsView.swift; sourceTree = "<group>"; };
+		79D9061F2E6D6CF000C202D2 /* RelatedProteinsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelatedProteinsView.swift; sourceTree = "<group>"; };
 		ABDBD862116CF498A63A4482 /* ProteinSceneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProteinSceneView.swift; sourceTree = "<group>"; };
 		B697830EAB8BA6ABE13919E5 /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = Base; path = Base.lproj/ProteinApp.entitlements; sourceTree = "<group>"; };
 		D9D9F412DFA7AD49E2AF30C0 /* SceneKitExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneKitExtensions.swift; sourceTree = "<group>"; };
@@ -117,6 +121,8 @@
 			isa = PBXGroup;
 			children = (
 				79D906152E6D603B00C202D2 /* PrimaryStructureView.swift */,
+				79D9061D2E6D6AE200C202D2 /* FunctionDetailsView.swift */,
+				79D9061F2E6D6CF000C202D2 /* RelatedProteinsView.swift */,
 				79D906162E6D603B00C202D2 /* QuaternaryStructureView.swift */,
 				79D906172E6D603B00C202D2 /* SecondaryStructureView.swift */,
 				79D906182E6D603B00C202D2 /* TertiaryStructureView.swift */,
@@ -244,11 +250,13 @@
 				79D9061A2E6D603B00C202D2 /* TertiaryStructureView.swift in Sources */,
 				79D9061B2E6D603B00C202D2 /* SecondaryStructureView.swift in Sources */,
 				79D9061C2E6D603B00C202D2 /* QuaternaryStructureView.swift in Sources */,
+				79D9061E2E6D6AE200C202D2 /* FunctionDetailsView.swift in Sources */,
 				79D906122E6ABD4800C202D2 /* UserGuideView.swift in Sources */,
 				79D906132E6ABD4800C202D2 /* MenuItemRow.swift in Sources */,
 				79D906142E6ABD4800C202D2 /* MenuItemType.swift in Sources */,
 				7972842F2E587417000842BE /* DetailedInfoSectionView.swift in Sources */,
 				4E618D2CB3A72FAA015CBD99 /* ContentView.swift in Sources */,
+				79D906202E6D6CF000C202D2 /* RelatedProteinsView.swift in Sources */,
 				3EFDF2053CD3A6B58C54AA8E /* MiniProteinViewer.swift in Sources */,
 				4E276CBDE560EDBC9919290E /* PDB.swift in Sources */,
 				2C6F3B2960FDD7F2ECE8AFEA /* ProteinApp.swift in Sources */,

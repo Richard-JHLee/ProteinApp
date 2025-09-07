@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DetailedInfoSectionView: View {
     let protein: ProteinInfo
+    @State private var showingRelatedProteins = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -16,7 +17,8 @@ struct DetailedInfoSectionView: View {
                     infoRow(title: "Expression",     value: "E. coli",    icon: "leaf")
                     
                     Button(action: {
-                        // Structure 상세 화면으로 이동
+                        print("🔍 Additional Information View Details 버튼이 탭되었습니다!")
+                        showingRelatedProteins = true
                     }) {
                         HStack {
                             Text("View Details")
@@ -32,6 +34,9 @@ struct DetailedInfoSectionView: View {
             }
             
             // 1,2,3,4 단계 구조 정보는 기존 기능에서 처리됨
+        }
+        .sheet(isPresented: $showingRelatedProteins) {
+            RelatedProteinsView(protein: protein)
         }
     }
 

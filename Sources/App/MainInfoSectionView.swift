@@ -132,9 +132,9 @@ struct MainInfoSectionView: View {
         .sheet(isPresented: $showingQuaternaryStructure) {
             QuaternaryStructureView(protein: protein)
         }
-        // .sheet(isPresented: $showingFunctionDetails) {
-        //     FunctionDetailsView(protein: protein)
-        // }
+        .sheet(isPresented: $showingFunctionDetails) {
+            FunctionDetailsView(protein: protein)
+        }
     }
 
     // MARK: - Structure Details View
