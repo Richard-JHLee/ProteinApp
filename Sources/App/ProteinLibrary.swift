@@ -28,6 +28,23 @@ struct PDBSearchResponse: Codable {
     }
 }
 
+enum SearchError: LocalizedError {
+    case invalidPDBID
+    case proteinNotFound
+    case networkError
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidPDBID:
+            return "유효하지 않은 PDB ID입니다. 4자리 영숫자를 입력해주세요."
+        case .proteinNotFound:
+            return "해당 PDB ID의 단백질을 찾을 수 없습니다."
+        case .networkError:
+            return "네트워크 오류가 발생했습니다."
+        }
+    }
+}
+
 struct PDBEntry: Codable {
     let identifier: String?
     let title: String?
@@ -1074,6 +1091,88 @@ class PDBAPIService {
         
         return query
     }
+    
+    // MARK: - Search by PDB ID
+    func searchProteinByID(_ pdbId: String) async throws -> ProteinInfo? {
+        print("🔍 PDB ID 검색: '\(pdbId)'")
+        
+        // PDB ID 유효성 검사 (4자리 영숫자)
+        guard isValidPDBID(pdbId) else {
+            throw SearchError.invalidPDBID
+        }
+        
+        // RCSB PDB API로 단일 구조 검색
+        let query = buildPDBIDSearchQuery(pdbId: pdbId.uppercased())
+        let (pdbIds, _) = try await executeSearchQuery(query: query, description: "PDB ID 검색")
+        
+        guard !pdbIds.isEmpty else {
+            throw SearchError.proteinNotFound
+        }
+        
+        // 상세 정보 수집
+        let proteins = try await enrichProteinData(pdbIds: pdbIds)
+        return proteins.first
+    }
+    
+    private func isValidPDBID(_ id: String) -> Bool {
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.count == 4 && trimmed.allSatisfy { $0.isLetter || $0.isNumber }
+    }
+    
+    private func buildPDBIDSearchQuery(pdbId: String) -> [String: Any] {
+        return [
+            "query": [
+                "type": "terminal",
+                "service": "text",
+                "parameters": [
+                    "attribute": "entry.id",
+                    "operator": "exact_match",
+                    "value": pdbId
+                ]
+            ],
+            "return_type": "entry",
+            "request_options": [
+                "paginate": [
+                    "start": 0,
+                    "rows": 1
+                ]
+            ]
+        ]
+    }
+    
+    // MARK: - Search by Text
+    func searchProteinsByText(_ searchText: String, limit: Int = 100) async throws -> [ProteinInfo] {
+        print("🔍 텍스트 검색: '\(searchText)'")
+        
+        // RCSB PDB API 검색 쿼리 구성
+        let query = buildTextSearchQuery(searchText: searchText, limit: limit)
+        let (pdbIds, _) = try await executeSearchQuery(query: query, description: "텍스트 검색")
+        
+        // PDB ID로 상세 정보 수집
+        return try await enrichProteinData(pdbIds: pdbIds)
+    }
+    
+    private func buildTextSearchQuery(searchText: String, limit: Int) -> [String: Any] {
+        return [
+            "query": [
+                "type": "terminal",
+                "service": "text",
+                "parameters": [
+                    "attribute": "struct.title",
+                    "operator": "contains_words",
+                    "value": searchText
+                ]
+            ],
+            "return_type": "entry",
+            "request_options": [
+                "paginate": [
+                    "start": 0,
+                    "rows": limit
+                ]
+            ]
+        ]
+    }
+    
     
     // MARK: - Advanced Search Queries (구조화된 검색)
     private func buildAdvancedSearchQuery(category: ProteinCategory, limit: Int, skip: Int = 0) -> [String: Any] {
@@ -3306,6 +3405,38 @@ struct ProteinLibraryView: View {
     
     private let itemsPerPage = 30
     
+    // MARK: - Search Type Detection
+    private enum SearchType {
+        case pdbID(String)      // 4자리 PDB ID
+        case textSearch(String) // 일반 텍스트 검색
+        case category(ProteinCategory) // 카테고리 검색
+    }
+    
+    private func detectSearchType(_ searchText: String) -> SearchType {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // PDB ID 검사 (4자리 영숫자)
+        if trimmed.count == 4 && trimmed.allSatisfy({ $0.isLetter || $0.isNumber }) {
+            return .pdbID(trimmed.uppercased())
+        }
+        
+        // 일반 텍스트 검색
+        return .textSearch(trimmed)
+    }
+    
+    // 검색 버튼 정보 계산
+    private var searchButtonInfo: (text: String, color: Color, icon: String) {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if trimmed.count == 4 && trimmed.allSatisfy({ $0.isLetter || $0.isNumber }) {
+            return ("PDB ID 검색", .purple, "magnifyingglass")
+        } else if trimmed.count >= 2 {
+            return ("텍스트 검색", .green, "magnifyingglass")
+        } else {
+            return ("데이터 가져오기", .blue, "arrow.clockwise")
+        }
+    }
+    
     var allFilteredProteins: [ProteinInfo] {
         var result = database.proteins
         print("📊 전체 단백질 수: \(result.count)")
@@ -3460,26 +3591,56 @@ struct ProteinLibraryView: View {
                     .background(Color(.tertiarySystemFill))
                     .cornerRadius(10)
                     
-                    // 데이터 가져오기 버튼
+                    // 데이터 가져오기/검색 버튼
                     Button(action: {
                         Task {
-                            await refreshCategoryCounts()
+                            let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if trimmed.count >= 2 {
+                                // 2자 이상: 검색어 기반 API 호출
+                                await performSearchBasedDataLoad()
+                            } else {
+                                // 2자 미만: 기존 카테고리 개수 업데이트
+                                await refreshCategoryCounts()
+                            }
                         }
                     }) {
                         HStack(spacing: 4) {
-                            Image(systemName: "arrow.clockwise")
-                            Text("데이터 가져오기")
+                            Image(systemName: searchButtonInfo.icon)
+                            Text(searchButtonInfo.text)
                                 .font(.caption)
                         }
-                        .foregroundColor(.blue)
+                        .foregroundColor(searchButtonInfo.color)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Color(.systemBlue).opacity(0.1))
+                        .background(searchButtonInfo.color.opacity(0.1))
                         .cornerRadius(8)
                     }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
+                
+                // 검색 결과 헤더
+                if !searchText.isEmpty {
+                    HStack {
+                        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let isPDBID = trimmed.count == 4 && trimmed.allSatisfy({ $0.isLetter || $0.isNumber })
+                        
+                        Text(isPDBID ? "PDB ID '\(trimmed.uppercased())' 검색 결과" : "'\(searchText)' 검색 결과")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        Button("전체 보기") {
+                            searchText = ""
+                            selectedCategory = nil
+                        }
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                }
                 
                 // Category Filter Section
                 VStack(alignment: .leading, spacing: 8) {
@@ -3952,6 +4113,52 @@ struct ProteinLibraryView: View {
         
         print("🔄 카테고리 카운트 새로고침 시작...")
         await loadAllCategoryCounts()
+        
+        await MainActor.run {
+            showingLoadingPopup = false
+        }
+    }
+    
+    // 검색 기반 데이터 로드 (새로운 기능)
+    private func performSearchBasedDataLoad() async {
+        await MainActor.run {
+            showingLoadingPopup = true
+        }
+        
+        do {
+            let searchType = detectSearchType(searchText)
+            var searchResults: [ProteinInfo] = []
+            
+            switch searchType {
+            case .pdbID(let pdbId):
+                print("🔍 PDB ID 검색: \(pdbId)")
+                if let protein = try await database.apiService.searchProteinByID(pdbId) {
+                    searchResults = [protein]
+                }
+                
+            case .textSearch(let text):
+                print("🔍 텍스트 검색: \(text)")
+                searchResults = try await database.apiService.searchProteinsByText(text)
+                
+            case .category(let category):
+                print("🔍 카테고리 검색: \(category.rawValue)")
+                searchResults = try await database.apiService.searchProteins(category: category)
+            }
+            
+            await MainActor.run {
+                // 검색 결과로 기존 데이터 교체
+                database.proteins = searchResults
+                selectedCategory = nil // 카테고리 필터 해제
+                print("✅ 검색 완료: \(searchResults.count)개 단백질 로드")
+            }
+            
+        } catch {
+            print("❌ 검색 실패: \(error.localizedDescription)")
+            await MainActor.run {
+                // 에러 시 기존 데이터 유지
+                print("⚠️ 검색 실패로 기존 데이터 유지")
+            }
+        }
         
         await MainActor.run {
             showingLoadingPopup = false
