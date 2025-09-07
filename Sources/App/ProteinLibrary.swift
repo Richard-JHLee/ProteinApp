@@ -3624,10 +3624,19 @@ struct ProteinLibraryView: View {
                     HStack {
                         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
                         let isPDBID = trimmed.count == 4 && trimmed.allSatisfy({ $0.isLetter || $0.isNumber })
+                        let resultCount = allFilteredProteins.count
                         
-                        Text(isPDBID ? "PDB ID '\(trimmed.uppercased())' 검색 결과" : "'\(searchText)' 검색 결과")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        if resultCount == 0 {
+                            // 검색 결과가 없는 경우
+                            Text(isPDBID ? "PDB ID '\(trimmed.uppercased())'를 찾을 수 없습니다" : "'\(searchText)' 검색 결과가 없습니다")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        } else {
+                            // 검색 결과가 있는 경우
+                            Text(isPDBID ? "PDB ID '\(trimmed.uppercased())' 검색 결과: \(resultCount)개" : "'\(searchText)' 검색 결과: \(resultCount)개")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                         
                         Spacer()
                         
@@ -3642,8 +3651,9 @@ struct ProteinLibraryView: View {
                     .padding(.top, 8)
                 }
                 
-                // Category Filter Section
-                VStack(alignment: .leading, spacing: 8) {
+                // Category Filter Section (검색 중일 때는 숨김)
+                if searchText.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text("Categories")
                             .font(.headline)
@@ -3748,6 +3758,7 @@ struct ProteinLibraryView: View {
                     .padding(.vertical, 12)
                     }
                 }
+                } // 검색 중일 때 카테고리 섹션 숨김
                 
                 // Results Count
                 HStack {
