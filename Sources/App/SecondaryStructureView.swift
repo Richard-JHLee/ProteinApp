@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SecondaryStructureView: View {
     let protein: ProteinInfo
-    @State private var secondaryStructures: [SecondaryStructure] = []
+    @State private var secondaryStructures: [SecondaryStructureData] = []
     @State private var isLoadingStructure = false
     @State private var structureError: String? = nil
     @Environment(\.dismiss) private var dismiss
@@ -150,11 +150,11 @@ struct SecondaryStructureView: View {
                 await MainActor.run {
                     // 샘플 2차 구조 데이터
                     secondaryStructures = [
-                        SecondaryStructure(type: "helix", start: 10, end: 25, confidence: 0.95, color: .blue),
-                        SecondaryStructure(type: "sheet", start: 30, end: 40, confidence: 0.88, color: .green),
-                        SecondaryStructure(type: "turn", start: 45, end: 48, confidence: 0.75, color: .orange),
-                        SecondaryStructure(type: "helix", start: 55, end: 70, confidence: 0.92, color: .blue),
-                        SecondaryStructure(type: "sheet", start: 75, end: 85, confidence: 0.85, color: .green)
+                        SecondaryStructureData(type: "helix", start: 10, end: 25, confidence: 0.95, color: .blue),
+                        SecondaryStructureData(type: "sheet", start: 30, end: 40, confidence: 0.88, color: .green),
+                        SecondaryStructureData(type: "turn", start: 45, end: 48, confidence: 0.75, color: .orange),
+                        SecondaryStructureData(type: "helix", start: 55, end: 70, confidence: 0.92, color: .blue),
+                        SecondaryStructureData(type: "sheet", start: 75, end: 85, confidence: 0.85, color: .green)
                     ]
                     isLoadingStructure = false
                 }
@@ -169,7 +169,7 @@ struct SecondaryStructureView: View {
 }
 
 // MARK: - Data Models
-struct SecondaryStructure {
+struct SecondaryStructureData {
     let type: String
     let start: Int
     let end: Int

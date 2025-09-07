@@ -37,9 +37,6 @@ struct InfoSheet: View {
                                             withAnimation(.easeInOut(duration: 0.5)) {
                                                 proxy.scrollTo(section, anchor: .top)
                                             }
-                                        },
-                                        onStructureLevelTap: { level in
-                                            showStructureLevelPopup(level)
                                         })
                         .id("overview")
 
@@ -51,10 +48,7 @@ struct InfoSheet: View {
                         .id("function")
 
                         // 3단계: Structure Section
-                        DetailedInfoSectionView(protein: protein,
-                                              onStructureLevelTap: { level in
-                                                  showStructureLevelPopup(level)
-                                              })
+                        DetailedInfoSectionView(protein: protein)
                             .id("structure")
 
                         // 4단계: Related Section
@@ -68,9 +62,6 @@ struct InfoSheet: View {
                                 } else {
                                     showingProteinView = true
                                 }
-                            },
-                            onStructureLevelTap: { level in
-                                showStructureLevelPopup(level)
                             }
                         )
                         .id("related")

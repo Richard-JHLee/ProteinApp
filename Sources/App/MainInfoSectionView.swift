@@ -9,6 +9,11 @@ struct MainInfoSectionView: View {
     @State private var aminoAcidSequences: [String] = [] // 아미노산 서열 데이터
     @State private var isLoadingSequence = false // 서열 로딩 상태
     @State private var sequenceError: String? = nil // 서열 오류 메시지
+    @State private var showingPrimaryStructure = false // Primary Structure 팝업 상태
+    @State private var showingSecondaryStructure = false // Secondary Structure 팝업 상태
+    @State private var showingTertiaryStructure = false // Tertiary Structure 팝업 상태
+    @State private var showingQuaternaryStructure = false // Quaternary Structure 팝업 상태
+    @State private var showingFunctionDetails = false // Function Details 팝업 상태
 
     var body: some View {
         VStack(spacing: 14) {
@@ -23,7 +28,7 @@ struct MainInfoSectionView: View {
                         .fixedSize(horizontal: false, vertical: true)
                     
                     Button(action: {
-                        // Function 상세 화면으로 이동
+                        showingFunctionDetails = true
                     }) {
                         HStack {
                             Text("View Details")
@@ -53,7 +58,7 @@ struct MainInfoSectionView: View {
                 MetricPill(title: "Interact",  value: "Rotate/Zoom/Slice", icon: "hand.tap")
             }
             
-            // 구조 단계별 세부 정보 (펼쳐지는 영역)
+            // 구조 단계별 세부 정보
             if showingStructureDetails {
                 structureDetailsView
                     .transition(.asymmetric(
@@ -115,6 +120,21 @@ struct MainInfoSectionView: View {
         .sheet(isPresented: $showingAminoAcidSequence) {
             aminoAcidSequenceSheet
         }
+        .sheet(isPresented: $showingPrimaryStructure) {
+            PrimaryStructureView(protein: protein)
+        }
+        .sheet(isPresented: $showingSecondaryStructure) {
+            SecondaryStructureView(protein: protein)
+        }
+        .sheet(isPresented: $showingTertiaryStructure) {
+            TertiaryStructureView(protein: protein)
+        }
+        .sheet(isPresented: $showingQuaternaryStructure) {
+            QuaternaryStructureView(protein: protein)
+        }
+        // .sheet(isPresented: $showingFunctionDetails) {
+        //     FunctionDetailsView(protein: protein)
+        // }
     }
 
     // MARK: - Structure Details View
@@ -187,11 +207,17 @@ struct MainInfoSectionView: View {
                 
                 // API 엔드포인트 버튼
                 Button(action: {
-                    if title == "Primary Structure" {
-                        // Primary Structure는 앱 내 뷰로 표시
-                        showingAminoAcidSequence = true
-                    } else {
-                        // 다른 구조는 웹브라우저로 열기
+                    switch title {
+                    case "Primary Structure":
+                        showingPrimaryStructure = true
+                    case "Secondary Structure":
+                        showingSecondaryStructure = true
+                    case "Tertiary Structure":
+                        showingTertiaryStructure = true
+                    case "Quaternary Structure":
+                        showingQuaternaryStructure = true
+                    default:
+                        // 기타는 웹브라우저로 열기
                         openAPIEndpoint(apiEndpoint)
                     }
                 }) {

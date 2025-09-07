@@ -2,7 +2,6 @@ import SwiftUI
 
 struct DetailedInfoSectionView: View {
     let protein: ProteinInfo
-    let onStructureLevelTap: (Int) -> Void // 1,2,3,4 단계 탭 핸들러 추가
 
     var body: some View {
         VStack(spacing: 16) {
@@ -32,8 +31,7 @@ struct DetailedInfoSectionView: View {
                 }
             }
             
-            // 1,2,3,4 단계 구조 정보 추가
-            structureLevelsView
+            // 1,2,3,4 단계 구조 정보는 기존 기능에서 처리됨
         }
     }
 
@@ -59,64 +57,5 @@ struct DetailedInfoSectionView: View {
         .padding(.vertical, 12)
         .background(Color(.systemGray5))
         .cornerRadius(12)
-    }
-    
-    // MARK: - Structure Levels View
-    private var structureLevelsView: some View {
-        InfoCard(icon: "cube.box", title: "Protein Structure Levels", tint: .cyan) {
-            VStack(spacing: 16) {
-                structureLevel(number: "1", title: "Primary Structure", 
-                              description: "Amino acid sequence", 
-                              color: .blue)
-                
-                structureLevel(number: "2", title: "Secondary Structure", 
-                              description: "Alpha helix, beta sheet, turns", 
-                              color: .green)
-                
-                structureLevel(number: "3", title: "Tertiary Structure", 
-                              description: "3D folding and domains", 
-                              color: .orange)
-                
-                structureLevel(number: "4", title: "Quaternary Structure", 
-                              description: "Subunit assembly", 
-                              color: .purple)
-            }
-        }
-    }
-    
-    // 구조 단계 카드 생성 함수
-    private func structureLevel(number: String, title: String, description: String, color: Color) -> some View {
-        Button(action: {
-            onStructureLevelTap(Int(number) ?? 0)
-        }) {
-            HStack(spacing: 12) {
-                // 단계 번호
-                Text(number)
-                    .font(.headline.weight(.bold))
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
-                    .background(color, in: Circle())
-                
-                // 정보
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                    
-                    Text(description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                
-                Spacer()
-                
-                // 화살표
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.vertical, 8)
-        }
-        .buttonStyle(.plain)
     }
 }

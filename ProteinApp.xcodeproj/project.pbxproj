@@ -28,6 +28,10 @@
 		79D906122E6ABD4800C202D2 /* UserGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D9060D2E6ABD4800C202D2 /* UserGuideView.swift */; };
 		79D906132E6ABD4800C202D2 /* MenuItemRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D9060A2E6ABD4800C202D2 /* MenuItemRow.swift */; };
 		79D906142E6ABD4800C202D2 /* MenuItemType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D9060B2E6ABD4800C202D2 /* MenuItemType.swift */; };
+		79D906192E6D603B00C202D2 /* PrimaryStructureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D906152E6D603B00C202D2 /* PrimaryStructureView.swift */; };
+		79D9061A2E6D603B00C202D2 /* TertiaryStructureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D906182E6D603B00C202D2 /* TertiaryStructureView.swift */; };
+		79D9061B2E6D603B00C202D2 /* SecondaryStructureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D906172E6D603B00C202D2 /* SecondaryStructureView.swift */; };
+		79D9061C2E6D603B00C202D2 /* QuaternaryStructureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D906162E6D603B00C202D2 /* QuaternaryStructureView.swift */; };
 		ABF56BC87AF826996205F340 /* ProteinSceneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABDBD862116CF498A63A4482 /* ProteinSceneView.swift */; };
 		BB44BDF9E6313690D82218D8 /* SceneKitExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D9F412DFA7AD49E2AF30C0 /* SceneKitExtensions.swift */; };
 		BC849FBAF9245F690738D7DB /* SceneKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1E552674910C4E6B9E6BCBCD /* SceneKit.framework */; };
@@ -59,6 +63,10 @@
 		79D9060B2E6ABD4800C202D2 /* MenuItemType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItemType.swift; sourceTree = "<group>"; };
 		79D9060C2E6ABD4800C202D2 /* SideMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenuView.swift; sourceTree = "<group>"; };
 		79D9060D2E6ABD4800C202D2 /* UserGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserGuideView.swift; sourceTree = "<group>"; };
+		79D906152E6D603B00C202D2 /* PrimaryStructureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrimaryStructureView.swift; sourceTree = "<group>"; };
+		79D906162E6D603B00C202D2 /* QuaternaryStructureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuaternaryStructureView.swift; sourceTree = "<group>"; };
+		79D906172E6D603B00C202D2 /* SecondaryStructureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecondaryStructureView.swift; sourceTree = "<group>"; };
+		79D906182E6D603B00C202D2 /* TertiaryStructureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TertiaryStructureView.swift; sourceTree = "<group>"; };
 		ABDBD862116CF498A63A4482 /* ProteinSceneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProteinSceneView.swift; sourceTree = "<group>"; };
 		B697830EAB8BA6ABE13919E5 /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = Base; path = Base.lproj/ProteinApp.entitlements; sourceTree = "<group>"; };
 		D9D9F412DFA7AD49E2AF30C0 /* SceneKitExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneKitExtensions.swift; sourceTree = "<group>"; };
@@ -108,6 +116,10 @@
 		BDAB3465C9D2EBAF66C2BD77 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				79D906152E6D603B00C202D2 /* PrimaryStructureView.swift */,
+				79D906162E6D603B00C202D2 /* QuaternaryStructureView.swift */,
+				79D906172E6D603B00C202D2 /* SecondaryStructureView.swift */,
+				79D906182E6D603B00C202D2 /* TertiaryStructureView.swift */,
 				797284222E587182000842BE /* InfoSheet.swift */,
 				797284242E587417000842BE /* ActionButtonsSectionView.swift */,
 				79D906052E6ABD3800C202D2 /* AboutView.swift */,
@@ -228,6 +240,10 @@
 				79D9060F2E6ABD4800C202D2 /* FeaturesView.swift in Sources */,
 				79D906102E6ABD4800C202D2 /* SideMenuView.swift in Sources */,
 				79D906112E6ABD4800C202D2 /* MenuDetailView.swift in Sources */,
+				79D906192E6D603B00C202D2 /* PrimaryStructureView.swift in Sources */,
+				79D9061A2E6D603B00C202D2 /* TertiaryStructureView.swift in Sources */,
+				79D9061B2E6D603B00C202D2 /* SecondaryStructureView.swift in Sources */,
+				79D9061C2E6D603B00C202D2 /* QuaternaryStructureView.swift in Sources */,
 				79D906122E6ABD4800C202D2 /* UserGuideView.swift in Sources */,
 				79D906132E6ABD4800C202D2 /* MenuItemRow.swift in Sources */,
 				79D906142E6ABD4800C202D2 /* MenuItemType.swift in Sources */,
