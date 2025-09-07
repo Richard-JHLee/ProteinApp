@@ -3499,6 +3499,56 @@ struct ProteinLibraryView: View {
         return grouped
     }
     
+    @ViewBuilder
+    var searchResultsView: some View {
+        if allFilteredProteins.isEmpty {
+            // 검색 결과가 없는 경우 - 이미 검색 결과 헤더에서 처리됨
+            EmptyView()
+        } else {
+            // 검색 결과가 있는 경우 - 단백질 리스트 표시
+            LazyVStack(spacing: 12) {
+                ForEach(displayedProteins) { protein in
+                    ProteinRowCard(
+                        protein: protein,
+                        isFavorite: database.favorites.contains(protein.id),
+                        onSelect: {
+                            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                            impactFeedback.impactOccurred()
+                            
+                            // 단백질 로딩 시작
+                            isProteinLoading = true
+                            proteinLoadingProgress = "Loading \(protein.id)..."
+                            
+                            // 단백질 선택 및 상세보기 표시
+                            selectedProtein = protein
+                            showingInfoSheet = true
+                            
+                            // 로딩 완료 시뮬레이션
+                            Task {
+                                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5초
+                                await MainActor.run {
+                                    isProteinLoading = false
+                                    proteinLoadingProgress = ""
+                                }
+                            }
+                        },
+                        onFavoriteToggle: {
+                            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                            impactFeedback.impactOccurred()
+                            
+                            if database.favorites.contains(protein.id) {
+                                database.favorites.remove(protein.id)
+                            } else {
+                                database.favorites.insert(protein.id)
+                            }
+                        }
+                    )
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+    
     var categoryProteinCounts: [ProteinCategory: Int] {
         var counts: [ProteinCategory: Int] = [:]
         for category in ProteinCategory.allCases {
@@ -3762,7 +3812,13 @@ struct ProteinLibraryView: View {
                 
                 // Results Count
                 HStack {
-                    if selectedCategory == nil {
+                    if !searchText.isEmpty {
+                        // 검색 중: 검색 결과 개수 표시
+                        let resultCount = allFilteredProteins.count
+                        Text("검색 결과: \(resultCount)개")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else if selectedCategory == nil {
                         // All Categories 화면: 전체 카테고리 합계 표시
                         let totalCount = categoryProteinCounts.values.reduce(0, +)
                         Text("Total: \(totalCount) proteins across all categories")
@@ -3783,7 +3839,10 @@ struct ProteinLibraryView: View {
                 // Main Content
                 ScrollView {
                     VStack(spacing: 16) {
-                        if selectedCategory == nil {
+                        if !searchText.isEmpty {
+                            // 검색 결과 표시
+                            searchResultsView
+                        } else if selectedCategory == nil {
                             // All Categories - 카테고리 선택 인터페이스
                             VStack(spacing: 20) {
                                 // 헤더
