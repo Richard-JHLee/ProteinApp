@@ -1055,73 +1055,12 @@ struct ProteinSceneContainer: View {
                     highlightAllChains: $highlightAllChains
                 )
         } else {
-                // Info mode
+                // Info mode with standard NavigationView
                 VStack(spacing: 0) {
-                    // Fixed header with navigation and tabs
-                    VStack(spacing: 0) {
-                        // Info mode header
-                        HStack {
-                            Button(action: {
-                                // 사이드 메뉴 표시 (애니메이션과 함께)
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    showingSideMenu = true
-                                }
-                            }) {
-                                Image(systemName: "line.3.horizontal")
-                                    .font(.title2)
-                                    .foregroundColor(.primary)
-                            }
-                            .frame(minWidth: 44, minHeight: 44) // 터치 영역 확보
-                            
-                            Spacer()
-                            
-                            VStack(spacing: 4) {
-                                if let id = proteinId {
-                                    Text(id)
-                                        .font(.title3) // .headline에서 .title3로 개선
-                                        .fontWeight(.semibold)
-                                }
-                                if let name = proteinName {
-                                    Text(name)
-                                        .font(.callout) // .subheadline에서 .callout로 개선 (16pt)
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(name.count > 40 ? 1 : 2)  // 동적 길이 조정
-                                        .truncationMode(.tail)               // "..." 표시
-                                        .minimumScaleFactor(0.85)            // 더 유연한 크기 조정
-                                        .multilineTextAlignment(.center)     // 중앙 정렬
-                                }
-                            }
-                            
-                            Spacer()
-                            
-                            if let onProteinLibraryTap = onProteinLibraryTap {
-                                Button(action: onProteinLibraryTap) {
-                                    Text("Library")
-                                        .font(.callout) // .subheadline에서 .callout로 개선
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.primary)
-                                }
-                                .frame(minWidth: 44, minHeight: 44) // 터치 영역 확보
-                            }
-                            
-                            Button(action: {
-                                viewMode = .viewer
-                            }) {
-                                Image(systemName: "eye")
-                                    .font(.title2)
-                                    .foregroundColor(.primary)
-                            }
-                            .frame(minWidth: 44, minHeight: 44) // 터치 영역 확보
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8) // Apple 표준: 상태바와의 적절한 간격
-                        .padding(.bottom, 12) // 여백 증가
-                        .background(.ultraThinMaterial)
-                        
-                        // Info tab buttons with clear highlights button
-                        HStack {
-                        ScrollView(.horizontal, showsIndicators: true) { // 스크롤 인디케이터 표시
-                            HStack(spacing: 20) { // 간격을 16에서 20으로 증가
+                    // Info tab buttons with clear highlights button
+                    HStack {
+                        ScrollView(.horizontal, showsIndicators: true) {
+                            HStack(spacing: 20) {
                                 ForEach(InfoTabType.allCases, id: \.self) { tab in
                                     InfoTabButton(
                                         title: tab.rawValue,
@@ -1149,61 +1088,60 @@ struct ProteinSceneContainer: View {
                                 }
                             }
                             .padding(.horizontal, 16)
-                            }
-                            
-                            // Focus status indicator
-                            if let focusElement = focusedElement {
-                                HStack(spacing: 6) { // 간격 증가
-                                    Image(systemName: "scope.fill")
-                                        .font(.callout) // 아이콘 크기 증가
-                                        .foregroundColor(.green)
-                                    Text("Focused: \(focusElement.displayName)")
-                                        .font(.footnote) // .caption에서 .footnote로 개선 (13pt)
-                                        .fontWeight(.medium) // 가독성 향상
-                                        .foregroundColor(.green)
-                                }
-                                .padding(.horizontal, 12) // 패딩 증가
-                                .padding(.vertical, 6) // 패딩 증가
-                                .background(Color.green.opacity(0.15)) // 배경 투명도 증가
-                                .cornerRadius(16) // 모서리 둥글기 증가
-                            }
-                            
-                            // Clear highlights and focus button
-                            if !highlightedChains.isEmpty || !highlightedLigands.isEmpty || !highlightedPockets.isEmpty || isFocused {
-                                Button(action: {
-                                    highlightedChains.removeAll()
-                                    highlightedLigands.removeAll()
-                                    highlightedPockets.removeAll()
-                                    focusedElement = nil
-                                    isFocused = false
-                                }) {
-                                    HStack(spacing: 6) { // 간격 증가
-                                        Image(systemName: "xmark.circle.fill")
-                                            .font(.callout) // 아이콘 크기 증가
-                                        Text("Clear")
-                                            .font(.footnote) // .caption에서 .footnote로 개선
-                                            .fontWeight(.medium) // 가독성 향상
-                                    }
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 12) // 패딩 증가
-                                    .padding(.vertical, 8) // 패딩 증가
-                                    .background(Color.red)
-                                    .cornerRadius(16) // 모서리 둥글기 증가
-                                }
-                                .frame(minHeight: 44) // 터치 영역 확보
-                                .padding(.trailing, 16)
-                            }
                         }
-                        .padding(.bottom, 8)
-                        .background(.ultraThinMaterial)
-                        .overlay(Divider(), alignment: .bottom)
-                                            }
+                            
+                        // Focus status indicator
+                        if let focusElement = focusedElement {
+                            HStack(spacing: 6) {
+                                Image(systemName: "scope.fill")
+                                    .font(.callout)
+                                    .foregroundColor(.green)
+                                Text("Focused: \(focusElement.displayName)")
+                                    .font(.footnote)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.green)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.green.opacity(0.15))
+                            .cornerRadius(16)
+                        }
+                        
+                        // Clear highlights and focus button
+                        if !highlightedChains.isEmpty || !highlightedLigands.isEmpty || !highlightedPockets.isEmpty || isFocused {
+                            Button(action: {
+                                highlightedChains.removeAll()
+                                highlightedLigands.removeAll()
+                                highlightedPockets.removeAll()
+                                focusedElement = nil
+                                isFocused = false
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.callout)
+                                    Text("Clear")
+                                        .font(.footnote)
+                                        .fontWeight(.medium)
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(Color.red)
+                                .cornerRadius(16)
+                            }
+                            .frame(minHeight: 44)
+                            .padding(.trailing, 16)
+                        }
+                    }
+                    .padding(.bottom, 8)
+                    .background(.ultraThinMaterial)
+                    .overlay(Divider(), alignment: .bottom)
                     
                     // 3D Structure Preview
-                    VStack(alignment: .leading, spacing: 12) { // 간격 증가
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("3D Structure Preview")
-                            .font(.title3) // .headline에서 .title3로 개선
-                            .fontWeight(.semibold) // 가독성 향상
+                            .font(.title3)
+                            .fontWeight(.semibold)
                             .padding(.horizontal, 16)
                         
                         if let structure = structure {
@@ -1224,35 +1162,35 @@ struct ProteinSceneContainer: View {
                                     isFocused = true
                                 }
                             )
-                            .frame(height: 220) // 높이를 200에서 220으로 증가
+                            .frame(height: 220)
                             .padding(.horizontal, 16)
-                            .background(Color(.systemGray6).opacity(0.3)) // 배경 추가
-                            .cornerRadius(12) // 모서리 둥글기 추가
+                            .background(Color(.systemGray6).opacity(0.3))
+                            .cornerRadius(12)
                         }
                     }
-                    .padding(.top, 12) // 패딩 증가
-                    .padding(.bottom, 16) // 패딩 증가
+                    .padding(.top, 12)
+                    .padding(.bottom, 16)
                     .background(Color(.systemBackground))
                     
                     // Scrollable tab content area below fixed elements
                     ScrollView {
-                        VStack(spacing: 20) { // 간격을 16에서 20으로 증가
+                        VStack(spacing: 20) {
                             if let structure = structure {
                                 if isTabLoading {
                                     // Tab loading indicator
-                                    VStack(spacing: 20) { // 간격 증가
+                                    VStack(spacing: 20) {
                                         ProgressView()
-                                            .scaleEffect(1.3) // 크기 증가
+                                            .scaleEffect(1.3)
                                             .progressViewStyle(CircularProgressViewStyle(tint: .blue))
                                         
                                         Text(tabLoadingProgress)
-                                            .font(.title3) // .headline에서 .title3로 개선
-                                            .fontWeight(.medium) // 가독성 향상
+                                            .font(.title3)
+                                            .fontWeight(.medium)
                                             .foregroundColor(.primary)
                                     }
-                                    .frame(maxWidth: .infinity, minHeight: 220) // 높이 증가
+                                    .frame(maxWidth: .infinity, minHeight: 220)
                                     .background(Color(.systemGray6))
-                                    .clipShape(RoundedRectangle(cornerRadius: 16)) // 모서리 둥글기 증가
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
                                 } else {
                                     // Tab content
                                 switch selectedTab {
@@ -1275,17 +1213,41 @@ struct ProteinSceneContainer: View {
                             }
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, 12) // 패딩 증가
-                        .padding(.bottom, 40) // 패딩 증가 (홈 인디케이터 고려)
+                        .padding(.top, 12)
+                        .padding(.bottom, 40)
                     }
                     .background(Color(.systemBackground))
                 }
-                .background(Color(.systemBackground))
-                .safeAreaInset(edge: .top) {
-                    // 상태바 영역을 위한 투명한 공간
-                    Color.clear.frame(height: 0)
+                .navigationTitle(proteinName ?? proteinId ?? "Protein")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showingSideMenu = true
+                            }
+                        }) {
+                            Image(systemName: "line.3.horizontal")
+                        }
+                    }
+                    
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        HStack {
+                            if let onProteinLibraryTap = onProteinLibraryTap {
+                                Button(action: onProteinLibraryTap) {
+                                    Image(systemName: "books.vertical")
+                                }
+                            }
+                            
+                            Button(action: {
+                                viewMode = .viewer
+                            }) {
+                                Image(systemName: "eye")
+                            }
+                        }
+                    }
                 }
-                .ignoresSafeArea(.container, edges: .bottom) // 하단만 무시
+                .background(Color(.systemBackground))
                 .overlay(
                     // 사이드 메뉴 오버레이
                     Group {
