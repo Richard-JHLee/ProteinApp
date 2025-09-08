@@ -2713,7 +2713,8 @@ struct ProteinSceneView: UIViewRepresentable {
         let styleChanged = context.coordinator.lastStyle != style
         let colorModeChanged = context.coordinator.lastColorMode != colorMode
         let chainsChanged = context.coordinator.lastHighlightedChains != highlightedChains
-        let needsRebuild = structureChanged || styleChanged || colorModeChanged || chainsChanged
+        let focusChanged = context.coordinator.lastFocusElement != focusedElement
+        let needsRebuild = structureChanged || styleChanged || colorModeChanged || chainsChanged || focusChanged
         
         if needsRebuild {
             print("🔧 3D 구조 변경 감지 - 한 번만 빌드")
@@ -2735,6 +2736,7 @@ struct ProteinSceneView: UIViewRepresentable {
             context.coordinator.lastStyle = style
             context.coordinator.lastColorMode = colorMode
             context.coordinator.lastHighlightedChains = highlightedChains
+            context.coordinator.lastFocusElement = focusedElement
         }
         
         // autoRotate는 별도 처리 (빌드와 무관)
