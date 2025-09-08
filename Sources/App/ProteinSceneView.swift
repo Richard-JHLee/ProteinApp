@@ -194,7 +194,11 @@ struct ViewerModeUI: View {
                                 // Viewer Mode UI Overlay
                     VStack(spacing: 0) {
                         // Top Bar
-                        ViewerTopBar(viewMode: $viewMode)
+                        ViewerTopBar(
+                            viewMode: $viewMode,
+                            proteinName: proteinName,
+                            proteinId: proteinId
+                        )
                         
                         Spacer()
                         
@@ -258,32 +262,38 @@ struct ViewerModeUI: View {
 // MARK: - Viewer Top Bar
 struct ViewerTopBar: View {
     @Binding var viewMode: ViewMode
+    let proteinName: String?
+    let proteinId: String?
     
     var body: some View {
-                        HStack {
+        HStack {
             // Back to Info Mode
-                            Button(action: {
+            Button(action: {
                 withAnimation(.easeInOut(duration: 0.3)) {
-                                viewMode = .info
+                    viewMode = .info
                 }
-                            }) {
-                Image(systemName: "chevron.left")
-                    .font(.title2)
-                                    .foregroundColor(.primary)
-                            }
-            .accessibilityLabel("Back to Info")
-                            
-                            Spacer()
-                            
-            // Settings
-            Button(action: { 
-                // TODO: Implement viewer settings
             }) {
-                Image(systemName: "gearshape.fill")
+                Image(systemName: "chevron.left")
                     .font(.title2)
                     .foregroundColor(.primary)
             }
-            .accessibilityLabel("Viewer Settings")
+            .accessibilityLabel("Back to Info")
+            
+            Spacer()
+            
+            // Protein Title
+            Text(proteinName ?? proteinId ?? "Protein Viewer")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            
+            Spacer()
+            
+            // Empty space for symmetry
+            Color.clear
+                .frame(width: 44, height: 44)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
