@@ -1057,39 +1057,8 @@ struct ProteinSceneContainer: View {
         } else {
                 // Info mode with standard NavigationView
                 VStack(spacing: 0) {
-                    // Info tab buttons with clear highlights button
+                    // Status indicators (moved to top)
                     HStack {
-                        ScrollView(.horizontal, showsIndicators: true) {
-                            HStack(spacing: 20) {
-                                ForEach(InfoTabType.allCases, id: \.self) { tab in
-                                    InfoTabButton(
-                                        title: tab.rawValue,
-                                        isSelected: selectedTab == tab
-                                    ) {
-                                        // 즉시 상태 변경 (highlight 버튼처럼)
-                                        selectedTab = tab
-                                        
-                                        // 햅틱 피드백
-                                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                                        impactFeedback.impactOccurred()
-                                        
-                                        isTabLoading = true
-                                        tabLoadingProgress = "Loading \(tab.rawValue)..."
-                                        
-                                        // Simulate tab data loading
-                                        Task {
-                                            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
-                                            await MainActor.run {
-                                                isTabLoading = false
-                                                tabLoadingProgress = ""
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                        }
-                            
                         // Focus status indicator
                         if let focusElement = focusedElement {
                             HStack(spacing: 6) {
@@ -1106,6 +1075,8 @@ struct ProteinSceneContainer: View {
                             .background(Color.green.opacity(0.15))
                             .cornerRadius(16)
                         }
+                        
+                        Spacer()
                         
                         // Clear highlights and focus button
                         if !highlightedChains.isEmpty || !highlightedLigands.isEmpty || !highlightedPockets.isEmpty || isFocused {
@@ -1130,10 +1101,10 @@ struct ProteinSceneContainer: View {
                                 .cornerRadius(16)
                             }
                             .frame(minHeight: 44)
-                            .padding(.trailing, 16)
                         }
                     }
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
                     .background(.ultraThinMaterial)
                     .overlay(Divider(), alignment: .bottom)
                     
@@ -1172,7 +1143,7 @@ struct ProteinSceneContainer: View {
                     .padding(.bottom, 16)
                     .background(Color(.systemBackground))
                     
-                    // Scrollable tab content area below fixed elements
+                    // Scrollable tab content area
                     ScrollView {
                         VStack(spacing: 20) {
                             if let structure = structure {
@@ -1214,9 +1185,63 @@ struct ProteinSceneContainer: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 12)
-                        .padding(.bottom, 40)
+                        .padding(.bottom, 100) // 하단 탭을 위한 여백 추가
                     }
                     .background(Color(.systemBackground))
+                    
+                    // Bottom Tab Bar
+                    VStack(spacing: 0) {
+                        Divider()
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 0) {
+                                ForEach(InfoTabType.allCases, id: \.self) { tab in
+                                    Button(action: {
+                                        // 즉시 상태 변경 (highlight 버튼처럼)
+                                        selectedTab = tab
+                                        
+                                        // 햅틱 피드백
+                                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                        impactFeedback.impactOccurred()
+                                        
+                                        isTabLoading = true
+                                        tabLoadingProgress = "Loading \(tab.rawValue)..."
+                                        
+                                        // Simulate tab data loading
+                                        Task {
+                                            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+                                            await MainActor.run {
+                                                isTabLoading = false
+                                                tabLoadingProgress = ""
+                                            }
+                                        }
+                                    }) {
+                                        VStack(spacing: 4) {
+                                            Image(systemName: tabIcon(for: tab))
+                                                .font(.system(size: 16, weight: .medium))
+                                                .foregroundColor(selectedTab == tab ? .blue : .gray)
+                                            
+                                            Text(tab.rawValue)
+                                                .font(.caption2)
+                                                .fontWeight(.medium)
+                                                .foregroundColor(selectedTab == tab ? .blue : .gray)
+                                                .lineLimit(1)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 8)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .fill(selectedTab == tab ? Color.blue.opacity(0.1) : Color.clear)
+                                        )
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                        .frame(height: 60)
+                        .background(.ultraThinMaterial)
+                    }
                 }
                 .navigationTitle(proteinName ?? proteinId ?? "Protein")
                 .navigationBarTitleDisplayMode(.inline)
@@ -1381,6 +1406,26 @@ struct ProteinSceneContainer: View {
                     shouldSwitchToOverview = false
                 }
             }
+        }
+    }
+    
+    // MARK: - Tab Icon Helper
+    private func tabIcon(for tab: InfoTabType) -> String {
+        switch tab {
+        case .overview:
+            return "info.circle"
+        case .chains:
+            return "link"
+        case .residues:
+            return "circle.grid.2x2"
+        case .ligands:
+            return "pills"
+        case .pockets:
+            return "hexagon"
+        case .sequence:
+            return "textformat.abc"
+        case .annotations:
+            return "note.text"
         }
     }
     
