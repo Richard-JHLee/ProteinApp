@@ -2004,10 +2004,12 @@ struct ProteinSceneContainer: View {
                             HStack(spacing: 12) {
                             Button(action: {
                                 // Toggle ligand highlight
-                                if highlightedLigands.contains(ligandName) {
-                                    highlightedLigands.remove(ligandName)
-                                } else {
-                                    highlightedLigands.insert(ligandName)
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    if highlightedLigands.contains(ligandName) {
+                                        highlightedLigands.remove(ligandName)
+                                    } else {
+                                        highlightedLigands.insert(ligandName)
+                                    }
                                 }
                             }) {
                                 HStack {
@@ -2240,10 +2242,12 @@ struct ProteinSceneContainer: View {
                         HStack(spacing: 12) {
                             Button(action: {
                                 // Toggle pocket highlight
-                                if highlightedPockets.contains(pocketName) {
-                                    highlightedPockets.remove(pocketName)
-                                } else {
-                                    highlightedPockets.insert(pocketName)
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    if highlightedPockets.contains(pocketName) {
+                                        highlightedPockets.remove(pocketName)
+                                    } else {
+                                        highlightedPockets.insert(pocketName)
+                                    }
                                 }
                             }) {
                                 HStack {
@@ -2713,8 +2717,10 @@ struct ProteinSceneView: UIViewRepresentable {
         let styleChanged = context.coordinator.lastStyle != style
         let colorModeChanged = context.coordinator.lastColorMode != colorMode
         let chainsChanged = context.coordinator.lastHighlightedChains != highlightedChains
+        let ligandsChanged = context.coordinator.lastHighlightedLigands != highlightedLigands
+        let pocketsChanged = context.coordinator.lastHighlightedPockets != highlightedPockets
         let focusChanged = context.coordinator.lastFocusElement != focusedElement
-        let needsRebuild = structureChanged || styleChanged || colorModeChanged || chainsChanged || focusChanged
+        let needsRebuild = structureChanged || styleChanged || colorModeChanged || chainsChanged || ligandsChanged || pocketsChanged || focusChanged
         
         if needsRebuild {
             print("🔧 3D 구조 변경 감지 - 한 번만 빌드")
@@ -2736,6 +2742,8 @@ struct ProteinSceneView: UIViewRepresentable {
             context.coordinator.lastStyle = style
             context.coordinator.lastColorMode = colorMode
             context.coordinator.lastHighlightedChains = highlightedChains
+            context.coordinator.lastHighlightedLigands = highlightedLigands
+            context.coordinator.lastHighlightedPockets = highlightedPockets
             context.coordinator.lastFocusElement = focusedElement
         }
         
@@ -3356,6 +3364,8 @@ struct ProteinSceneView: UIViewRepresentable {
         var lastStyle: RenderStyle?
         var lastColorMode: ColorMode?
         var lastHighlightedChains: Set<String> = []
+        var lastHighlightedLigands: Set<String> = []
+        var lastHighlightedPockets: Set<String> = []
         var lastFocusElement: FocusedElement?
         var lastUpdateTime: TimeInterval = 0
         
