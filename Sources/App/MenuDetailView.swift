@@ -325,6 +325,13 @@ struct ContactView: View {
                 )
                 
                 ContactInfoItem(
+                    icon: "envelope",
+                    title: "이메일",
+                    value: "support@proteinapp.com",
+                    action: "이메일 보내기"
+                )
+                
+                ContactInfoItem(
                     icon: "github",
                     title: "GitHub",
                     value: "https://github.com/proteinapp",
@@ -346,18 +353,33 @@ struct PrivacyView: View {
                 
                 VStack(alignment: .leading, spacing: 16) {
                     PrivacySection(
-                        title: "수집하는 정보",
-                        content: "ProteinApp은 개인정보를 수집하지 않습니다. 앱 내에서 입력하는 PDB ID는 단백질 구조를 다운로드하는 목적으로만 사용됩니다."
+                        title: "1. 수집하는 정보",
+                        content: "ProteinApp은 사용자의 개인정보를 수집하지 않습니다.\n\n• PDB ID: 단백질 구조 데이터를 다운로드하기 위한 공개 식별자로, 개인정보가 아닙니다.\n• 앱 사용 데이터: 앱 내에서 생성되는 모든 데이터는 기기에만 저장됩니다.\n• 네트워크 요청: 단백질 구조 데이터 다운로드를 위한 API 호출만 수행합니다."
                     )
                     
                     PrivacySection(
-                        title: "정보 사용",
-                        content: "수집된 정보는 단백질 구조 시각화 및 교육 목적으로만 사용됩니다."
+                        title: "2. 정보 사용 목적",
+                        content: "• 단백질 구조 시각화 및 3D 렌더링\n• 교육 및 연구 목적의 데이터 제공\n• 앱 기능 향상을 위한 로컬 데이터 처리\n• 사용자 경험 개선을 위한 앱 내 기능 제공"
                     )
                     
                     PrivacySection(
-                        title: "정보 보호",
-                        content: "모든 데이터는 로컬에 저장되며 외부로 전송되지 않습니다."
+                        title: "3. 정보 보호 및 보안",
+                        content: "• 모든 데이터는 사용자 기기에만 저장됩니다.\n• 외부 서버로 개인정보가 전송되지 않습니다.\n• PDB API 호출 시에는 공개 데이터만 요청합니다.\n• 앱 삭제 시 모든 로컬 데이터가 함께 삭제됩니다."
+                    )
+                    
+                    PrivacySection(
+                        title: "4. 제3자 서비스",
+                        content: "• RCSB PDB (data.rcsb.org): 단백질 구조 데이터 제공\n• PDBe (www.ebi.ac.uk): 추가 단백질 정보 제공\n• UniProt (rest.uniprot.org): 단백질 기능 정보 제공\n\n이들 서비스는 모두 공개 API이며 개인정보를 요구하지 않습니다."
+                    )
+                    
+                    PrivacySection(
+                        title: "5. 사용자 권리",
+                        content: "• 데이터 삭제: 앱 삭제를 통해 모든 데이터를 삭제할 수 있습니다.\n• 데이터 수정: 앱 내에서 입력한 정보는 언제든 수정 가능합니다.\n• 문의: 개인정보 관련 문의는 앱 내 Contact 메뉴를 이용해주세요."
+                    )
+                    
+                    PrivacySection(
+                        title: "6. 정책 변경",
+                        content: "개인정보 처리방침은 필요에 따라 변경될 수 있으며, 변경 시 앱 내에서 공지합니다. 마지막 업데이트: 2024년 9월 8일"
                     )
                 }
             }

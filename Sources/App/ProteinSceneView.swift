@@ -1054,225 +1054,259 @@ struct ProteinSceneContainer: View {
                     renderingProgress: $renderingProgress,
                     highlightAllChains: $highlightAllChains
                 )
-        } else {
-                // Info mode with standard NavigationView
-                VStack(spacing: 0) {
-                    // Status indicators (moved to top)
-                    HStack {
-                        // Focus status indicator
-                        if let focusElement = focusedElement {
-                            HStack(spacing: 6) {
-                                Image(systemName: "scope.fill")
-                                    .font(.callout)
-                                    .foregroundColor(.green)
-                                Text("Focused: \(focusElement.displayName)")
-                                    .font(.footnote)
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.green)
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.green.opacity(0.15))
-                            .cornerRadius(16)
-                        }
-                        
-                        Spacer()
-                        
-                        // Clear highlights and focus button
-                        if !highlightedChains.isEmpty || !highlightedLigands.isEmpty || !highlightedPockets.isEmpty || isFocused {
-                            Button(action: {
-                                highlightedChains.removeAll()
-                                highlightedLigands.removeAll()
-                                highlightedPockets.removeAll()
-                                focusedElement = nil
-                                isFocused = false
-                            }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .font(.callout)
-                                    Text("Clear")
-                                        .font(.footnote)
-                                        .fontWeight(.medium)
-                                }
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(Color.red)
-                                .cornerRadius(16)
-                            }
-                            .frame(minHeight: 44)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(.ultraThinMaterial)
-                    .overlay(Divider(), alignment: .bottom)
-                    
-                    // 3D Structure Preview
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("3D Structure Preview")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal, 16)
-                        
-                        if let structure = structure {
-                            ProteinSceneView(
-                                structure: structure,
-                                style: selectedStyle,
-                                colorMode: selectedColorMode,
-                                uniformColor: .systemBlue,
-                                autoRotate: false,
-                                isInfoMode: true,
-                                showInfoBar: .constant(false),
-                                highlightedChains: highlightedChains,
-                                highlightedLigands: highlightedLigands,
-                                highlightedPockets: highlightedPockets,
-                                focusedElement: focusedElement,
-                                onFocusRequest: { element in
-                                    focusedElement = element
-                                    isFocused = true
-                                }
-                            )
-                            .frame(height: 220)
-                            .padding(.horizontal, 16)
-                            .background(Color(.systemGray6).opacity(0.3))
-                            .cornerRadius(12)
-                        }
-                    }
-                    .padding(.top, 12)
-                    .padding(.bottom, 16)
-                    .background(Color(.systemBackground))
-                    
-                    // Scrollable tab content area
-                    ScrollView {
-                        VStack(spacing: 20) {
-                            if let structure = structure {
-                                if isTabLoading {
-                                    // Tab loading indicator
-                                    VStack(spacing: 20) {
-                                        ProgressView()
-                                            .scaleEffect(1.3)
-                                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                                        
-                                        Text(tabLoadingProgress)
-                                            .font(.title3)
-                                            .fontWeight(.medium)
-                                            .foregroundColor(.primary)
-                                    }
-                                    .frame(maxWidth: .infinity, minHeight: 220)
-                                    .background(Color(.systemGray6))
-                                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                                } else {
-                                    // Tab content
-                                switch selectedTab {
-                                case .overview:
-                                    overviewContent(structure: structure)
-                                case .chains:
-                                    chainsContent(structure: structure)
-                                case .residues:
-                                    residuesContent(structure: structure)
-                                case .ligands:
-                                    ligandsContent(structure: structure)
-                                case .pockets:
-                                    pocketsContent(structure: structure)
-                                case .sequence:
-                                    sequenceContent(structure: structure)
-                                case .annotations:
-                                    annotationsContent(structure: structure)
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 12)
-                        .padding(.bottom, 100) // 하단 탭을 위한 여백 추가
-                    }
-                    .background(Color(.systemBackground))
-                    
-                    // Bottom Tab Bar
-                    VStack(spacing: 0) {
-                        Divider()
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 0) {
-                                ForEach(InfoTabType.allCases, id: \.self) { tab in
+                } else {
+                    // Info mode with NavigationView + .toolbar(.bottomBar)
+                    NavigationView {
+                        VStack(spacing: 0) {
+                            // Fixed header with navigation and tabs
+                            VStack(spacing: 0) {
+                                // Info mode header
+                                HStack {
                                     Button(action: {
-                                        // 즉시 상태 변경 (highlight 버튼처럼)
-                                        selectedTab = tab
-                                        
-                                        // 햅틱 피드백
-                                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                                        impactFeedback.impactOccurred()
-                                        
-                                        isTabLoading = true
-                                        tabLoadingProgress = "Loading \(tab.rawValue)..."
-                                        
-                                        // Simulate tab data loading
-                                        Task {
-                                            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
-                                            await MainActor.run {
-                                                isTabLoading = false
-                                                tabLoadingProgress = ""
-                                            }
+                                        // 사이드 메뉴 표시 (애니메이션과 함께)
+                                        withAnimation(.easeInOut(duration: 0.3)) {
+                                            showingSideMenu = true
                                         }
                                     }) {
-                                        VStack(spacing: 4) {
-                                            Image(systemName: tabIcon(for: tab))
-                                                .font(.system(size: 16, weight: .medium))
-                                                .foregroundColor(selectedTab == tab ? .blue : .gray)
-                                            
-                                            Text(tab.rawValue)
-                                                .font(.caption2)
-                                                .fontWeight(.medium)
-                                                .foregroundColor(selectedTab == tab ? .blue : .gray)
-                                                .lineLimit(1)
-                                        }
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 8)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .fill(selectedTab == tab ? Color.blue.opacity(0.1) : Color.clear)
-                                        )
+                                        Image(systemName: "line.3.horizontal")
+                                            .font(.title2)
+                                            .foregroundColor(.primary)
                                     }
-                                    .buttonStyle(PlainButtonStyle())
+                                    .frame(minWidth: 44, minHeight: 44) // 터치 영역 확보
+                                    
+                                    Spacer()
+                                    
+                                    VStack(spacing: 4) {
+                                        if let id = proteinId {
+                                            Text(id)
+                                                .font(.title3)
+                                                .fontWeight(.semibold)
+                                        }
+                                        if let name = proteinName {
+                                            Text(name)
+                                                .font(.callout)
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(name.count > 40 ? 1 : 2)
+                                                .truncationMode(.tail)
+                                                .minimumScaleFactor(0.85)
+                                                .multilineTextAlignment(.center)
+                                        }
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    if let onProteinLibraryTap = onProteinLibraryTap {
+                                        Button(action: onProteinLibraryTap) {
+                                            Image(systemName: "books.vertical")
+                                                .font(.title2)
+                                                .foregroundColor(.primary)
+                                        }
+                                        .frame(minWidth: 44, minHeight: 44)
+                                    }
+                                    
+                                    Button(action: {
+                                        viewMode = .viewer
+                                    }) {
+                                        Image(systemName: "eye")
+                                            .font(.title2)
+                                            .foregroundColor(.primary)
+                                    }
+                                    .frame(minWidth: 44, minHeight: 44)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.top, 8) // PrimaryOptionsBar 방식 적용
+                                .padding(.bottom, 12)
+                                .background(.ultraThinMaterial)
+                        
+                            // Focus status indicator and clear button (moved to header)
+                            HStack {
+                                // Focus status indicator
+                                if let focusElement = focusedElement {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "scope.fill")
+                                            .font(.callout)
+                                            .foregroundColor(.green)
+                                        Text("Focused: \(focusElement.displayName)")
+                                            .font(.footnote)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.green)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.green.opacity(0.15))
+                                    .cornerRadius(16)
+                                }
+                                
+                                Spacer()
+                                
+                                // Clear highlights and focus button
+                                if !highlightedChains.isEmpty || !highlightedLigands.isEmpty || !highlightedPockets.isEmpty || isFocused {
+                                    Button(action: {
+                                        highlightedChains.removeAll()
+                                        highlightedLigands.removeAll()
+                                        highlightedPockets.removeAll()
+                                        focusedElement = nil
+                                        isFocused = false
+                                    }) {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "xmark.circle.fill")
+                                                .font(.callout)
+                                            Text("Clear")
+                                                .font(.footnote)
+                                                .fontWeight(.medium)
+                                        }
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(Color.red)
+                                        .cornerRadius(16)
+                                    }
+                                    .frame(minHeight: 44)
                                 }
                             }
                             .padding(.horizontal, 16)
+                            .padding(.bottom, 8)
+                            .background(.ultraThinMaterial)
+                            .overlay(Divider(), alignment: .bottom)
                         }
-                        .frame(height: 60)
-                        .background(.ultraThinMaterial)
-                    }
-                }
-                .navigationTitle(proteinName ?? proteinId ?? "Protein")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                showingSideMenu = true
-                            }
-                        }) {
-                            Image(systemName: "line.3.horizontal")
-                        }
-                    }
-                    
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        HStack {
-                            if let onProteinLibraryTap = onProteinLibraryTap {
-                                Button(action: onProteinLibraryTap) {
-                                    Image(systemName: "books.vertical")
+                            
+                            // 3D Structure Preview
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("3D Structure Preview")
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                                    .padding(.horizontal, 16)
+                        
+                                if let structure = structure {
+                                    ProteinSceneView(
+                                        structure: structure,
+                                        style: selectedStyle,
+                                        colorMode: selectedColorMode,
+                                        uniformColor: .systemBlue,
+                                        autoRotate: false,
+                                        isInfoMode: true,
+                                        showInfoBar: .constant(false),
+                                        highlightedChains: highlightedChains,
+                                        highlightedLigands: highlightedLigands,
+                                        highlightedPockets: highlightedPockets,
+                                        focusedElement: focusedElement,
+                                        onFocusRequest: { element in
+                                            focusedElement = element
+                                            isFocused = true
+                                        }
+                                    )
+                                    .frame(height: 220)
+                                    .padding(.horizontal, 16)
+                                    .background(Color(.systemGray6).opacity(0.3))
+                                    .cornerRadius(12)
                                 }
                             }
-                            
-                            Button(action: {
-                                viewMode = .viewer
-                            }) {
-                                Image(systemName: "eye")
+                            .padding(.top, 12)
+                            .padding(.bottom, 16)
+                            .background(Color(.systemBackground))
+                    
+                            // Scrollable tab content area below fixed elements
+                            ScrollView {
+                                VStack(spacing: 20) {
+                                    Spacer(minLength: 0) // 탭바를 제외한 공간 최대 활용
+                                    
+                                    if let structure = structure {
+                                        if isTabLoading {
+                                            // Tab loading indicator
+                                            VStack(spacing: 20) {
+                                                ProgressView()
+                                                    .scaleEffect(1.3)
+                                                    .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                                                
+                                                Text(tabLoadingProgress)
+                                                    .font(.title3)
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(.primary)
+                                            }
+                                            .frame(maxWidth: .infinity, minHeight: 220)
+                                            .background(Color(.systemGray6))
+                                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                                        } else {
+                                            // Tab content
+                                            switch selectedTab {
+                                            case .overview:
+                                                overviewContent(structure: structure)
+                                            case .chains:
+                                                chainsContent(structure: structure)
+                                            case .residues:
+                                                residuesContent(structure: structure)
+                                            case .ligands:
+                                                ligandsContent(structure: structure)
+                                            case .pockets:
+                                                pocketsContent(structure: structure)
+                                            case .sequence:
+                                                sequenceContent(structure: structure)
+                                            case .annotations:
+                                                annotationsContent(structure: structure)
+                                            }
+                                        }
+                                    }
+                                    
+                                    Spacer(minLength: 0) // 하단 공간도 최대 활용
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.top, 6)
+                            }
+                            .background(Color(.systemBackground))
+                        }
+                        .background(Color(.systemBackground))
+                        .toolbar {
+                            ToolbarItemGroup(placement: .bottomBar) {
+                                ScrollView(.horizontal, showsIndicators: true) {
+                                    HStack(spacing: 0) {
+                                        ForEach(InfoTabType.allCases, id: \.self) { tab in
+                                            Button(action: {
+                                                // 즉시 상태 변경 (highlight 버튼처럼)
+                                                selectedTab = tab
+                                                
+                                                // 햅틱 피드백
+                                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                                impactFeedback.impactOccurred()
+                                                
+                                                isTabLoading = true
+                                                tabLoadingProgress = "Loading \(tab.rawValue)..."
+                                                
+                                                // Simulate tab data loading
+                                                Task {
+                                                    try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+                                                    await MainActor.run {
+                                                        isTabLoading = false
+                                                        tabLoadingProgress = ""
+                                                    }
+                                                }
+                                            }) {
+                                                VStack(spacing: 4) {
+                                                    Image(systemName: tabIcon(for: tab))
+                                                        .font(.system(size: 18, weight: .medium))
+                                                        .foregroundColor(selectedTab == tab ? .blue : .gray)
+                                                    
+                                                    Text(tab.rawValue)
+                                                        .font(.caption)
+                                                        .fontWeight(.medium)
+                                                        .foregroundColor(selectedTab == tab ? .blue : .gray)
+                                                        .lineLimit(1)
+                                                        .truncationMode(.tail)
+                                                }
+                                                .frame(width: 80)
+                                                .padding(.vertical, 8)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 8)
+                                                        .fill(selectedTab == tab ? Color.blue.opacity(0.1) : Color.clear)
+                                                )
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                }
                             }
                         }
                     }
-                }
-                .background(Color(.systemBackground))
                 .overlay(
                     // 사이드 메뉴 오버레이
                     Group {

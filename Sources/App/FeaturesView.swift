@@ -33,7 +33,7 @@ struct FeaturesView: View {
                 // 색상 모드
                 FeatureCard(
                     title: "색상 모드",
-                    icon: "palette",
+                    icon: "circle.lefthalf.filled",
                     color: .purple,
                     features: [
                         "Element: 원소별 색상",
