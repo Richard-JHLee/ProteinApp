@@ -2776,7 +2776,13 @@ struct ProteinSceneView: UIViewRepresentable {
         let ligandsChanged = context.coordinator.lastHighlightedLigands != highlightedLigands
         let pocketsChanged = context.coordinator.lastHighlightedPockets != highlightedPockets
         let focusChanged = context.coordinator.lastFocusElement != focusedElement
-        let needsRebuild = structureChanged || styleChanged || colorModeChanged || chainsChanged || ligandsChanged || pocketsChanged || focusChanged
+        
+        // Options 변경사항 감지
+        let zoomChanged = abs(context.coordinator.lastZoomLevel - zoomLevel) > 0.01
+        let transparencyChanged = abs(context.coordinator.lastTransparency - transparency) > 0.01
+        let atomSizeChanged = abs(context.coordinator.lastAtomSize - atomSize) > 0.01
+        
+        let needsRebuild = structureChanged || styleChanged || colorModeChanged || chainsChanged || ligandsChanged || pocketsChanged || focusChanged || zoomChanged || transparencyChanged || atomSizeChanged
         
         if needsRebuild {
             print("🔧 3D 구조 변경 감지 - 한 번만 빌드")
@@ -2801,6 +2807,11 @@ struct ProteinSceneView: UIViewRepresentable {
             context.coordinator.lastHighlightedLigands = highlightedLigands
             context.coordinator.lastHighlightedPockets = highlightedPockets
             context.coordinator.lastFocusElement = focusedElement
+            
+            // Options 상태 저장
+            context.coordinator.lastZoomLevel = zoomLevel
+            context.coordinator.lastTransparency = transparency
+            context.coordinator.lastAtomSize = atomSize
         }
         
         // autoRotate는 별도 처리 (빌드와 무관)
@@ -3424,6 +3435,11 @@ struct ProteinSceneView: UIViewRepresentable {
         var lastHighlightedPockets: Set<String> = []
         var lastFocusElement: FocusedElement?
         var lastUpdateTime: TimeInterval = 0
+        
+        // Options tracking variables
+        var lastZoomLevel: Double = 1.0
+        var lastTransparency: Double = 1.0
+        var lastAtomSize: Double = 1.0
         
         init(parent: ProteinSceneView) {
             self.parent = parent
