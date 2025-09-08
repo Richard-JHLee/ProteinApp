@@ -155,9 +155,9 @@ struct ViewerModeUI: View {
     @Binding var viewMode: ViewMode
     @Binding var isRendering3D: Bool
     @Binding var renderingProgress: String
+    @Binding var highlightAllChains: Bool
     
     @State private var activePanel: BottomPanel = .none
-    @AppStorage("highlightAllChains") private var highlightAllChains: Bool = false
     @State private var showSecondaryBar: Bool = false
     @State private var secondaryBarType: SecondaryBarType = .none
     @State private var rotationEnabled: Bool = false
@@ -1036,7 +1036,7 @@ struct ProteinSceneContainer: View {
     
     // Viewer Mode UI state
     @State private var activePanel: BottomPanel = .none
-    @AppStorage("highlightAllChains") private var highlightAllChains: Bool = false
+    @State private var highlightAllChains: Bool = false
     
     var body: some View {
         ZStack {
@@ -1051,7 +1051,8 @@ struct ProteinSceneContainer: View {
                     focusedElement: $focusedElement,
                     viewMode: $viewMode,
                     isRendering3D: $isRendering3D,
-                    renderingProgress: $renderingProgress
+                    renderingProgress: $renderingProgress,
+                    highlightAllChains: $highlightAllChains
                 )
         } else {
                 // Info mode
