@@ -2003,13 +2003,27 @@ struct ProteinSceneContainer: View {
                         // Interactive buttons
                             HStack(spacing: 12) {
                             Button(action: {
-                                // Toggle ligand highlight
+                                // Toggle ligand highlight - 즉시 UI 피드백
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     if highlightedLigands.contains(ligandName) {
                                         highlightedLigands.remove(ligandName)
                                     } else {
                                         highlightedLigands.insert(ligandName)
                                     }
+                                }
+                                
+                                // 3D 이미지 업데이트를 위한 로딩 상태 시작
+                                isRendering3D = true
+                                renderingProgress = "Updating highlights..."
+                                
+                                // Haptic feedback for immediate response
+                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                impactFeedback.impactOccurred()
+                                
+                                // 로딩 상태를 잠시 후 자동으로 해제 (실제로는 3D 렌더링 완료 시 해제됨)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    isRendering3D = false
+                                    renderingProgress = ""
                                 }
                             }) {
                                 HStack {
@@ -2036,6 +2050,20 @@ struct ProteinSceneContainer: View {
                                     // Focus on this ligand
                                     focusedElement = .ligand(ligandName)
                                     isFocused = true
+                                }
+                                
+                                // 3D 이미지 업데이트를 위한 로딩 상태 시작
+                                isRendering3D = true
+                                renderingProgress = "Updating focus..."
+                                
+                                // Haptic feedback for immediate response
+                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                impactFeedback.impactOccurred()
+                                
+                                // 로딩 상태를 잠시 후 자동으로 해제 (실제로는 3D 렌더링 완료 시 해제됨)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    isRendering3D = false
+                                    renderingProgress = ""
                                 }
                             }) {
                                 let isCurrentlyFocused = {
@@ -2241,13 +2269,27 @@ struct ProteinSceneContainer: View {
                         // Interactive buttons
                         HStack(spacing: 12) {
                             Button(action: {
-                                // Toggle pocket highlight
+                                // Toggle pocket highlight - 즉시 UI 피드백
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     if highlightedPockets.contains(pocketName) {
                                         highlightedPockets.remove(pocketName)
                                     } else {
                                         highlightedPockets.insert(pocketName)
                                     }
+                                }
+                                
+                                // 3D 이미지 업데이트를 위한 로딩 상태 시작
+                                isRendering3D = true
+                                renderingProgress = "Updating highlights..."
+                                
+                                // Haptic feedback for immediate response
+                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                impactFeedback.impactOccurred()
+                                
+                                // 로딩 상태를 잠시 후 자동으로 해제 (실제로는 3D 렌더링 완료 시 해제됨)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    isRendering3D = false
+                                    renderingProgress = ""
                                 }
                             }) {
                                 HStack {
@@ -2274,6 +2316,20 @@ struct ProteinSceneContainer: View {
                                     // Focus on this pocket
                                     focusedElement = .pocket(pocketName)
                                     isFocused = true
+                                }
+                                
+                                // 3D 이미지 업데이트를 위한 로딩 상태 시작
+                                isRendering3D = true
+                                renderingProgress = "Updating focus..."
+                                
+                                // Haptic feedback for immediate response
+                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                impactFeedback.impactOccurred()
+                                
+                                // 로딩 상태를 잠시 후 자동으로 해제 (실제로는 3D 렌더링 완료 시 해제됨)
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    isRendering3D = false
+                                    renderingProgress = ""
                                 }
                             }) {
                                 let isCurrentlyFocused = {
