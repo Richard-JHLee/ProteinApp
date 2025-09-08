@@ -1627,10 +1627,12 @@ struct ProteinSceneContainer: View {
                     HStack(spacing: 12) {
                         Button(action: {
                             // Toggle chain highlight - 즉시 UI 피드백
-                            if highlightedChains.contains(chain) {
-                                highlightedChains.remove(chain)
-                            } else {
-                                highlightedChains.insert(chain)
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                if highlightedChains.contains(chain) {
+                                    highlightedChains.remove(chain)
+                                } else {
+                                    highlightedChains.insert(chain)
+                                }
                             }
                             
                             // 3D 이미지 업데이트를 위한 로딩 상태 시작
