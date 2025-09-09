@@ -86,7 +86,7 @@ struct SideMenuView: View {
                 .padding(.horizontal, 20)
             
             VStack(spacing: 8) {
-                Text("© 2024 ProteinApp")
+                Text("© 2025 AVAS")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
