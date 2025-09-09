@@ -10,7 +10,7 @@ struct LicenseView: View {
                         .font(.title)
                         .fontWeight(.bold)
                     
-                    Text("Copyright (c) 2024 ProteinApp")
+                    Text("Copyright (c) 2025 AVAS")
                         .font(.headline)
                         .foregroundColor(.secondary)
                 }
@@ -62,34 +62,6 @@ struct LicenseView: View {
                 
                 Divider()
                 
-                // 연락처 정보
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Contact Information")
-                        .font(.headline)
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        ContactItem(
-                            icon: "envelope",
-                            title: "Email",
-                            value: "support@proteinapp.com"
-                        )
-                        
-                        ContactItem(
-                            icon: "globe",
-                            title: "Website",
-                            value: "https://proteinapp.com"
-                        )
-                        
-                        ContactItem(
-                            icon: "github",
-                            title: "GitHub",
-                            value: "https://github.com/proteinapp"
-                        )
-                    }
-                }
-                
-                Divider()
-                
                 // 앱 정보
                 VStack(alignment: .leading, spacing: 8) {
                     Text("App Information")
@@ -99,7 +71,7 @@ struct LicenseView: View {
                         LicenseInfoRow(title: "Version", value: "1.0.0", description: "Current app version")
                         LicenseInfoRow(title: "Build", value: "1.0.1", description: "Build number")
                         LicenseInfoRow(title: "Platform", value: "iOS 15.6+", description: "Minimum supported iOS version")
-                        LicenseInfoRow(title: "Last Updated", value: "December 2024", description: "Last update date")
+                        LicenseInfoRow(title: "Last Updated", value: "January 2025", description: "Last update date")
                     }
                 }
             }
@@ -135,32 +107,6 @@ struct LibraryItem: View {
     }
 }
 
-struct ContactItem: View {
-    let icon: String
-    let title: String
-    let value: String
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundColor(.blue)
-                .frame(width: 24, height: 24)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                Text(value)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-        }
-    }
-}
 
 struct LicenseInfoRow: View {
     let title: String
