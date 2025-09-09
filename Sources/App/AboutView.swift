@@ -57,15 +57,32 @@ struct AboutView: View {
                     Text("Developer")
                         .font(.headline)
                     
-                    Text("Avas Team")
+                    Text("AVAS")
                         .font(.body)
                         .foregroundColor(.primary)
                         .fixedSize(horizontal: false, vertical: true)
                     
-                    Text("© 2024 ProteinApp. All rights reserved.")
+                    // 문의 정보 추가
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("문의 및 지원")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        Text("• 이메일: support@avas.com")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text("• 웹사이트: https://avas.com")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top, 8)
+                    
+                    Text("© 2025 AVAS. All rights reserved.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 8)
                 }
             }
             .padding()

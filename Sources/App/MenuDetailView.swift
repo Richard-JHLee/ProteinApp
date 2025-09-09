@@ -293,7 +293,31 @@ struct HelpView: View {
                         question: "단백질을 로드할 수 없습니다",
                         answer: "인터넷 연결을 확인하고 유효한 PDB ID를 입력했는지 확인해주세요."
                     )
+                    
+                    FAQItem(
+                        question: "추가 도움이 필요합니다",
+                        answer: "문제가 지속되거나 다른 질문이 있으시면 앱 정보 페이지의 문의 정보를 통해 연락해주세요."
+                    )
                 }
+                
+                Divider()
+                
+                // 문의 정보 추가
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("문의 및 지원")
+                        .font(.headline)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("• 이메일: support@avas.com")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                        
+                        Text("• 웹사이트: https://avas.com")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.top, 8)
             }
             .padding()
         }
@@ -332,12 +356,12 @@ struct PrivacyView: View {
                     
                     PrivacySection(
                         title: "5. 사용자 권리",
-                        content: "• 데이터 삭제: 앱 삭제를 통해 모든 데이터를 삭제할 수 있습니다.\n• 데이터 수정: 앱 내에서 입력한 정보는 언제든 수정 가능합니다.\n• 문의: 개인정보 관련 문의는 앱 내 Contact 메뉴를 이용해주세요."
+                        content: "• 데이터 삭제: 앱 삭제를 통해 모든 데이터를 삭제할 수 있습니다.\n• 데이터 수정: 앱 내에서 입력한 정보는 언제든 수정 가능합니다.\n• 문의: 개인정보 관련 문의는 앱 정보 페이지를 이용해주세요."
                     )
                     
                     PrivacySection(
                         title: "6. 정책 변경",
-                        content: "개인정보 처리방침은 필요에 따라 변경될 수 있으며, 변경 시 앱 내에서 공지합니다. 마지막 업데이트: 2024년 9월 8일"
+                        content: "개인정보 처리방침은 필요에 따라 변경될 수 있으며, 변경 시 앱 내에서 공지합니다. 마지막 업데이트: 2025년 1월 9일"
                     )
                 }
             }
@@ -372,7 +396,7 @@ struct TermsView: View {
                     
                     TermsSection(
                         title: "환불 정책",
-                        content: "• App Store 정책에 따라 앱 구매 환불은 제한적입니다.\n• 기술적 문제로 인한 앱 사용 불가 시에만 환불을 고려합니다.\n• 환불 요청은 App Store 또는 앱 내 고객 지원을 통해 접수해주세요.\n• 앱 구매 후 14일 이내에만 환불이 가능합니다."
+                        content: "• 앱 구매 환불은 Apple App Store 정책에 따라 처리됩니다.\n• 환불 요청은 App Store에서 직접 신청해주세요.\n• Apple의 환불 정책: https://support.apple.com/HT204084\n• 개발자는 환불 처리 권한이 없으며, Apple이 모든 환불을 관리합니다."
                     )
                     
                     TermsSection(
@@ -388,6 +412,11 @@ struct TermsView: View {
                     TermsSection(
                         title: "앱 변경",
                         content: "앱의 기능은 사전 통지 없이 변경될 수 있습니다. 주요 기능 변경 시에는 앱 업데이트를 통해 공지합니다."
+                    )
+                    
+                    TermsSection(
+                        title: "문의 및 지원",
+                        content: "서비스 이용 관련 문의는 앱 정보 페이지를 통해 연락해주세요. 마지막 업데이트: 2025년 1월 9일"
                     )
                 }
             }
