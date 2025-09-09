@@ -47,7 +47,7 @@ struct SideMenuView: View {
                     .foregroundColor(.blue)
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("ProteinApp")
+                    Text("ProteinViewerApp")
                         .font(.title2)
                         .fontWeight(.bold)
                     
