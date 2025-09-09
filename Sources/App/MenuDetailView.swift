@@ -190,7 +190,7 @@ struct SettingsView: View {
                         )
                         
                         PerformanceInfoItem(
-                            icon: "balance",
+                            icon: "slider.horizontal.3",
                             title: "균형",
                             description: "원자 수 1500-2500개, 샘플링 10-20%",
                             color: .orange
