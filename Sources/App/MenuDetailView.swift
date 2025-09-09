@@ -18,8 +18,6 @@ struct MenuDetailView: View {
                     SettingsView()
                 case .help:
                     HelpView()
-                case .contact:
-                    ContactView()
                 case .privacy:
                     PrivacyView()
                 case .terms:
@@ -302,46 +300,6 @@ struct HelpView: View {
     }
 }
 
-struct ContactView: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("문의하기")
-                .font(.title)
-                .fontWeight(.bold)
-            
-            VStack(alignment: .leading, spacing: 16) {
-                ContactInfoItem(
-                    icon: "envelope",
-                    title: "이메일",
-                    value: "support@proteinapp.com",
-                    action: "이메일 보내기"
-                )
-                
-                ContactInfoItem(
-                    icon: "globe",
-                    title: "웹사이트",
-                    value: "https://proteinapp.com",
-                    action: "웹사이트 방문"
-                )
-                
-                ContactInfoItem(
-                    icon: "envelope",
-                    title: "이메일",
-                    value: "support@proteinapp.com",
-                    action: "이메일 보내기"
-                )
-                
-                ContactInfoItem(
-                    icon: "github",
-                    title: "GitHub",
-                    value: "https://github.com/proteinapp",
-                    action: "GitHub 방문"
-                )
-            }
-        }
-        .padding()
-    }
-}
 
 struct PrivacyView: View {
     var body: some View {
@@ -460,41 +418,6 @@ struct FAQItem: View {
     }
 }
 
-struct ContactInfoItem: View {
-    let icon: String
-    let title: String
-    let value: String
-    let action: String
-    
-    var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(.blue)
-                .frame(width: 32, height: 32)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                
-                Text(value)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            Button(action: {}) {
-                Text(action)
-                    .font(.caption)
-                    .foregroundColor(.blue)
-            }
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(8)
-    }
-}
 
 struct PrivacySection: View {
     let title: String
