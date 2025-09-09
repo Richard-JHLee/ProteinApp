@@ -1,6 +1,15 @@
 import SwiftUI
 
 struct AboutView: View {
+    // 앱 정보를 동적으로 가져오기
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    }
+    
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+    }
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -15,7 +24,7 @@ struct AboutView: View {
                             .font(.title)
                             .fontWeight(.bold)
                         
-                        Text("Version 1.0.0")
+                        Text("Version \(appVersion)")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }

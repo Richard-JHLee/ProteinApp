@@ -1,6 +1,26 @@
 import SwiftUI
 
 struct LicenseView: View {
+    // 앱 정보를 동적으로 가져오기
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    }
+    
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+    }
+    
+    private var appName: String {
+        Bundle.main.infoDictionary?["CFBundleName"] as? String ?? "ProteinViewerApp"
+    }
+    
+    private var minimumOSVersion: String {
+        if let minimumOSVersion = Bundle.main.infoDictionary?["MinimumOSVersion"] as? String {
+            return "iOS \(minimumOSVersion)+"
+        }
+        return "iOS 15.6+"
+    }
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -68,9 +88,10 @@ struct LicenseView: View {
                         .font(.headline)
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        LicenseInfoRow(title: "Version", value: "1.0.0", description: "Current app version")
-                        LicenseInfoRow(title: "Build", value: "1.0.1", description: "Build number")
-                        LicenseInfoRow(title: "Platform", value: "iOS 15.6+", description: "Minimum supported iOS version")
+                        LicenseInfoRow(title: "App Name", value: appName, description: "Application name")
+                        LicenseInfoRow(title: "Version", value: appVersion, description: "Current app version")
+                        LicenseInfoRow(title: "Build", value: buildNumber, description: "Build number")
+                        LicenseInfoRow(title: "Platform", value: minimumOSVersion, description: "Minimum supported iOS version")
                         LicenseInfoRow(title: "Last Updated", value: "January 2025", description: "Last update date")
                     }
                 }
