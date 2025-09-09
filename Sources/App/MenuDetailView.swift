@@ -45,9 +45,9 @@ struct MenuDetailView: View {
 
 struct SettingsView: View {
     // Performance optimization settings
-    @AppStorage("maxAtomsLimit") private var maxAtomsLimit: Int = 2000
-    @AppStorage("enableOptimization") private var enableOptimization: Bool = true
-    @AppStorage("samplingRatio") private var samplingRatio: Double = 0.12
+    @AppStorage("maxAtomsLimit") private var maxAtomsLimit: Int = 5000
+    @AppStorage("enableOptimization") private var enableOptimization: Bool = false
+    @AppStorage("samplingRatio") private var samplingRatio: Double = 0.25
     
     var body: some View {
         ScrollView {
@@ -92,10 +92,10 @@ struct SettingsView: View {
                             Slider(value: Binding(
                                 get: { Double(maxAtomsLimit) },
                                 set: { maxAtomsLimit = Int($0) }
-                            ), in: 500...5000, step: 100)
+                            ), in: 1000...10000, step: 500)
                             
                             HStack {
-                                Text("500")
+                                Text("1000")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 
@@ -107,7 +107,7 @@ struct SettingsView: View {
                                 
                                 Spacer()
                                 
-                                Text("5000")
+                                Text("10000")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 
@@ -118,7 +118,7 @@ struct SettingsView: View {
                                     .foregroundColor(.secondary)
                             }
                             
-                            Text("원자 수가 많을수록 렌더링 품질이 높아지지만 성능이 저하됩니다.")
+                            Text("5000개 이하는 최고 품질로 렌더링됩니다. 5000개 초과 시 성능 최적화가 적용됩니다.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -231,9 +231,9 @@ struct SettingsView: View {
     }
     
     private func resetToDefaults() {
-        maxAtomsLimit = 2000
-        enableOptimization = true
-        samplingRatio = 0.12
+        maxAtomsLimit = 5000
+        enableOptimization = false
+        samplingRatio = 0.25
     }
 }
 

@@ -2963,14 +2963,15 @@ struct ProteinSceneView: UIViewRepresentable {
     private func createProteinNode(from structure: PDBStructure) -> SCNNode {
         let rootNode = SCNNode()
         
-        // Performance optimization settings
+        // Performance optimization settings - 사용자 설정 반영
         let maxAtomsLimit = UserDefaults.standard.integer(forKey: "maxAtomsLimit")
+        let enableOptimization = UserDefaults.standard.bool(forKey: "enableOptimization")
         let samplingRatio = UserDefaults.standard.double(forKey: "samplingRatio")
         
-        // Use default values if not set - Always enable optimization by default
-        let effectiveMaxAtoms = maxAtomsLimit > 0 ? maxAtomsLimit : 2000
-        let effectiveSamplingRatio = samplingRatio > 0 ? samplingRatio : 0.12
-        let effectiveOptimization = true // Always enable optimization for better performance
+        // Use default values if not set
+        let effectiveMaxAtoms = maxAtomsLimit > 0 ? maxAtomsLimit : 5000
+        let effectiveOptimization = enableOptimization
+        let effectiveSamplingRatio = samplingRatio > 0 ? samplingRatio : 0.25
         
         print("🔧 Performance settings: maxAtoms=\(effectiveMaxAtoms), optimization=\(effectiveOptimization), sampling=\(effectiveSamplingRatio)")
         print("🔧 Structure atoms: \(structure.atoms.count), condition: \(structure.atoms.count > effectiveMaxAtoms)")
@@ -2982,8 +2983,7 @@ struct ProteinSceneView: UIViewRepresentable {
             
             // Proportional sampling to maintain overall shape
             let chainAtoms = Dictionary(grouping: structure.atoms) { $0.chain }
-            let totalAtoms = structure.atoms.count
-            let samplingRatio = Double(effectiveMaxAtoms) / Double(totalAtoms)
+            let samplingRatio = effectiveSamplingRatio // 사용자 설정 샘플링 비율 사용
             
             var proportionalAtoms: [Atom] = []
             for (chainId, atoms) in chainAtoms {
