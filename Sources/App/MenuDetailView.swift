@@ -46,7 +46,7 @@ struct MenuDetailView: View {
 struct SettingsView: View {
     // Performance optimization settings
     @AppStorage("maxAtomsLimit") private var maxAtomsLimit: Int = 5000
-    @AppStorage("enableOptimization") private var enableOptimization: Bool = false
+    @AppStorage("enableOptimization") private var enableOptimization: Bool = true
     @AppStorage("samplingRatio") private var samplingRatio: Double = 0.25
     
     var body: some View {
@@ -232,7 +232,7 @@ struct SettingsView: View {
     
     private func resetToDefaults() {
         maxAtomsLimit = 5000
-        enableOptimization = false
+        enableOptimization = true
         samplingRatio = 0.25
     }
 }
