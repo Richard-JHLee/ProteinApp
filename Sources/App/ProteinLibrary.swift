@@ -36,11 +36,11 @@ enum SearchError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidPDBID:
-            return "유효하지 않은 PDB ID입니다. 4자리 영숫자를 입력해주세요."
+            return "Invalid PDB ID. Please enter a 4-character alphanumeric code."
         case .proteinNotFound:
-            return "해당 PDB ID의 단백질을 찾을 수 없습니다."
+            return "Protein with this PDB ID was not found."
         case .networkError:
-            return "네트워크 오류가 발생했습니다."
+            return "Network error occurred."
         }
     }
 }
@@ -836,7 +836,7 @@ class PDBAPIService {
             parts.append("해상도: \(String(format: "%.2f", resolution))Å")
         }
         
-        return parts.isEmpty ? "단백질 구조 정보" : parts.joined(separator: " | ")
+        return parts.isEmpty ? "Protein structure information" : parts.joined(separator: " | ")
     }
     
     // Legacy API용 이름 생성 함수
@@ -2224,7 +2224,7 @@ class PDBAPIService {
             parts.append("저널: \(journal)")
         }
         
-        return parts.isEmpty ? "단백질 구조 정보" : parts.joined(separator: " | ")
+        return parts.isEmpty ? "Protein structure information" : parts.joined(separator: " | ")
     }
     
     // GraphQL 엔트리로부터 이름 생성
@@ -2574,7 +2574,7 @@ class PDBAPIService {
             parts.append("저널: \(journal)")
         }
         
-        return parts.isEmpty ? "단백질 구조 정보" : parts.joined(separator: " | ")
+        return parts.isEmpty ? "Protein structure information" : parts.joined(separator: " | ")
     }
     
     private func extractKeywordsFromDetail(detail: PDBDetailResponse) -> [String] {
@@ -3429,11 +3429,11 @@ struct ProteinLibraryView: View {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         
         if trimmed.count == 4 && trimmed.allSatisfy({ $0.isLetter || $0.isNumber }) {
-            return ("PDB ID 검색", .purple, "magnifyingglass")
+            return ("PDB ID Search", .purple, "magnifyingglass")
         } else if trimmed.count >= 2 {
-            return ("텍스트 검색", .green, "magnifyingglass")
+            return ("Text Search", .green, "magnifyingglass")
         } else {
-            return ("데이터 가져오기", .blue, "arrow.clockwise")
+            return ("Load Data", .blue, "arrow.clockwise")
         }
     }
     
@@ -3842,7 +3842,7 @@ struct ProteinLibraryView: View {
                     if !searchText.isEmpty {
                         // 검색 중: 검색 결과 개수 표시
                         let resultCount = allFilteredProteins.count
-                        Text("검색 결과: \(resultCount)개")
+                        Text("Search results: \(resultCount)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     } else if selectedCategory == nil {
