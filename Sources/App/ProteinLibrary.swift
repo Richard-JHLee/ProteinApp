@@ -2206,22 +2206,22 @@ class PDBAPIService {
         }
         
         if let classification = entry.pdb_struct?.pdbx_descriptor, !classification.isEmpty {
-            parts.append("분류: \(classification)")
+            parts.append("Classification: \(classification)")
         }
         
         if let exptl = entry.exptl {
             let methods: [String] = exptl.compactMap { $0.method }
             if !methods.isEmpty {
-                parts.append("분석방법: \(methods.joined(separator: ", "))")
+                parts.append("Method: \(methods.joined(separator: ", "))")
             }
         }
         
         if let resolution = entry.rcsb_entry_info?.resolution_combined?.first {
-            parts.append("해상도: \(String(format: "%.2f", resolution))Å")
+            parts.append("Resolution: \(String(format: "%.2f", resolution))Å")
         }
         
         if let journal = entry.rcsb_primary_citation?.journal_abbrev, !journal.isEmpty {
-            parts.append("저널: \(journal)")
+            parts.append("Journal: \(journal)")
         }
         
         return parts.isEmpty ? "Protein structure information" : parts.joined(separator: " | ")
@@ -2445,7 +2445,7 @@ class PDBAPIService {
             id: pdbId,
             name: "Protein \(pdbId.uppercased())",
             category: category,
-            description: "구조 정보를 로드하는 중입니다. PDB ID: \(pdbId.uppercased())",
+            description: "Loading structure information. PDB ID: \(pdbId.uppercased())",
             keywords: ["protein", "structure", pdbId.lowercased()]
         )
     }
