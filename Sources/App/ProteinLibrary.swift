@@ -356,18 +356,18 @@ enum ProteinCategory: String, CaseIterable, Identifiable {
     
     var description: String {
         switch self {
-        case .enzymes: return "생화학 반응을 촉진하는 단백질"
-        case .structural: return "세포와 조직의 구조를 이루는 단백질"
-        case .defense: return "외부 침입으로부터 몸을 보호하는 단백질"
-        case .transport: return "물질을 운반하는 단백질"
-        case .hormones: return "신호 전달을 담당하는 단백질"
-        case .storage: return "영양소를 저장하는 단백질"
-        case .receptors: return "신호를 받아들이는 수용체 단백질"
-        case .membrane: return "세포막을 구성하고 조절하는 단백질"
-        case .motor: return "세포 내에서 움직임을 만드는 단백질"
-        case .signaling: return "세포 간 정보 전달을 매개하는 단백질"
-        case .chaperones: return "다른 단백질의 접힘을 도와주는 단백질"
-        case .metabolic: return "대사 과정에 관여하는 단백질"
+        case .enzymes: return "Proteins that catalyze biochemical reactions"
+        case .structural: return "Proteins that form cellular and tissue structures"
+        case .defense: return "Proteins that protect the body from external threats"
+        case .transport: return "Proteins that transport substances"
+        case .hormones: return "Proteins responsible for signal transmission"
+        case .storage: return "Proteins that store nutrients"
+        case .receptors: return "Receptor proteins that receive signals"
+        case .membrane: return "Proteins that compose and regulate cell membranes"
+        case .motor: return "Proteins that create movement within cells"
+        case .signaling: return "Proteins that mediate intercellular communication"
+        case .chaperones: return "Proteins that assist in protein folding"
+        case .metabolic: return "Proteins involved in metabolic processes"
         }
     }
 }
