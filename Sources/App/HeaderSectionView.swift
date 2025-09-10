@@ -58,7 +58,6 @@ struct HeaderSectionView: View {
             navigationButton(title: "Overview", section: "overview", icon: "info.circle")
             navigationButton(title: "Function", section: "function", icon: "function")
             navigationButton(title: "Structure", section: "structure", icon: "cube.box")
-            navigationButton(title: "Related", section: "related", icon: "link")
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)

@@ -15,8 +15,7 @@ struct ActionButtonsSectionView: View {
                 }
                 
                 // Haptic feedback
-                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                impactFeedback.impactOccurred()
+                provideHapticFeedback(style: .medium)
                 
                 // 3D 구조 로딩 시작
                 onView3D()

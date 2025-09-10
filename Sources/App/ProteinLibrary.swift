@@ -3514,8 +3514,7 @@ struct ProteinLibraryView: View {
                             protein: protein,
                             isFavorite: database.favorites.contains(protein.id),
                             onSelect: {
-                                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                                impactFeedback.impactOccurred()
+                                provideHapticFeedback(style: .medium)
                                 
                                 // 단백질 로딩 시작
                                 isProteinLoading = true
@@ -3535,8 +3534,7 @@ struct ProteinLibraryView: View {
                                 }
                             },
                             onFavoriteToggle: {
-                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                                impactFeedback.impactOccurred()
+                                provideHapticFeedback(style: .light)
                                 
                                 if database.favorites.contains(protein.id) {
                                     database.favorites.remove(protein.id)
@@ -3755,8 +3753,7 @@ struct ProteinLibraryView: View {
                             isSelected: selectedCategory == nil
                         ) {
                             // Haptic feedback
-                            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                            impactFeedback.impactOccurred()
+                            provideHapticFeedback(style: .light)
                             
                             withAnimation(.spring(response: 0.3)) {
                                 selectedCategory = nil
@@ -3773,8 +3770,7 @@ struct ProteinLibraryView: View {
                                 isSelected: selectedCategory == category
                             ) {
                                 // Haptic feedback
-                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                                impactFeedback.impactOccurred()
+                                provideHapticFeedback(style: .light)
                                 
                                 withAnimation(.spring(response: 0.3)) {
                                     if selectedCategory == category {
@@ -3813,8 +3809,7 @@ struct ProteinLibraryView: View {
                             isSelected: showingFavoritesOnly
                         ) {
                             // Haptic feedback
-                            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                            impactFeedback.impactOccurred()
+                            provideHapticFeedback(style: .light)
                             
                             withAnimation(.spring(response: 0.3)) {
                                 showingFavoritesOnly.toggle()
@@ -3829,8 +3824,7 @@ struct ProteinLibraryView: View {
                             isSelected: !customSearchTerms.isEmpty
                         ) {
                             // Haptic feedback
-                            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                            impactFeedback.impactOccurred()
+                            provideHapticFeedback(style: .light)
                             
                             withAnimation(.spring(response: 0.3)) {
                                 showingCustomSearchSheet = true
@@ -3903,8 +3897,7 @@ struct ProteinLibraryView: View {
                                             proteinCount: categoryProteinCounts[category] ?? 0
                                         ) {
                                             // 카테고리 선택 시 해당 카테고리로 필터링
-                                            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                                            impactFeedback.impactOccurred()
+                                            provideHapticFeedback(style: .medium)
                                             
                                             withAnimation(.spring(response: 0.3)) {
                                                 selectedCategory = category
@@ -3937,8 +3930,7 @@ struct ProteinLibraryView: View {
                                                 protein: protein,
                                                 isFavorite: database.favorites.contains(protein.id),
                                                 onSelect: {
-                                                    let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                                                    impactFeedback.impactOccurred()
+                                                    provideHapticFeedback(style: .medium)
                                                     
                                                     // 단백질 로딩 시작
                                                     isProteinLoading = true
@@ -3959,8 +3951,7 @@ struct ProteinLibraryView: View {
                                                 },
                                                 onFavoriteToggle: {
                                                     database.toggleFavorite(protein.id)
-                                                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                                                    impactFeedback.impactOccurred()
+                                                    provideHapticFeedback(style: .light)
                                                 }
                                             )
                                         }
@@ -4192,8 +4183,7 @@ struct ProteinLibraryView: View {
                 }
                 
                 // 합틱 피드백
-                let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                impactFeedback.impactOccurred()
+                provideHapticFeedback(style: .medium)
                 
                 print("✅ LoadMore 완료, isLoadingMore = false")
             }
@@ -4612,8 +4602,7 @@ struct CategorySection: View {
                     protein: protein,
                     isFavorite: database.favorites.contains(protein.id),
                     onSelect: {
-                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-                        impactFeedback.impactOccurred()
+                        provideHapticFeedback(style: .medium)
                         
                         withAnimation(.spring(response: 0.3)) {
                             onProteinSelected(protein.id)
@@ -4621,8 +4610,7 @@ struct CategorySection: View {
                     },
                     onFavoriteToggle: {
                         database.toggleFavorite(protein.id)
-                        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                        impactFeedback.impactOccurred()
+                        provideHapticFeedback(style: .light)
                     }
                 )
             }

@@ -23,6 +23,8 @@ struct ContentView: View {
                         onProteinLibraryTap: {
                             showingProteinLibrary = true
                         },
+                        externalIsProteinLoading: $isLoading,
+                        externalProteinLoadingProgress: $loadingProgress,
                         externalIs3DStructureLoading: $is3DStructureLoading,
                         externalStructureLoadingProgress: $structureLoadingProgress
                     )
@@ -139,8 +141,12 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(.light)
+        #if os(iOS)
         .statusBarHidden(false)
         .supportedOrientations(.allButUpsideDown)
+        #elseif os(macOS)
+        .frame(minWidth: 800, minHeight: 600)
+        #endif
     }
     
     private func loadDefaultProtein() {
@@ -294,6 +300,7 @@ struct ContentView: View {
     }
 }
 
+#if os(iOS)
 extension View {
     func supportedOrientations(_ orientations: UIInterfaceOrientationMask) -> some View {
         self.onAppear {
@@ -301,6 +308,7 @@ extension View {
         }
     }
 }
+#endif
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     static var orientationLock = UIInterfaceOrientationMask.allButUpsideDown

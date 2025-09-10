@@ -51,20 +51,9 @@ struct InfoSheet: View {
                         DetailedInfoSectionView(protein: protein)
                             .id("structure")
 
-                        // 4단계: Related Section
-                        AdditionalInfoSectionView(
-                            protein: protein,
-                            onRelatedTapped: { id in
-                                // 관련 단백질 선택 시 동일 동작
-                                if let onProteinSelected {
-                                    onProteinSelected(id)
-                                    dismiss()
-                                } else {
-                                    showingProteinView = true
-                                }
-                            }
-                        )
-                        .id("related")
+                        // 4단계: Additional Information Section
+                        AdditionalInfoSectionView(protein: protein)
+                        .id("additional")
 
                         // Action Buttons
                         ActionButtonsSectionView(

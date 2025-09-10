@@ -1,3 +1,4 @@
+import SwiftUI
 import SceneKit
 
 // MARK: - SceneKit Extensions

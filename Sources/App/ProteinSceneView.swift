@@ -3,6 +3,13 @@ import SceneKit
 import UIKit
 import simd
 
+// MARK: - Haptic Feedback
+func provideHapticFeedback(style: UIImpactFeedbackGenerator.FeedbackStyle = .light) {
+    let impactFeedback = UIImpactFeedbackGenerator(style: style)
+    impactFeedback.impactOccurred()
+}
+
+
 // MARK: - Advanced Geometry Cache for Performance Optimization
 final class GeometryCache {
     static let shared = GeometryCache()
@@ -333,8 +340,7 @@ struct SecondaryOptionsBar: View {
         }
         
         // Haptic feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
+        provideHapticFeedback(style: .light)
     }
     
     var body: some View {
@@ -552,8 +558,7 @@ struct OptionsSecondaryBar: View {
         }
         
         // Haptic feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-        impactFeedback.impactOccurred()
+        provideHapticFeedback(style: .medium)
     }
 }
 
@@ -644,8 +649,7 @@ struct PrimaryOptionsBar: View {
         }
         
         // Haptic feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
+        provideHapticFeedback(style: .light)
     }
     
     private func toggleOptionsMenu() {
@@ -662,8 +666,7 @@ struct PrimaryOptionsBar: View {
         }
         
         // Haptic feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
+        provideHapticFeedback(style: .light)
     }
     
     private func toggleColorScheme() {
@@ -680,8 +683,7 @@ struct PrimaryOptionsBar: View {
         }
         
         // Haptic feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
+        provideHapticFeedback(style: .light)
     }
 }
 
@@ -778,8 +780,7 @@ struct ViewerBottomControls: View {
         }
         
         // Haptic feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
+        provideHapticFeedback(style: .light)
     }
     
     private func toggleHighlightAllChains() {
@@ -797,8 +798,7 @@ struct ViewerBottomControls: View {
         }
         
         // Haptic feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
+        provideHapticFeedback(style: .light)
     }
     
     private func focusOnCurrentSelection() {
@@ -806,8 +806,7 @@ struct ViewerBottomControls: View {
         focusedElement = nil
         
         // Haptic feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
+        provideHapticFeedback(style: .light)
     }
     
     private func applyViewerSettings() {
@@ -828,8 +827,7 @@ struct ViewerBottomControls: View {
         highlightAllChains = false
         
         // Haptic feedback
-        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-        impactFeedback.impactOccurred()
+        provideHapticFeedback(style: .medium)
     }
     
     private func showViewerMoreOptions() {
@@ -1265,8 +1263,7 @@ struct ProteinSceneContainer: View {
                                                 selectedTab = tab
                                                 
                                                 // 햅틱 피드백
-                                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                                                impactFeedback.impactOccurred()
+                                                provideHapticFeedback(style: .light)
                                                 
                                                 isTabLoading = true
                                                 tabLoadingProgress = "Loading \(tab.rawValue)..."
@@ -2694,31 +2691,46 @@ struct ProteinSceneContainer: View {
             // Show original annotations if available
             if !structure.annotations.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Additional Annotations")
-                        .font(.headline)
+                    HStack {
+                        Image(systemName: "note.text")
+                            .font(.title2)
+                            .foregroundColor(.indigo)
+                        
+                        Text("Additional Annotations")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        Spacer()
+                        
+                        Text("\(structure.annotations.count) items")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                     
-                    ForEach(structure.annotations, id: \.type) { annotation in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(annotation.type.rawValue)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                            
-                            Text(annotation.value)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            if !annotation.description.isEmpty {
-                                Text(annotation.description)
-                    .font(.caption2)
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(structure.annotations, id: \.type) { annotation in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(annotation.type.rawValue)
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.primary)
+                                
+                                Text(annotation.value)
+                                    .font(.caption)
                                     .foregroundColor(.secondary)
+                                
+                                if !annotation.description.isEmpty {
+                                    Text(annotation.description)
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
                             }
+                            .padding(.vertical, 4)
                         }
-                        .padding(.vertical, 4)
                     }
                 }
-                .padding()
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(12)
+                .padding(16)
+                .background(.indigo.opacity(0.05), in: RoundedRectangle(cornerRadius: 12))
             }
         }
     }
@@ -3262,26 +3274,26 @@ struct ProteinSceneView: UIViewRepresentable {
             radius = baseRadius * 1.2 * (atom.element.atomicRadius / 0.7) * CGFloat(atomSize)
         switch colorMode {
         case .element:
-                color = atom.element.color.withAlphaComponent(opacity)
+                color = UIColor(atom.element.color).withAlphaComponent(opacity)
         case .chain:
                 color = chainColor(for: atom.chain).withAlphaComponent(opacity)
         case .uniform:
                 color = uniformColor.withAlphaComponent(opacity)
         case .secondaryStructure:
-                color = atom.secondaryStructure.color.withAlphaComponent(opacity)
+                color = UIColor(atom.secondaryStructure.color).withAlphaComponent(opacity)
             }
         } else {
             // Normal atoms: standard colors with appropriate opacity
             radius = baseRadius * (atom.element.atomicRadius / 0.7) * CGFloat(atomSize)
             switch colorMode {
             case .element:
-                color = atom.element.color.withAlphaComponent(opacity)
+                color = UIColor(atom.element.color).withAlphaComponent(opacity)
             case .chain:
                 color = chainColor(for: atom.chain).withAlphaComponent(opacity)
             case .uniform:
                 color = uniformColor.withAlphaComponent(opacity)
             case .secondaryStructure:
-                color = atom.secondaryStructure.color.withAlphaComponent(opacity)
+                color = UIColor(atom.secondaryStructure.color).withAlphaComponent(opacity)
             }
         }
         
@@ -4164,7 +4176,7 @@ extension String {
         }
     }
     
-    var color: UIColor {
+    var color: Color {
         switch self.uppercased() {
         case "H": return .white
         case "C": return .gray
@@ -4178,12 +4190,12 @@ extension String {
 }
 
 extension SecondaryStructure {
-    var color: UIColor {
+    var color: Color {
         switch self {
         case .helix: return .red
         case .sheet: return .yellow
         case .coil: return .gray
-        case .unknown: return .lightGray
+        case .unknown: return Color(UIColor.lightGray)
         }
     }
 }
