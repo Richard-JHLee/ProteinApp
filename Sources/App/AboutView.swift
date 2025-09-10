@@ -4,35 +4,23 @@ import Foundation
 // MARK: - Language Helper
 struct LanguageHelper {
     static var isKorean: Bool {
-        // 여러 방법으로 한국어 감지
-        let currentLocale = Locale.current
+        // 첫 번째 선호 언어만 확인 (Primary Language)
         let preferredLanguages = Locale.preferredLanguages
         
-        // 1. 현재 Locale의 identifier 확인
-        let identifier = currentLocale.identifier.lowercased()
-        let isKoreanByIdentifier = identifier.hasPrefix("ko") || 
-                                  identifier.contains("ko_kr") || 
-                                  identifier.contains("ko-kr")
-        
-        // 2. 현재 Locale의 languageCode 확인
-        let languageCode = currentLocale.languageCode?.lowercased()
-        let isKoreanByLanguageCode = languageCode == "ko"
-        
-        // 3. 시스템 선호 언어 확인
-        let isKoreanByPreferredLanguages = preferredLanguages.contains { language in
-            language.lowercased().hasPrefix("ko")
+        // 선호 언어가 있는 경우 첫 번째 언어만 확인
+        if let firstLanguage = preferredLanguages.first {
+            let languageCode = firstLanguage.lowercased()
+            // 첫 번째 언어가 한국어인 경우에만 한국어로 표시
+            return languageCode.hasPrefix("ko")
         }
         
-        // 4. Bundle의 localization 확인
-        let bundle = Bundle.main
-        let isKoreanByBundle = bundle.preferredLocalizations.contains { localization in
-            localization.lowercased().hasPrefix("ko")
+        // 선호 언어가 없는 경우 Locale의 languageCode 확인
+        if let languageCode = Locale.current.languageCode?.lowercased() {
+            return languageCode == "ko"
         }
         
-        let result = isKoreanByIdentifier || isKoreanByLanguageCode || 
-                    isKoreanByPreferredLanguages || isKoreanByBundle
-        
-        return result
+        // 기본값은 영어
+        return false
     }
     
     static func localizedText(korean: String, english: String) -> String {

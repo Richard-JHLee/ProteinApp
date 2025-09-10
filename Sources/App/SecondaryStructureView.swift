@@ -42,7 +42,10 @@ struct SecondaryStructureView: View {
             ProgressView()
                 .scaleEffect(1.2)
             
-            Text("Loading secondary structure...")
+            Text(LanguageHelper.localizedText(
+                korean: "2차 구조 로딩 중...",
+                english: "Loading secondary structure..."
+            ))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -57,7 +60,10 @@ struct SecondaryStructureView: View {
                 .font(.largeTitle)
                 .foregroundColor(.orange)
             
-            Text("Failed to load structure")
+            Text(LanguageHelper.localizedText(
+                korean: "구조 로드 실패",
+                english: "Failed to load structure"
+            ))
                 .font(.headline)
                 .foregroundColor(.primary)
             
@@ -66,7 +72,10 @@ struct SecondaryStructureView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
             
-            Button("Retry") {
+            Button(LanguageHelper.localizedText(
+                korean: "다시 시도",
+                english: "Retry"
+            )) {
                 loadSecondaryStructure()
             }
             .buttonStyle(.borderedProminent)

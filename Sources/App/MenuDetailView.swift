@@ -52,20 +52,32 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 24) {
                 // Performance Settings Section
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("성능 최적화")
+                    Text(LanguageHelper.localizedText(
+                        korean: "성능 최적화",
+                        english: "Performance Optimization"
+                    ))
                         .font(.title2)
                         .fontWeight(.bold)
                     
-                    Text("대용량 단백질 구조의 렌더링 성능을 조절할 수 있습니다.")
+                    Text(LanguageHelper.localizedText(
+                        korean: "대용량 단백질 구조의 렌더링 성능을 조절할 수 있습니다.",
+                        english: "You can adjust the rendering performance of large protein structures."
+                    ))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     
                     // Enable Optimization Toggle
                     VStack(alignment: .leading, spacing: 8) {
-                        Toggle("성능 최적화 활성화", isOn: $enableOptimization)
+                        Toggle(LanguageHelper.localizedText(
+                            korean: "성능 최적화 활성화",
+                            english: "Enable Performance Optimization"
+                        ), isOn: $enableOptimization)
                             .font(.headline)
                         
-                        Text("활성화하면 대용량 단백질의 원자 수를 제한하여 성능을 향상시킵니다.")
+                        Text(LanguageHelper.localizedText(
+                            korean: "활성화하면 대용량 단백질의 원자 수를 제한하여 성능을 향상시킵니다.",
+                            english: "When enabled, limits the number of atoms in large proteins to improve performance."
+                        ))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -77,7 +89,10 @@ struct SettingsView: View {
                         // Max Atoms Limit Slider
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("최대 원자 수")
+                                Text(LanguageHelper.localizedText(
+                                    korean: "최대 원자 수",
+                                    english: "Max Atoms Limit"
+                                ))
                                     .font(.headline)
                                 
                                 Spacer()
@@ -99,7 +114,10 @@ struct SettingsView: View {
                                 
                                 Spacer()
                                 
-                                Text("빠른 렌더링")
+                                Text(LanguageHelper.localizedText(
+                                    korean: "빠른 렌더링",
+                                    english: "Fast Rendering"
+                                ))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 
@@ -111,12 +129,18 @@ struct SettingsView: View {
                                 
                                 Spacer()
                                 
-                                Text("고품질")
+                                Text(LanguageHelper.localizedText(
+                                    korean: "고품질",
+                                    english: "High Quality"
+                                ))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
                             
-                            Text("5000개 이하는 최고 품질로 렌더링됩니다. 5000개 초과 시 성능 최적화가 적용됩니다.")
+                            Text(LanguageHelper.localizedText(
+                                korean: "5000개 이하는 최고 품질로 렌더링됩니다. 5000개 초과 시 성능 최적화가 적용됩니다.",
+                                english: "Up to 5000 atoms are rendered at highest quality. Performance optimization is applied for over 5000 atoms."
+                            ))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -127,7 +151,10 @@ struct SettingsView: View {
                         // Sampling Ratio Slider
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("샘플링 비율")
+                                Text(LanguageHelper.localizedText(
+                                    korean: "샘플링 비율",
+                                    english: "Sampling Ratio"
+                                ))
                                     .font(.headline)
                                 
                                 Spacer()
@@ -146,7 +173,10 @@ struct SettingsView: View {
                                 
                                 Spacer()
                                 
-                                Text("빠른 처리")
+                                Text(LanguageHelper.localizedText(
+                                    korean: "빠른 처리",
+                                    english: "Fast Processing"
+                                ))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 
@@ -158,12 +188,18 @@ struct SettingsView: View {
                                 
                                 Spacer()
                                 
-                                Text("고품질")
+                                Text(LanguageHelper.localizedText(
+                                    korean: "고품질",
+                                    english: "High Quality"
+                                ))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
                             
-                            Text("각 체인에서 샘플링할 원자의 비율을 설정합니다.")
+                            Text(LanguageHelper.localizedText(
+                                korean: "각 체인에서 샘플링할 원자의 비율을 설정합니다.",
+                                english: "Sets the ratio of atoms to sample from each chain."
+                            ))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -175,29 +211,50 @@ struct SettingsView: View {
                 
                 // Performance Info Section
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("성능 가이드")
+                    Text(LanguageHelper.localizedText(
+                        korean: "성능 가이드",
+                        english: "Performance Guide"
+                    ))
                         .font(.title2)
                         .fontWeight(.bold)
                     
                     VStack(alignment: .leading, spacing: 12) {
                         PerformanceInfoItem(
                             icon: "speedometer",
-                            title: "빠른 렌더링",
-                            description: "원자 수 500-1000개, 샘플링 5-10%",
+                            title: LanguageHelper.localizedText(
+                                korean: "빠른 렌더링",
+                                english: "Fast Rendering"
+                            ),
+                            description: LanguageHelper.localizedText(
+                                korean: "원자 수 500-1000개, 샘플링 5-10%",
+                                english: "500-1000 atoms, 5-10% sampling"
+                            ),
                             color: .green
                         )
                         
                         PerformanceInfoItem(
                             icon: "slider.horizontal.3",
-                            title: "균형",
-                            description: "원자 수 1500-2500개, 샘플링 10-20%",
+                            title: LanguageHelper.localizedText(
+                                korean: "균형",
+                                english: "Balanced"
+                            ),
+                            description: LanguageHelper.localizedText(
+                                korean: "원자 수 1500-2500개, 샘플링 10-20%",
+                                english: "1500-2500 atoms, 10-20% sampling"
+                            ),
                             color: .orange
                         )
                         
                         PerformanceInfoItem(
                             icon: "star.fill",
-                            title: "고품질",
-                            description: "원자 수 3000-5000개, 샘플링 20-50%",
+                            title: LanguageHelper.localizedText(
+                                korean: "고품질",
+                                english: "High Quality"
+                            ),
+                            description: LanguageHelper.localizedText(
+                                korean: "원자 수 3000-5000개, 샘플링 20-50%",
+                                english: "3000-5000 atoms, 20-50% sampling"
+                            ),
                             color: .blue
                         )
                     }
@@ -205,7 +262,10 @@ struct SettingsView: View {
                 
                 // Reset Button
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("설정 초기화")
+                    Text(LanguageHelper.localizedText(
+                        korean: "설정 초기화",
+                        english: "Reset Settings"
+                    ))
                         .font(.title2)
                         .fontWeight(.bold)
                     
@@ -214,7 +274,10 @@ struct SettingsView: View {
                     }) {
                         HStack {
                             Image(systemName: "arrow.clockwise")
-                            Text("기본값으로 초기화")
+                            Text(LanguageHelper.localizedText(
+                                korean: "기본값으로 초기화",
+                                english: "Reset to Defaults"
+                            ))
                         }
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -269,55 +332,69 @@ struct HelpView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text("도움말 및 FAQ")
+                Text(LanguageHelper.localizedText(
+                    korean: "도움말 및 FAQ",
+                    english: "Help & FAQ"
+                ))
                     .font(.title)
                     .fontWeight(.bold)
                 
                 VStack(alignment: .leading, spacing: 16) {
                     FAQItem(
-                        question: "앱이 느리게 실행됩니다",
-                        answer: "대용량 단백질 구조의 경우 로딩 시간이 오래 걸릴 수 있습니다. 작은 단백질부터 시작해보세요."
+                        question: LanguageHelper.localizedText(
+                            korean: "앱이 느리게 실행됩니다",
+                            english: "The app runs slowly"
+                        ),
+                        answer: LanguageHelper.localizedText(
+                            korean: "대용량 단백질 구조의 경우 로딩 시간이 오래 걸릴 수 있습니다. 작은 단백질부터 시작해보세요.",
+                            english: "Large protein structures may take longer to load. Try starting with smaller proteins."
+                        )
                     )
                     
                     FAQItem(
-                        question: "3D 모델이 회전하지 않습니다",
-                        answer: "뷰어 모드에서 드래그 제스처를 사용하여 모델을 회전시킬 수 있습니다."
+                        question: LanguageHelper.localizedText(
+                            korean: "3D 모델이 회전하지 않습니다",
+                            english: "3D model doesn't rotate"
+                        ),
+                        answer: LanguageHelper.localizedText(
+                            korean: "뷰어 모드에서 드래그 제스처를 사용하여 모델을 회전시킬 수 있습니다.",
+                            english: "Use drag gestures in viewer mode to rotate the model."
+                        )
                     )
                     
                     FAQItem(
-                        question: "색상이 변경되지 않습니다",
-                        answer: "Color Schemes에서 원하는 색상 모드를 선택한 후 잠시 기다려주세요."
+                        question: LanguageHelper.localizedText(
+                            korean: "색상이 변경되지 않습니다",
+                            english: "Colors don't change"
+                        ),
+                        answer: LanguageHelper.localizedText(
+                            korean: "Color Schemes에서 원하는 색상 모드를 선택한 후 잠시 기다려주세요.",
+                            english: "Select your desired color mode from Color Schemes and wait a moment."
+                        )
                     )
                     
                     FAQItem(
-                        question: "단백질을 로드할 수 없습니다",
-                        answer: "인터넷 연결을 확인하고 유효한 PDB ID를 입력했는지 확인해주세요."
+                        question: LanguageHelper.localizedText(
+                            korean: "단백질을 로드할 수 없습니다",
+                            english: "Cannot load protein"
+                        ),
+                        answer: LanguageHelper.localizedText(
+                            korean: "인터넷 연결을 확인하고 유효한 PDB ID를 입력했는지 확인해주세요.",
+                            english: "Check your internet connection and ensure you've entered a valid PDB ID."
+                        )
                     )
                     
                     FAQItem(
-                        question: "추가 도움이 필요합니다",
-                        answer: "문제가 지속되거나 다른 질문이 있으시면 앱 정보 페이지의 문의 정보를 통해 연락해주세요."
+                        question: LanguageHelper.localizedText(
+                            korean: "추가 도움이 필요합니다",
+                            english: "Need additional help"
+                        ),
+                        answer: LanguageHelper.localizedText(
+                            korean: "문제가 지속되거나 다른 질문이 있으시면 앱 정보 페이지의 문의 정보를 통해 연락해주세요.",
+                            english: "If problems persist or you have other questions, please contact us through the app info page."
+                        )
                     )
                 }
-                
-                Divider()
-                
-                // 문의 정보 추가
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("문의 및 지원")
-                        .font(.headline)
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("• 이메일: support@avas.com")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                        
-                        Text("• 웹사이트: https://avas.com")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .padding(.top, 8)
             }
             .padding()
         }
@@ -374,49 +451,100 @@ struct TermsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text("이용약관")
+                Text(LanguageHelper.localizedText(
+                    korean: "이용약관",
+                    english: "Terms of Service"
+                ))
                     .font(.title)
                     .fontWeight(.bold)
                 
                 VStack(alignment: .leading, spacing: 16) {
                     TermsSection(
-                        title: "서비스 이용",
-                        content: "ProteinApp은 유료 앱입니다. 앱 다운로드 및 사용을 위해서는 App Store에서 결제가 필요합니다."
+                        title: LanguageHelper.localizedText(
+                            korean: "서비스 이용",
+                            english: "Service Usage"
+                        ),
+                        content: LanguageHelper.localizedText(
+                            korean: "ProteinApp은 유료 앱입니다. 앱 다운로드 및 사용을 위해서는 App Store에서 결제가 필요합니다.",
+                            english: "ProteinApp is a paid app. Payment through the App Store is required to download and use the app."
+                        )
                     )
                     
                     TermsSection(
-                        title: "결제 및 구독",
-                        content: "• 앱 구매는 App Store를 통해 처리됩니다.\n• 일회성 결제로 앱의 모든 기능을 이용할 수 있습니다.\n• 앱 구매 후 추가 결제는 없습니다.\n• 환불은 App Store 정책에 따라 제한적입니다."
+                        title: LanguageHelper.localizedText(
+                            korean: "결제 및 구독",
+                            english: "Payment & Subscription"
+                        ),
+                        content: LanguageHelper.localizedText(
+                            korean: "• 앱 구매는 App Store를 통해 처리됩니다.\n• 일회성 결제로 앱의 모든 기능을 이용할 수 있습니다.\n• 앱 구매 후 추가 결제는 없습니다.\n• 환불은 App Store 정책에 따라 제한적입니다.",
+                            english: "• App purchases are processed through the App Store.\n• One-time payment provides access to all app features.\n• No additional payments after app purchase.\n• Refunds are limited according to App Store policy."
+                        )
                     )
                     
                     TermsSection(
-                        title: "서비스 범위",
-                        content: "• 3D 단백질 구조 시각화\n• 고급 렌더링 옵션\n• 단백질 분석 도구\n• 오프라인 데이터 저장\n• 고객 지원 서비스\n• 모든 기능이 앱 구매 시 포함됩니다."
+                        title: LanguageHelper.localizedText(
+                            korean: "서비스 범위",
+                            english: "Service Scope"
+                        ),
+                        content: LanguageHelper.localizedText(
+                            korean: "• 3D 단백질 구조 시각화\n• 고급 렌더링 옵션\n• 단백질 분석 도구\n• 오프라인 데이터 저장\n• 고객 지원 서비스\n• 모든 기능이 앱 구매 시 포함됩니다.",
+                            english: "• 3D protein structure visualization\n• Advanced rendering options\n• Protein analysis tools\n• Offline data storage\n• Customer support service\n• All features are included with app purchase."
+                        )
                     )
                     
                     TermsSection(
-                        title: "환불 정책",
-                        content: "• 앱 구매 환불은 Apple App Store 정책에 따라 처리됩니다.\n• 환불 요청은 App Store에서 직접 신청해주세요.\n• Apple의 환불 정책: https://support.apple.com/HT204084\n• 개발자는 환불 처리 권한이 없으며, Apple이 모든 환불을 관리합니다."
+                        title: LanguageHelper.localizedText(
+                            korean: "환불 정책",
+                            english: "Refund Policy"
+                        ),
+                        content: LanguageHelper.localizedText(
+                            korean: "• 앱 구매 환불은 Apple App Store 정책에 따라 처리됩니다.\n• 환불 요청은 App Store에서 직접 신청해주세요.\n• Apple의 환불 정책: https://support.apple.com/HT204084\n• 개발자는 환불 처리 권한이 없으며, Apple이 모든 환불을 관리합니다.",
+                            english: "• App purchase refunds are processed according to Apple App Store policy.\n• Please request refunds directly through the App Store.\n• Apple's refund policy: https://support.apple.com/HT204084\n• Developers have no refund processing authority; Apple manages all refunds."
+                        )
                     )
                     
                     TermsSection(
-                        title: "앱 업데이트 및 지원",
-                        content: "• 앱 업데이트는 무료로 제공됩니다.\n• 새로운 기능 추가 시 별도 결제 없이 이용 가능합니다.\n• 앱 지원 중단 시 30일 전 사전 공지합니다.\n• 지원 중단으로 인한 데이터 손실에 대해 책임지지 않습니다."
+                        title: LanguageHelper.localizedText(
+                            korean: "앱 업데이트 및 지원",
+                            english: "App Updates & Support"
+                        ),
+                        content: LanguageHelper.localizedText(
+                            korean: "• 앱 업데이트는 무료로 제공됩니다.\n• 새로운 기능 추가 시 별도 결제 없이 이용 가능합니다.\n• 앱 지원 중단 시 30일 전 사전 공지합니다.\n• 지원 중단으로 인한 데이터 손실에 대해 책임지지 않습니다.",
+                            english: "• App updates are provided free of charge.\n• New features can be used without additional payment.\n• 30-day advance notice will be given before app support discontinuation.\n• We are not responsible for data loss due to support discontinuation."
+                        )
                     )
                     
                     TermsSection(
-                        title: "책임 제한",
-                        content: "앱 사용으로 인한 손해에 대해 개발자는 책임지지 않습니다. 유료 앱 이용 시에도 동일하게 적용됩니다."
+                        title: LanguageHelper.localizedText(
+                            korean: "책임 제한",
+                            english: "Liability Limitation"
+                        ),
+                        content: LanguageHelper.localizedText(
+                            korean: "앱 사용으로 인한 손해에 대해 개발자는 책임지지 않습니다. 유료 앱 이용 시에도 동일하게 적용됩니다.",
+                            english: "Developers are not responsible for damages caused by app usage. This applies equally to paid app usage."
+                        )
                     )
                     
                     TermsSection(
-                        title: "앱 변경",
-                        content: "앱의 기능은 사전 통지 없이 변경될 수 있습니다. 주요 기능 변경 시에는 앱 업데이트를 통해 공지합니다."
+                        title: LanguageHelper.localizedText(
+                            korean: "앱 변경",
+                            english: "App Changes"
+                        ),
+                        content: LanguageHelper.localizedText(
+                            korean: "앱의 기능은 사전 통지 없이 변경될 수 있습니다. 주요 기능 변경 시에는 앱 업데이트를 통해 공지합니다.",
+                            english: "App features may be changed without prior notice. Major feature changes will be announced through app updates."
+                        )
                     )
                     
                     TermsSection(
-                        title: "문의 및 지원",
-                        content: "서비스 이용 관련 문의는 앱 정보 페이지를 통해 연락해주세요. 마지막 업데이트: 2025년 1월 9일"
+                        title: LanguageHelper.localizedText(
+                            korean: "문의 및 지원",
+                            english: "Contact & Support"
+                        ),
+                        content: LanguageHelper.localizedText(
+                            korean: "서비스 이용 관련 문의는 앱 정보 페이지를 통해 연락해주세요. 마지막 업데이트: 2025년 1월 9일",
+                            english: "For service-related inquiries, please contact us through the app info page. Last updated: January 9, 2025"
+                        )
                     )
                 }
             }

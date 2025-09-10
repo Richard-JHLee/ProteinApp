@@ -22,7 +22,10 @@ struct MiniProteinViewer: View {
                     ProgressView()
                         .scaleEffect(0.8)
                         .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                    Text("Loading...")
+                    Text(LanguageHelper.localizedText(
+                        korean: "로딩 중...",
+                        english: "Loading..."
+                    ))
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }

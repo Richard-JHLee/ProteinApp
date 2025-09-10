@@ -48,7 +48,10 @@ struct FunctionDetailsView: View {
             ProgressView()
                 .scaleEffect(1.2)
             
-            Text("Loading function details...")
+            Text(LanguageHelper.localizedText(
+                korean: "기능 세부사항 로딩 중...",
+                english: "Loading function details..."
+            ))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }

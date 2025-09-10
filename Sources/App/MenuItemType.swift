@@ -25,14 +25,38 @@ enum MenuItemType: String, CaseIterable {
     
     var description: String {
         switch self {
-        case .about: return "App information and version"
-        case .userGuide: return "User guide"
-        case .features: return "Key features"
-        case .settings: return "App settings"
-        case .help: return "Help and FAQ"
-        case .privacy: return "Privacy Policy"
-        case .terms: return "Terms of Service"
-        case .license: return "License information"
+        case .about: return LanguageHelper.localizedText(
+            korean: "앱 정보 및 버전",
+            english: "App information and version"
+        )
+        case .userGuide: return LanguageHelper.localizedText(
+            korean: "사용자 가이드",
+            english: "User guide"
+        )
+        case .features: return LanguageHelper.localizedText(
+            korean: "주요 기능",
+            english: "Key features"
+        )
+        case .settings: return LanguageHelper.localizedText(
+            korean: "앱 설정",
+            english: "App settings"
+        )
+        case .help: return LanguageHelper.localizedText(
+            korean: "도움말 및 FAQ",
+            english: "Help and FAQ"
+        )
+        case .privacy: return LanguageHelper.localizedText(
+            korean: "개인정보 처리방침",
+            english: "Privacy Policy"
+        )
+        case .terms: return LanguageHelper.localizedText(
+            korean: "이용약관",
+            english: "Terms of Service"
+        )
+        case .license: return LanguageHelper.localizedText(
+            korean: "라이선스 정보",
+            english: "License information"
+        )
         }
     }
 }

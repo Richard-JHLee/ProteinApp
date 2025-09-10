@@ -42,7 +42,10 @@ struct QuaternaryStructureView: View {
             ProgressView()
                 .scaleEffect(1.2)
             
-            Text("Loading quaternary structure...")
+            Text(LanguageHelper.localizedText(
+                korean: "4차 구조 로딩 중...",
+                english: "Loading quaternary structure..."
+            ))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -57,7 +60,10 @@ struct QuaternaryStructureView: View {
                 .font(.largeTitle)
                 .foregroundColor(.orange)
             
-            Text("Failed to load structure")
+            Text(LanguageHelper.localizedText(
+                korean: "구조 로드 실패",
+                english: "Failed to load structure"
+            ))
                 .font(.headline)
                 .foregroundColor(.primary)
             
@@ -66,7 +72,10 @@ struct QuaternaryStructureView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
             
-            Button("Retry") {
+            Button(LanguageHelper.localizedText(
+                korean: "다시 시도",
+                english: "Retry"
+            )) {
                 loadQuaternaryStructure()
             }
             .buttonStyle(.borderedProminent)

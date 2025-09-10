@@ -242,7 +242,10 @@ struct EnhancedProteinViewerView: View {
                                 .foregroundColor(.red)
                             
                             VStack(spacing: 8) {
-                                Text("Loading Error")
+                                Text(LanguageHelper.localizedText(
+                                    korean: "로딩 오류",
+                                    english: "Loading Error"
+                                ))
                                     .font(.headline)
                                     .foregroundColor(.white)
                                 
@@ -253,7 +256,10 @@ struct EnhancedProteinViewerView: View {
                                     .padding(.horizontal)
                             }
                             
-                            Button("Retry") {
+                            Button(LanguageHelper.localizedText(
+                                korean: "다시 시도",
+                                english: "Retry"
+                            )) {
                                 Task { await loadStructure() }
                             }
                             .buttonStyle(.borderedProminent)
