@@ -42,10 +42,7 @@ struct RelatedProteinsView: View {
             ProgressView()
                 .scaleEffect(1.2)
             
-            Text(LanguageHelper.localizedText(
-                korean: "관련 단백질 로딩 중...",
-                english: "Loading related proteins..."
-            ))
+            Text("Loading related proteins...")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }

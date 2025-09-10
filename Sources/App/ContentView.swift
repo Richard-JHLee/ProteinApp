@@ -36,10 +36,7 @@ struct ContentView: View {
                                     .scaleEffect(1.2)
                                     .progressViewStyle(CircularProgressViewStyle(tint: .blue))
                                 
-                                Text(LanguageHelper.localizedText(
-                                    korean: "단백질 구조 로딩 중...",
-                                    english: "Loading protein structure..."
-                                ))
+                                Text("Loading protein structure...")
                                     .font(.headline)
                                     .foregroundColor(.primary)
                                 
@@ -57,17 +54,11 @@ struct ContentView: View {
                                     .font(.system(size: 60))
                                     .foregroundColor(.blue)
                                 
-                                Text(LanguageHelper.localizedText(
-                                    korean: "로딩 중...",
-                                    english: "Loading..."
-                                ))
+                                Text("Loading...")
                                     .font(.largeTitle.weight(.bold))
                                     .foregroundColor(.primary)
                                 
-                                Text(LanguageHelper.localizedText(
-                                    korean: "기본 단백질 구조 로딩 중...",
-                                    english: "Loading default protein structure..."
-                                ))
+                                Text("Loading default protein structure...")
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                             }
@@ -89,10 +80,7 @@ struct ContentView: View {
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 
                                 Text(structureLoadingProgress.isEmpty ? 
-                                    LanguageHelper.localizedText(
-                                        korean: "3D 구조 로딩 중...",
-                                        english: "Loading 3D Structure..."
-                                    ) : structureLoadingProgress)
+                                    "Loading 3D Structure..." : structureLoadingProgress)
                                     .font(.headline)
                                     .foregroundColor(.white)
                                     .multilineTextAlignment(.center)
@@ -104,20 +92,11 @@ struct ContentView: View {
             .onAppear {
                 loadDefaultProtein()
             }
-            .alert(LanguageHelper.localizedText(
-                korean: "오류",
-                english: "Error"
-            ), isPresented: .constant(error != nil)) {
-                Button(LanguageHelper.localizedText(
-                    korean: "다시 시도",
-                    english: "Retry"
-                )) {
+            .alert("Error", isPresented: .constant(error != nil)) {
+                Button("Retry") {
                     loadDefaultProtein()
                 }
-                Button(LanguageHelper.localizedText(
-                    korean: "확인",
-                    english: "OK"
-                )) {
+                Button("OK") {
                     error = nil
                 }
             } message: {
@@ -132,10 +111,7 @@ struct ContentView: View {
                 
                 // 3D 구조 로딩 시작
                 is3DStructureLoading = true
-                structureLoadingProgress = LanguageHelper.localizedText(
-                    korean: "\(selectedProteinId)의 3D 구조 로딩 중...",
-                    english: "Loading 3D structure for \(selectedProteinId)..."
-                )
+                structureLoadingProgress = "Loading 3D structure for \(selectedProteinId)..."
                 
                 // Load the selected protein structure
                 loadSelectedProtein(selectedProteinId)
@@ -210,10 +186,7 @@ struct ContentView: View {
     
     private func loadSelectedProtein(_ pdbId: String) {
         isLoading = true
-        loadingProgress = LanguageHelper.localizedText(
-            korean: "초기화 중...",
-            english: "Initializing..."
-        )
+        loadingProgress = "Initializing..."
         error = nil
         
         Task {
@@ -225,10 +198,7 @@ struct ContentView: View {
                 print("Loading PDB structure for: \(formattedPdbId)")
                 
                 await MainActor.run {
-                    self.loadingProgress = LanguageHelper.localizedText(
-                        korean: "PDB 파일 다운로드 중...",
-                        english: "Downloading PDB file..."
-                    )
+                    self.loadingProgress = "Downloading PDB file..."
                 }
                 
                 let (data, response) = try await URLSession.shared.data(from: url)
@@ -239,10 +209,7 @@ struct ContentView: View {
                 }
                 
                 await MainActor.run {
-                    self.loadingProgress = LanguageHelper.localizedText(
-                        korean: "PDB 구조 파싱 중...",
-                        english: "Parsing PDB structure..."
-                    )
+                    self.loadingProgress = "Parsing PDB structure..."
                 }
                 
                 let pdbText = String(decoding: data, as: UTF8.self)
@@ -261,10 +228,7 @@ struct ContentView: View {
                 }
             } catch {
                 await MainActor.run {
-                    let errorMessage = LanguageHelper.localizedText(
-                        korean: "단백질 구조 로드 실패 (\(pdbId)): \(error.localizedDescription)",
-                        english: "Failed to load protein structure for \(pdbId): \(error.localizedDescription)"
-                    )
+                    let errorMessage = "Failed to load protein structure for \(pdbId): \(error.localizedDescription)"
                     self.error = errorMessage
                     self.isLoading = false
                     self.loadingProgress = ""

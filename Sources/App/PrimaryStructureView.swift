@@ -42,10 +42,7 @@ struct PrimaryStructureView: View {
             ProgressView()
                 .scaleEffect(1.2)
             
-            Text(LanguageHelper.localizedText(
-                korean: "아미노산 서열 로딩 중...",
-                english: "Loading amino acid sequence..."
-            ))
+            Text("Loading amino acid sequence...")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -60,10 +57,7 @@ struct PrimaryStructureView: View {
                 .font(.largeTitle)
                 .foregroundColor(.orange)
             
-            Text(LanguageHelper.localizedText(
-                korean: "서열 로드 실패",
-                english: "Failed to load sequence"
-            ))
+            Text("Failed to load sequence")
                 .font(.headline)
                 .foregroundColor(.primary)
             
@@ -72,10 +66,7 @@ struct PrimaryStructureView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
             
-            Button(LanguageHelper.localizedText(
-                korean: "다시 시도",
-                english: "Retry"
-            )) {
+            Button("Retry") {
                 loadAminoAcidSequence()
             }
             .buttonStyle(.borderedProminent)

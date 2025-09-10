@@ -25,14 +25,8 @@ struct ActionButtonsSectionView: View {
                         .font(.title2)
                         .accessibilityHidden(true)
                     Text(is3DButtonPressed ? 
-                        LanguageHelper.localizedText(
-                            korean: "로딩 중...",
-                            english: "Loading..."
-                        ) : 
-                        LanguageHelper.localizedText(
-                            korean: "3D 구조 보기",
-                            english: "View 3D Structure"
-                        ))
+                        "Loading..." : 
+                        "View 3D Structure")
                         .font(.headline.weight(.semibold))
                 }
                 .foregroundColor(.white)
