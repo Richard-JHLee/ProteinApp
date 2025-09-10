@@ -103,6 +103,7 @@ struct ContentView: View {
                 Text(error ?? "")
             }
         }
+        .navigationViewStyle(.stack)
         .sheet(isPresented: $showingProteinLibrary) {
             ProteinLibraryView { selectedProteinId in
                 // Handle protein selection from library
