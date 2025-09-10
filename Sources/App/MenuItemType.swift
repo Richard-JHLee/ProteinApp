@@ -25,14 +25,14 @@ enum MenuItemType: String, CaseIterable {
     
     var description: String {
         switch self {
-        case .about: return "앱 정보 및 버전"
-        case .userGuide: return "사용 방법 안내"
-        case .features: return "주요 기능 소개"
-        case .settings: return "앱 설정"
-        case .help: return "도움말 및 FAQ"
-        case .privacy: return "개인정보 처리방침"
-        case .terms: return "이용약관"
-        case .license: return "라이센스 정보"
+        case .about: return "App information and version"
+        case .userGuide: return "User guide"
+        case .features: return "Key features"
+        case .settings: return "App settings"
+        case .help: return "Help and FAQ"
+        case .privacy: return "Privacy Policy"
+        case .terms: return "Terms of Service"
+        case .license: return "License information"
         }
     }
 }

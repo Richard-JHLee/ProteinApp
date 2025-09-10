@@ -1,4 +1,44 @@
 import SwiftUI
+import Foundation
+
+// MARK: - Language Helper
+struct LanguageHelper {
+    static var isKorean: Bool {
+        // 여러 방법으로 한국어 감지
+        let currentLocale = Locale.current
+        let preferredLanguages = Locale.preferredLanguages
+        
+        // 1. 현재 Locale의 identifier 확인
+        let identifier = currentLocale.identifier.lowercased()
+        let isKoreanByIdentifier = identifier.hasPrefix("ko") || 
+                                  identifier.contains("ko_kr") || 
+                                  identifier.contains("ko-kr")
+        
+        // 2. 현재 Locale의 languageCode 확인
+        let languageCode = currentLocale.languageCode?.lowercased()
+        let isKoreanByLanguageCode = languageCode == "ko"
+        
+        // 3. 시스템 선호 언어 확인
+        let isKoreanByPreferredLanguages = preferredLanguages.contains { language in
+            language.lowercased().hasPrefix("ko")
+        }
+        
+        // 4. Bundle의 localization 확인
+        let bundle = Bundle.main
+        let isKoreanByBundle = bundle.preferredLocalizations.contains { localization in
+            localization.lowercased().hasPrefix("ko")
+        }
+        
+        let result = isKoreanByIdentifier || isKoreanByLanguageCode || 
+                    isKoreanByPreferredLanguages || isKoreanByBundle
+        
+        return result
+    }
+    
+    static func localizedText(korean: String, english: String) -> String {
+        return isKorean ? korean : english
+    }
+}
 
 struct AboutView: View {
     // 앱 정보를 동적으로 가져오기
@@ -34,10 +74,16 @@ struct AboutView: View {
                 
                 // 앱 설명
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("About ProteinApp")
+                    Text(LanguageHelper.localizedText(
+                        korean: "ProteinApp 소개",
+                        english: "About ProteinApp"
+                    ))
                         .font(.headline)
                     
-                    Text("ProteinApp은 생물학 교육을 위한 3D 단백질 구조 시각화 앱입니다. RCSB PDB 데이터베이스와 연동하여 실제 단백질 구조를 다운로드하고, 인터랙티브한 3D 환경에서 탐색할 수 있습니다.")
+                    Text(LanguageHelper.localizedText(
+                        korean: "ProteinApp은 생물학 교육을 위한 3D 단백질 구조 시각화 앱입니다. RCSB PDB 데이터베이스와 연동하여 실제 단백질 구조를 다운로드하고, 인터랙티브한 3D 환경에서 탐색할 수 있습니다.",
+                        english: "ProteinApp is a 3D protein structure visualization app for biology education. It integrates with the RCSB PDB database to download real protein structures and explore them in an interactive 3D environment."
+                    ))
                         .font(.body)
                         .foregroundColor(.primary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -45,17 +91,48 @@ struct AboutView: View {
                 
                 // 주요 기능
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("주요 기능")
+                    Text(LanguageHelper.localizedText(
+                        korean: "주요 기능",
+                        english: "Key Features"
+                    ))
                         .font(.headline)
                     
                     VStack(alignment: .leading, spacing: 8) {
-                        FeatureRow(icon: "cube", title: "3D 단백질 시각화", description: "SceneKit 기반 고품질 3D 렌더링으로 실제 단백질 구조를 정확하게 표시")
-                        FeatureRow(icon: "paintbrush", title: "다양한 렌더링 스타일", description: "Spheres, Sticks, Cartoon, Surface 등 4가지 시각화 모드")
-                        FeatureRow(icon: "circle.lefthalf.filled", title: "색상 모드", description: "원소별, 체인별, 2차 구조별 색상으로 단백질 구조 이해")
-                        FeatureRow(icon: "hand.tap", title: "인터랙티브 조작", description: "회전, 확대/축소, 투명도 조절로 다양한 각도에서 관찰")
-                        FeatureRow(icon: "book", title: "단백질 정보", description: "RCSB PDB, UniProt 데이터베이스 연동으로 상세 정보 제공")
-                        FeatureRow(icon: "magnifyingglass", title: "검색 기능", description: "PDB ID로 직접 검색하거나 카테고리별 단백질 탐색")
-                        FeatureRow(icon: "slider.horizontal.3", title: "성능 최적화", description: "대용량 단백질 구조도 원활하게 렌더링하는 최적화된 엔진")
+                        FeatureRow(
+                            icon: "cube", 
+                            title: LanguageHelper.localizedText(korean: "3D 단백질 시각화", english: "3D Protein Visualization"),
+                            description: LanguageHelper.localizedText(korean: "SceneKit 기반 고품질 3D 렌더링으로 실제 단백질 구조를 정확하게 표시", english: "High-quality 3D rendering based on SceneKit for accurate display of real protein structures")
+                        )
+                        FeatureRow(
+                            icon: "paintbrush", 
+                            title: LanguageHelper.localizedText(korean: "다양한 렌더링 스타일", english: "Various Rendering Styles"),
+                            description: LanguageHelper.localizedText(korean: "Spheres, Sticks, Cartoon, Surface 등 4가지 시각화 모드", english: "4 visualization modes: Spheres, Sticks, Cartoon, Surface")
+                        )
+                        FeatureRow(
+                            icon: "circle.lefthalf.filled", 
+                            title: LanguageHelper.localizedText(korean: "색상 모드", english: "Color Modes"),
+                            description: LanguageHelper.localizedText(korean: "원소별, 체인별, 2차 구조별 색상으로 단백질 구조 이해", english: "Element, chain, and secondary structure color modes for better understanding")
+                        )
+                        FeatureRow(
+                            icon: "hand.tap", 
+                            title: LanguageHelper.localizedText(korean: "인터랙티브 조작", english: "Interactive Controls"),
+                            description: LanguageHelper.localizedText(korean: "회전, 확대/축소, 투명도 조절로 다양한 각도에서 관찰", english: "Rotate, zoom, and adjust transparency to observe from various angles")
+                        )
+                        FeatureRow(
+                            icon: "book", 
+                            title: LanguageHelper.localizedText(korean: "단백질 정보", english: "Protein Information"),
+                            description: LanguageHelper.localizedText(korean: "RCSB PDB, UniProt 데이터베이스 연동으로 상세 정보 제공", english: "Detailed information through RCSB PDB and UniProt database integration")
+                        )
+                        FeatureRow(
+                            icon: "magnifyingglass", 
+                            title: LanguageHelper.localizedText(korean: "검색 기능", english: "Search Function"),
+                            description: LanguageHelper.localizedText(korean: "PDB ID로 직접 검색하거나 카테고리별 단백질 탐색", english: "Direct search by PDB ID or browse proteins by category")
+                        )
+                        FeatureRow(
+                            icon: "slider.horizontal.3", 
+                            title: LanguageHelper.localizedText(korean: "성능 최적화", english: "Performance Optimization"),
+                            description: LanguageHelper.localizedText(korean: "대용량 단백질 구조도 원활하게 렌더링하는 최적화된 엔진", english: "Optimized engine for smooth rendering of large protein structures")
+                        )
                     }
                 }
                 
@@ -63,7 +140,10 @@ struct AboutView: View {
                 
                 // 개발자 정보
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Developer")
+                    Text(LanguageHelper.localizedText(
+                        korean: "개발자",
+                        english: "Developer"
+                    ))
                         .font(.headline)
                     
                     Text("AVAS")
@@ -71,23 +151,10 @@ struct AboutView: View {
                         .foregroundColor(.primary)
                         .fixedSize(horizontal: false, vertical: true)
                     
-                    // 문의 정보 추가
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("문의 및 지원")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        
-                        Text("• 이메일: support@avas.com")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Text("• 웹사이트: https://avas.com")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.top, 8)
-                    
-                    Text("© 2025 AVAS. All rights reserved.")
+                    Text(LanguageHelper.localizedText(
+                        korean: "© 2025 AVAS. 모든 권리 보유.",
+                        english: "© 2025 AVAS. All rights reserved."
+                    ))
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
