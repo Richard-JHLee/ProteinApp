@@ -1,5 +1,49 @@
 import SwiftUI
 
+// iPad 사이드바용 메뉴 타입 정의
+enum iPadMenuType: String, CaseIterable {
+    case mainView = "Main View"
+    case proteinLibrary = "Protein Library"
+    case about = "About"
+    case userGuide = "User Guide"
+    case features = "Features"
+    case settings = "Settings"
+    case help = "Help"
+    case privacy = "Privacy Policy"
+    case terms = "Terms of Service"
+    case license = "License"
+    
+    var icon: String {
+        switch self {
+        case .mainView: return "atom"
+        case .proteinLibrary: return "books.vertical"
+        case .about: return "info.circle"
+        case .userGuide: return "book"
+        case .features: return "star"
+        case .settings: return "gear"
+        case .help: return "questionmark.circle"
+        case .privacy: return "hand.raised"
+        case .terms: return "doc.text"
+        case .license: return "doc.plaintext"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .mainView: return "Protein Viewer"
+        case .proteinLibrary: return "Browse protein library"
+        case .about: return "App information and version"
+        case .userGuide: return "User guide"
+        case .features: return "Key features"
+        case .settings: return "App settings"
+        case .help: return "Help and FAQ"
+        case .privacy: return "Privacy Policy"
+        case .terms: return "Terms of Service"
+        case .license: return "License information"
+        }
+    }
+}
+
 struct ContentView: View {
     @State private var structure: PDBStructure? = nil
     @State private var isLoading = false
@@ -12,170 +56,203 @@ struct ContentView: View {
     @State private var is3DStructureLoading = false
     @State private var structureLoadingProgress = ""
     
+    // iPad 사이드바용 상태
+    @State private var selectedMenu: iPadMenuType = .mainView
+    
     // Size Class 기반 반응형 레이아웃을 위한 환경 변수
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @Environment(\.verticalSizeClass) var verticalSizeClass
     
     var body: some View {
-        NavigationView {
-            // 모든 플랫폼에서 전체 화면 Protein Viewer
-            ZStack {
-                if let structure = structure {
-                    ProteinSceneContainer(
-                        structure: structure,
-                        proteinId: currentProteinId,
-                        proteinName: currentProteinName,
+        Group {
+            if horizontalSizeClass == .regular {
+                // iPad/Mac: 사이드바 + 메인 영역
+                NavigationView {
+                    // 사이드바
+                    iPadSidebarView(
+                        selectedMenu: $selectedMenu,
+                        onMenuSelected: { menu in
+                            selectedMenu = menu
+                        }
+                    )
+                    
+                    // 메인 콘텐츠 영역
+                    iPadMainContentView(
+                        selectedMenu: selectedMenu,
+                        structure: $structure,
+                        currentProteinId: $currentProteinId,
+                        currentProteinName: $currentProteinName,
+                        isLoading: $isLoading,
+                        loadingProgress: $loadingProgress,
+                        error: $error,
+                        is3DStructureLoading: $is3DStructureLoading,
+                        structureLoadingProgress: $structureLoadingProgress,
+                        showingProteinLibrary: $showingProteinLibrary,
                         onProteinLibraryTap: {
                             showingProteinLibrary = true
                         },
-                        externalIsProteinLoading: $isLoading,
-                        externalProteinLoadingProgress: $loadingProgress,
-                        externalIs3DStructureLoading: $is3DStructureLoading,
-                        externalStructureLoadingProgress: $structureLoadingProgress
+                        onLoadSelectedProtein: { proteinId in
+                            loadSelectedProtein(proteinId)
+                        },
+                        onLoadDefaultProtein: {
+                            loadDefaultProtein()
+                        }
                     )
-                } else {
-                    VStack(spacing: 20) {
-                        if isLoading {
-                            VStack(spacing: 16) {
-                                ProgressView()
-                                    .scaleEffect(horizontalSizeClass == .regular ? 1.5 : 1.2)
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                                
-                                Text("Loading protein structure...")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-                                    .dynamicTypeSize(.large)
-                                
-                                if !loadingProgress.isEmpty {
-                                    Text(loadingProgress)
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                        .multilineTextAlignment(.center)
-                                        .padding(.horizontal)
+                }
+                .navigationViewStyle(.automatic)
+                .fullScreenCover(isPresented: $showingProteinLibrary) {
+                    // Protein Library 전체 화면
+                    NavigationView {
+                        ProteinLibraryView { selectedProteinId in
+                            showingProteinLibrary = false
+                            is3DStructureLoading = true
+                            structureLoadingProgress = "Loading 3D structure for \(selectedProteinId)..."
+                            loadSelectedProtein(selectedProteinId)
+                            
+                            Task {
+                                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                                await MainActor.run {
+                                    is3DStructureLoading = false
+                                    structureLoadingProgress = ""
                                 }
                             }
+                        }
+                    }
+                    .navigationViewStyle(.stack)
+                }
+                #if os(iOS)
+                .preferredColorScheme(.light)
+                .statusBarHidden(false)
+                .supportedOrientations(.all)
+                #elseif os(macOS)
+                .frame(minWidth: 800, minHeight: 600)
+                #endif
+            } else {
+                // iPhone: 기존 전체 화면 레이아웃
+                NavigationView {
+                    ZStack {
+                        if let structure = structure {
+                            ProteinSceneContainer(
+                                structure: structure,
+                                proteinId: currentProteinId,
+                                proteinName: currentProteinName,
+                                onProteinLibraryTap: {
+                                    showingProteinLibrary = true
+                                },
+                                externalIsProteinLoading: $isLoading,
+                                externalProteinLoadingProgress: $loadingProgress,
+                                externalIs3DStructureLoading: $is3DStructureLoading,
+                                externalStructureLoadingProgress: $structureLoadingProgress
+                            )
                         } else {
-                            VStack(spacing: 16) {
-                                Image(systemName: "atom")
-                                    .font(.system(size: 60))
-                                    .foregroundColor(.blue)
-                                
-                                Text("Loading...")
-                                    .font(.largeTitle.weight(.bold))
-                                    .foregroundColor(.primary)
-                                
-                                Text("Loading default protein structure...")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
+                            VStack(spacing: 20) {
+                                if isLoading {
+                                    VStack(spacing: 16) {
+                                        ProgressView()
+                                            .scaleEffect(1.2)
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                                        
+                                        Text("Loading protein structure...")
+                                            .font(.headline)
+                                            .foregroundColor(.primary)
+                                            .dynamicTypeSize(.large)
+                                        
+                                        if !loadingProgress.isEmpty {
+                                            Text(loadingProgress)
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+                                                .multilineTextAlignment(.center)
+                                                .padding(.horizontal)
+                                        }
+                                    }
+                                } else {
+                                    VStack(spacing: 16) {
+                                        Image(systemName: "atom")
+                                            .font(.system(size: 60))
+                                            .foregroundColor(.blue)
+                                        
+                                        Text("Loading...")
+                                            .font(.largeTitle.weight(.bold))
+                                            .foregroundColor(.primary)
+                                        
+                                        Text("Loading default protein structure...")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(Color(.systemBackground))
+                        }
+                        
+                        // 3D Structure Loading Overlay
+                        if is3DStructureLoading {
+                            Color.black.opacity(0.3)
+                                .ignoresSafeArea()
+                                .overlay(
+                                    VStack(spacing: 16) {
+                                        ProgressView()
+                                            .scaleEffect(1.2)
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        
+                                        Text(structureLoadingProgress.isEmpty ? 
+                                            "Loading 3D Structure..." : structureLoadingProgress)
+                                            .font(.headline)
+                                            .foregroundColor(.white)
+                                            .multilineTextAlignment(.center)
+                                            .padding(.horizontal)
+                                            .dynamicTypeSize(.large)
+                                    }
+                                )
+                        }
+                    }
+                    .onAppear {
+                        loadDefaultProtein()
+                    }
+                    .alert("Error", isPresented: .constant(error != nil)) {
+                        Button("Retry") {
+                            loadDefaultProtein()
+                        }
+                        .accessibilityLabel("Retry loading protein")
+                        Button("OK") {
+                            error = nil
+                        }
+                        .accessibilityLabel("Dismiss error message")
+                    } message: {
+                        Text(error ?? "")
+                    }
+                }
+                .navigationViewStyle(.stack)
+                .navigationBarHidden(true)
+                .fullScreenCover(isPresented: $showingProteinLibrary) {
+                    // Protein Library 전체 화면
+                    NavigationView {
+                        ProteinLibraryView { selectedProteinId in
+                            showingProteinLibrary = false
+                            is3DStructureLoading = true
+                            structureLoadingProgress = "Loading 3D structure for \(selectedProteinId)..."
+                            loadSelectedProtein(selectedProteinId)
+                            
+                            Task {
+                                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                                await MainActor.run {
+                                    is3DStructureLoading = false
+                                    structureLoadingProgress = ""
+                                }
                             }
                         }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(.systemBackground))
-
+                    .navigationViewStyle(.stack)
                 }
-                
-                // 3D Structure Loading Overlay
-                if is3DStructureLoading {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                        .overlay(
-                            VStack(spacing: 16) {
-                                ProgressView()
-                                    .scaleEffect(1.2)
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                
-                                Text(structureLoadingProgress.isEmpty ? 
-                                    "Loading 3D Structure..." : structureLoadingProgress)
-                                    .font(.headline)
-                                    .foregroundColor(.white)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal)
-                                    .dynamicTypeSize(.large)
-                            }
-                        )
-                }
-            }
-            .onAppear {
-                loadDefaultProtein()
-            }
-            .alert("Error", isPresented: .constant(error != nil)) {
-                Button("Retry") {
-                    loadDefaultProtein()
-                }
-                .accessibilityLabel("Retry loading protein")
-                Button("OK") {
-                    error = nil
-                }
-                .accessibilityLabel("Dismiss error message")
-            } message: {
-                Text(error ?? "")
-            }
-            .navigationTitle(structure != nil ? "\(currentProteinId) - \(currentProteinName)" : "Protein Viewer")
-        }
-        .navigationViewStyle(.stack)
-        .navigationBarHidden(true)
-        .fullScreenCover(isPresented: $showingProteinLibrary) {
-            // 모든 플랫폼에서 전체 화면으로 표시
-            NavigationView {
-                ProteinLibraryView { selectedProteinId in
-                    // Handle protein selection from library
-                    print("Selected protein ID: \(selectedProteinId)")
-                    showingProteinLibrary = false
-                    
-                    // 3D 구조 로딩 시작
-                    is3DStructureLoading = true
-                    structureLoadingProgress = "Loading 3D structure for \(selectedProteinId)..."
-                    
-                    // Load the selected protein structure
-                    loadSelectedProtein(selectedProteinId)
-                    
-                    // 3D 구조 로딩 완료 시뮬레이션 (실제로는 구조 데이터 로드 완료 시)
-                    Task {
-                        try? await Task.sleep(nanoseconds: 3_000_000_000) // 3초
-                        await MainActor.run {
-                            is3DStructureLoading = false
-                            structureLoadingProgress = ""
-                        }
-                    }
-                }
-            }
-            .navigationViewStyle(.stack)
-        }
-        .sheet(isPresented: $showingSideMenu) {
-            // iPhone에서 Sheet로 표시 (조건부 처리)
-            if horizontalSizeClass == .compact {
-                Text("Side Menu - Coming Soon")
-                    .font(.title)
-                    .padding()
+                #if os(iOS)
+                .preferredColorScheme(.light)
+                .statusBarHidden(false)
+                .supportedOrientations(.all)
+                #elseif os(macOS)
+                .frame(minWidth: 800, minHeight: 600)
+                #endif
             }
         }
-        .popover(isPresented: $showingSideMenu) {
-            // iPad에서 Popover로 표시 (조건부 처리)
-            if horizontalSizeClass == .regular {
-                Text("Side Menu - Coming Soon")
-                    .font(.title)
-                    .padding()
-            }
-        }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: { showingSideMenu = true }) {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.title2)
-                        .foregroundColor(.primary)
-                }
-                .accessibilityLabel("Open side menu")
-                .accessibilityHint("Tap to open navigation menu")
-            }
-        }
-        .preferredColorScheme(.light)
-        #if os(iOS)
-        .statusBarHidden(false)
-        .supportedOrientations(.all)
-        #elseif os(macOS)
-        .frame(minWidth: 800, minHeight: 600)
-        #endif
     }
     
     private func loadDefaultProtein() {
@@ -441,6 +518,236 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     
     func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
         return AppDelegate.orientationLock
+    }
+}
+
+// MARK: - iPad Sidebar View
+struct iPadSidebarView: View {
+    @Binding var selectedMenu: iPadMenuType
+    let onMenuSelected: (iPadMenuType) -> Void
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 헤더
+            sidebarHeader
+            
+            // 메뉴 아이템 리스트
+            List(iPadMenuType.allCases, id: \.self) { menuItem in
+                iPadMenuItemRow(
+                    item: menuItem,
+                    isSelected: selectedMenu == menuItem
+                ) {
+                    onMenuSelected(menuItem)
+                }
+            }
+            .listStyle(SidebarListStyle())
+        }
+        .frame(minWidth: 250)
+        .background(Color(.systemBackground))
+    }
+    
+    // MARK: - Header
+    private var sidebarHeader: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "atom")
+                .font(.system(size: 32))
+                .foregroundColor(.blue)
+            
+            Text("ProteinApp")
+                .font(.title2.weight(.bold))
+                .foregroundColor(.primary)
+            
+            Text("Protein Structure Viewer")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 20)
+        .frame(maxWidth: .infinity)
+        .background(Color(.systemGray6))
+    }
+}
+
+struct iPadMenuItemRow: View {
+    let item: iPadMenuType
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                // 아이콘
+                Image(systemName: item.icon)
+                    .font(.title3)
+                    .foregroundColor(isSelected ? .white : .blue)
+                    .frame(width: 24, height: 24)
+                
+                // 텍스트
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.rawValue)
+                        .font(.headline)
+                        .foregroundColor(isSelected ? .white : .primary)
+                    
+                    Text(item.description)
+                        .font(.caption)
+                        .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                }
+                
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Color.blue : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - iPad Main Content View
+struct iPadMainContentView: View {
+    let selectedMenu: iPadMenuType
+    @Binding var structure: PDBStructure?
+    @Binding var currentProteinId: String
+    @Binding var currentProteinName: String
+    @Binding var isLoading: Bool
+    @Binding var loadingProgress: String
+    @Binding var error: String?
+    @Binding var is3DStructureLoading: Bool
+    @Binding var structureLoadingProgress: String
+    @Binding var showingProteinLibrary: Bool
+    
+    let onProteinLibraryTap: () -> Void
+    let onLoadSelectedProtein: (String) -> Void
+    let onLoadDefaultProtein: () -> Void
+    
+    var body: some View {
+        Group {
+            switch selectedMenu {
+            case .mainView:
+                // 메인 Protein Viewer 화면
+                mainProteinView
+            case .proteinLibrary:
+                // Protein Library 화면
+                ProteinLibraryView { selectedProteinId in
+                    onLoadSelectedProtein(selectedProteinId)
+                }
+            case .about:
+                AboutView()
+            case .userGuide:
+                UserGuideView()
+            case .features:
+                FeaturesView()
+            case .settings:
+                SettingsView()
+            case .help:
+                HelpView()
+            case .privacy:
+                PrivacyView()
+            case .terms:
+                TermsView()
+            case .license:
+                LicenseView()
+            }
+        }
+        .navigationTitle(selectedMenu.rawValue)
+        .navigationBarTitleDisplayMode(.large)
+    }
+    
+    // MARK: - Main Protein View
+    private var mainProteinView: some View {
+        ZStack {
+            if let structure = structure {
+                ProteinSceneContainer(
+                    structure: structure,
+                    proteinId: currentProteinId,
+                    proteinName: currentProteinName,
+                    onProteinLibraryTap: onProteinLibraryTap,
+                    externalIsProteinLoading: $isLoading,
+                    externalProteinLoadingProgress: $loadingProgress,
+                    externalIs3DStructureLoading: $is3DStructureLoading,
+                    externalStructureLoadingProgress: $structureLoadingProgress
+                )
+            } else {
+                VStack(spacing: 20) {
+                    if isLoading {
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                                .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                            
+                            Text("Loading protein structure...")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                                .dynamicTypeSize(.large)
+                            
+                            if !loadingProgress.isEmpty {
+                                Text(loadingProgress)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                            }
+                        }
+                    } else {
+                        VStack(spacing: 16) {
+                            Image(systemName: "atom")
+                                .font(.system(size: 60))
+                                .foregroundColor(.blue)
+                            
+                            Text("Loading...")
+                                .font(.largeTitle.weight(.bold))
+                                .foregroundColor(.primary)
+                            
+                            Text("Loading default protein structure...")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.systemBackground))
+            }
+            
+            // 3D Structure Loading Overlay
+            if is3DStructureLoading {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .overlay(
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            
+                            Text(structureLoadingProgress.isEmpty ? 
+                                "Loading 3D Structure..." : structureLoadingProgress)
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                                .dynamicTypeSize(.large)
+                        }
+                    )
+            }
+        }
+        .onAppear {
+            if structure == nil {
+                onLoadDefaultProtein()
+            }
+        }
+        .alert("Error", isPresented: .constant(error != nil)) {
+            Button("Retry") {
+                onLoadDefaultProtein()
+            }
+            .accessibilityLabel("Retry loading protein")
+            Button("OK") {
+                error = nil
+            }
+            .accessibilityLabel("Dismiss error message")
+        } message: {
+            Text(error ?? "")
+        }
     }
 }
 
