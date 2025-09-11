@@ -18,6 +18,44 @@ struct ContentView: View {
     
     var body: some View {
         NavigationView {
+            // iPad에서 왼쪽 사이드바용 뷰
+            if horizontalSizeClass == .regular {
+                VStack {
+                    Text("Protein Viewer")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .padding()
+                    
+                    List {
+                        Section("Current Protein") {
+                            HStack {
+                                Image(systemName: "atom")
+                                    .foregroundColor(.blue)
+                                VStack(alignment: .leading) {
+                                    Text(currentProteinId.isEmpty ? "Loading..." : currentProteinId)
+                                        .font(.headline)
+                                    Text(currentProteinName.isEmpty ? "Loading..." : currentProteinName)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                        
+                        Section("Actions") {
+                            Button(action: { showingProteinLibrary = true }) {
+                                HStack {
+                                    Image(systemName: "books.vertical")
+                                    Text("Protein Library")
+                                }
+                            }
+                        }
+                    }
+                    .listStyle(InsetGroupedListStyle())
+                }
+                .navigationTitle("Protein Library")
+            }
+            
+            // 메인 컨텐츠 영역 (iPad 오른쪽, iPhone 전체)
             ZStack {
                 if let structure = structure {
                     ProteinSceneContainer(
@@ -110,8 +148,8 @@ struct ContentView: View {
             } message: {
                 Text(error ?? "")
             }
+            .navigationTitle(structure != nil ? "\(currentProteinId) - \(currentProteinName)" : "Protein Viewer")
         }
-        .navigationTitle(structure != nil ? "\(currentProteinId) - \(currentProteinName)" : "Protein Viewer")
         .navigationViewStyle(.automatic)
         .fullScreenCover(isPresented: $showingProteinLibrary) {
             // 모든 플랫폼에서 전체 화면으로 표시
@@ -178,34 +216,90 @@ struct ContentView: View {
     
     private func loadDefaultProtein() {
         isLoading = true
+        loadingProgress = "Loading default protein..."
         error = nil
         
         Task {
             do {
-                let url = URL(string: "https://files.rcsb.org/download/1CRN.pdb")!
-                let (data, response) = try await URLSession.shared.data(from: url)
+                let defaultPdbId = "1CRN"
+                print("🔍 Loading default PDB structure: \(defaultPdbId)")
                 
-                guard let httpResponse = response as? HTTPURLResponse,
-                      httpResponse.statusCode == 200 else {
-                    throw URLError(.badServerResponse)
+                let url = URL(string: "https://files.rcsb.org/download/\(defaultPdbId).pdb")!
+                print("📡 Requesting PDB from: \(url)")
+                
+                await MainActor.run {
+                    self.loadingProgress = "Downloading PDB file..."
+                }
+                
+                // 네트워크 요청 타임아웃 설정
+                var request = URLRequest(url: url)
+                request.timeoutInterval = 30.0
+                request.setValue("ProteinApp/1.0", forHTTPHeaderField: "User-Agent")
+                
+                let (data, response) = try await URLSession.shared.data(for: request)
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw PDBError.invalidResponse
+                }
+                
+                print("📥 HTTP Response: \(httpResponse.statusCode)")
+                
+                guard httpResponse.statusCode == 200 else {
+                    if httpResponse.statusCode == 404 {
+                        throw PDBError.structureNotFound(defaultPdbId)
+                    } else {
+                        throw PDBError.serverError(httpResponse.statusCode)
+                    }
+                }
+                
+                guard !data.isEmpty else {
+                    throw PDBError.emptyResponse
+                }
+                
+                print("📦 Downloaded \(data.count) bytes")
+                
+                await MainActor.run {
+                    self.loadingProgress = "Parsing PDB structure..."
                 }
                 
                 let pdbText = String(decoding: data, as: UTF8.self)
+                print("📄 PDB text length: \(pdbText.count) characters")
+                
                 let loadedStructure = try PDBParser.parse(pdbText: pdbText)
+                print("✅ Successfully parsed PDB structure with \(loadedStructure.atomCount) atoms")
+                
+                // Fetch actual protein name from PDB API
+                let actualProteinName = await fetchProteinNameFromPDB(pdbId: defaultPdbId)
                 
                 await MainActor.run {
                     self.structure = loadedStructure
-                    self.currentProteinId = "1CRN"
-                    self.currentProteinName = "Crambin"
+                    self.currentProteinId = defaultPdbId
+                    self.currentProteinName = actualProteinName
                     self.isLoading = false
-                    print("Successfully loaded default PDB structure: 1CRN")
+                    self.loadingProgress = ""
+                    print("Successfully loaded default PDB structure: \(defaultPdbId) with name: \(actualProteinName)")
                 }
+            } catch let error as PDBError {
+                await MainActor.run {
+                    self.error = error.userFriendlyMessage
+                    self.isLoading = false
+                    self.loadingProgress = ""
+                }
+                print("❌ PDB Error: \(error.localizedDescription)")
+            } catch let urlError as URLError {
+                await MainActor.run {
+                    self.error = urlError.userFriendlyMessage
+                    self.isLoading = false
+                    self.loadingProgress = ""
+                }
+                print("🌐 Network Error: \(urlError.localizedDescription)")
             } catch {
                 await MainActor.run {
                     self.error = "Failed to load default protein structure: \(error.localizedDescription)"
                     self.isLoading = false
-                    print("Error loading default PDB structure: \(error)")
+                    self.loadingProgress = ""
                 }
+                print("💥 Unexpected Error: \(error)")
             }
         }
     }
