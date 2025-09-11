@@ -12,6 +12,10 @@ struct ContentView: View {
     @State private var is3DStructureLoading = false
     @State private var structureLoadingProgress = ""
     
+    // Size Class 기반 반응형 레이아웃을 위한 환경 변수
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    @Environment(\.verticalSizeClass) var verticalSizeClass
+    
     var body: some View {
         NavigationView {
             ZStack {
@@ -33,12 +37,13 @@ struct ContentView: View {
                         if isLoading {
                             VStack(spacing: 16) {
                                 ProgressView()
-                                    .scaleEffect(1.2)
+                                    .scaleEffect(horizontalSizeClass == .regular ? 1.5 : 1.2)
                                     .progressViewStyle(CircularProgressViewStyle(tint: .blue))
                                 
                                 Text("Loading protein structure...")
                                     .font(.headline)
                                     .foregroundColor(.primary)
+                                    .dynamicTypeSize(.large)
                                 
                                 if !loadingProgress.isEmpty {
                                     Text(loadingProgress)
@@ -85,6 +90,7 @@ struct ContentView: View {
                                     .foregroundColor(.white)
                                     .multilineTextAlignment(.center)
                                     .padding(.horizontal)
+                                    .dynamicTypeSize(.large)
                             }
                         )
                 }
@@ -96,14 +102,16 @@ struct ContentView: View {
                 Button("Retry") {
                     loadDefaultProtein()
                 }
+                .accessibilityLabel("Retry loading protein")
                 Button("OK") {
                     error = nil
                 }
+                .accessibilityLabel("Dismiss error message")
             } message: {
                 Text(error ?? "")
             }
         }
-        .navigationViewStyle(.stack)
+        .navigationViewStyle(.automatic)
         .sheet(isPresented: $showingProteinLibrary) {
             ProteinLibraryView { selectedProteinId in
                 // Handle protein selection from library
@@ -127,11 +135,45 @@ struct ContentView: View {
                 }
             }
         }
+        .popover(isPresented: $showingProteinLibrary) {
+            // iPad에서 Popover로 표시 (조건부 처리)
+            if horizontalSizeClass == .regular {
+                ProteinLibraryView { selectedProteinId in
+                    // Handle protein selection from library
+                    print("Selected protein ID: \(selectedProteinId)")
+                    showingProteinLibrary = false
+                    
+                    // 3D 구조 로딩 시작
+                    is3DStructureLoading = true
+                    structureLoadingProgress = "Loading 3D structure for \(selectedProteinId)..."
+                    
+                    // Load the selected protein structure
+                    loadSelectedProtein(selectedProteinId)
+                    
+                    // 3D 구조 로딩 완료 시뮬레이션 (실제로는 구조 데이터 로드 완료 시)
+                    Task {
+                        try? await Task.sleep(nanoseconds: 3_000_000_000) // 3초
+                        await MainActor.run {
+                            is3DStructureLoading = false
+                            structureLoadingProgress = ""
+                        }
+                    }
+                }
+            }
+        }
         .sheet(isPresented: $showingSideMenu) {
             // SideMenuView() - 임시로 주석 처리
             Text("Side Menu - Coming Soon")
                 .font(.title)
                 .padding()
+        }
+        .popover(isPresented: $showingSideMenu) {
+            // iPad에서 Popover로 표시 (조건부 처리)
+            if horizontalSizeClass == .regular {
+                Text("Side Menu - Coming Soon")
+                    .font(.title)
+                    .padding()
+            }
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
@@ -140,12 +182,14 @@ struct ContentView: View {
                         .font(.title2)
                         .foregroundColor(.primary)
                 }
+                .accessibilityLabel("Open side menu")
+                .accessibilityHint("Tap to open navigation menu")
             }
         }
         .preferredColorScheme(.light)
         #if os(iOS)
         .statusBarHidden(false)
-        .supportedOrientations(.allButUpsideDown)
+        .supportedOrientations(.all)
         #elseif os(macOS)
         .frame(minWidth: 800, minHeight: 600)
         #endif
