@@ -112,63 +112,32 @@ struct ContentView: View {
             }
         }
         .navigationViewStyle(.automatic)
-        .sheet(isPresented: $showingProteinLibrary) {
-            // iPhone에서 Sheet로 표시 (조건부 처리)
-            if horizontalSizeClass == .compact {
-                NavigationView {
-                    ProteinLibraryView { selectedProteinId in
-                        // Handle protein selection from library
-                        print("Selected protein ID: \(selectedProteinId)")
-                        showingProteinLibrary = false
-                        
-                        // 3D 구조 로딩 시작
-                        is3DStructureLoading = true
-                        structureLoadingProgress = "Loading 3D structure for \(selectedProteinId)..."
-                        
-                        // Load the selected protein structure
-                        loadSelectedProtein(selectedProteinId)
-                        
-                        // 3D 구조 로딩 완료 시뮬레이션 (실제로는 구조 데이터 로드 완료 시)
-                        Task {
-                            try? await Task.sleep(nanoseconds: 3_000_000_000) // 3초
-                            await MainActor.run {
-                                is3DStructureLoading = false
-                                structureLoadingProgress = ""
-                            }
+        .fullScreenCover(isPresented: $showingProteinLibrary) {
+            // 모든 플랫폼에서 전체 화면으로 표시
+            NavigationView {
+                ProteinLibraryView { selectedProteinId in
+                    // Handle protein selection from library
+                    print("Selected protein ID: \(selectedProteinId)")
+                    showingProteinLibrary = false
+                    
+                    // 3D 구조 로딩 시작
+                    is3DStructureLoading = true
+                    structureLoadingProgress = "Loading 3D structure for \(selectedProteinId)..."
+                    
+                    // Load the selected protein structure
+                    loadSelectedProtein(selectedProteinId)
+                    
+                    // 3D 구조 로딩 완료 시뮬레이션 (실제로는 구조 데이터 로드 완료 시)
+                    Task {
+                        try? await Task.sleep(nanoseconds: 3_000_000_000) // 3초
+                        await MainActor.run {
+                            is3DStructureLoading = false
+                            structureLoadingProgress = ""
                         }
                     }
                 }
-                .navigationViewStyle(.stack)
             }
-        }
-        .popover(isPresented: $showingProteinLibrary) {
-            // iPad에서 Popover로 표시 (조건부 처리)
-            if horizontalSizeClass == .regular {
-                NavigationView {
-                    ProteinLibraryView { selectedProteinId in
-                        // Handle protein selection from library
-                        print("Selected protein ID: \(selectedProteinId)")
-                        showingProteinLibrary = false
-                        
-                        // 3D 구조 로딩 시작
-                        is3DStructureLoading = true
-                        structureLoadingProgress = "Loading 3D structure for \(selectedProteinId)..."
-                        
-                        // Load the selected protein structure
-                        loadSelectedProtein(selectedProteinId)
-                        
-                        // 3D 구조 로딩 완료 시뮬레이션 (실제로는 구조 데이터 로드 완료 시)
-                        Task {
-                            try? await Task.sleep(nanoseconds: 3_000_000_000) // 3초
-                            await MainActor.run {
-                                is3DStructureLoading = false
-                                structureLoadingProgress = ""
-                            }
-                        }
-                    }
-                }
-                .navigationViewStyle(.stack)
-            }
+            .navigationViewStyle(.stack)
         }
         .sheet(isPresented: $showingSideMenu) {
             // iPhone에서 Sheet로 표시 (조건부 처리)
