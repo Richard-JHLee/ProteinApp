@@ -4105,7 +4105,7 @@ struct ProteinLibraryView: View {
                 selectedCategory: selectedCategory
             )
         }
-        .sheet(isPresented: $showingInfoSheet) {
+        .fullScreenCover(isPresented: $showingInfoSheet) {
             if let protein = selectedProtein {
                 InfoSheet(
                     protein: protein,

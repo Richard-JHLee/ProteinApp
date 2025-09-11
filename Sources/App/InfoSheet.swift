@@ -27,9 +27,8 @@ struct InfoSheet: View {
     }
 
     var body: some View {
-        NavigationView {
-            ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: false) {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 24) {
                         // 1단계: Overview Section
                         HeaderSectionView(protein: protein, 
@@ -119,6 +118,7 @@ struct InfoSheet: View {
                 // }
             }
         }
+        .navigationViewStyle(.stack)
         .overlay {
             // 3D Structure Loading Overlay
             if is3DStructureLoading {
