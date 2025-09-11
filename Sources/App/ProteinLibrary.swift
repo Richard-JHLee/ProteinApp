@@ -3646,8 +3646,7 @@ struct ProteinLibraryView: View {
     }
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
                 // Search Bar
                 HStack {
                     HStack {
@@ -4005,8 +4004,6 @@ struct ProteinLibraryView: View {
                 }
             }
             .background(Color(.systemBackground))
-        }
-        .navigationViewStyle(.stack) // iPhone에서 더 나은 UX
         .onChange(of: searchText) { _ in resetPagination() }
         .onChange(of: selectedCategory) { newCategory in 
             resetPagination()
