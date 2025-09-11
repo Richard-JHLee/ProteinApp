@@ -1,5 +1,31 @@
 import SwiftUI
 
+// MARK: - URLError Extension
+extension URLError {
+    var userFriendlyMessage: String {
+        switch self.code {
+        case .notConnectedToInternet:
+            return "No internet connection. Please check your network settings and try again."
+        case .networkConnectionLost:
+            return "Network connection lost. Please check your connection and try again."
+        case .timedOut:
+            return "Request timed out. Please check your connection and try again."
+        case .cannotFindHost:
+            return "Cannot connect to server. Please check your internet connection and try again."
+        case .cannotConnectToHost:
+            return "Cannot connect to server. The server may be temporarily unavailable."
+        case .badServerResponse:
+            return "Server returned an error. Please try again later."
+        case .badURL:
+            return "Invalid URL. Please try again."
+        case .dataNotAllowed:
+            return "Data usage not allowed. Please check your network settings."
+        default:
+            return "Network error: \(self.localizedDescription). Please try again."
+        }
+    }
+}
+
 struct InfoSheet: View {
     let protein: ProteinInfo
     let onProteinSelected: ((String) -> Void)?
@@ -117,9 +143,7 @@ struct InfoSheet: View {
                 //     QuaternaryStructureView(protein: protein)
                 // }
             }
-        }
-        .navigationViewStyle(.stack)
-        .overlay {
+            .overlay {
             // 3D Structure Loading Overlay
             if is3DStructureLoading {
                 Color.black.opacity(0.3)
@@ -231,26 +255,74 @@ struct InfoSheet: View {
         
         Task {
             do {
-                let url = URL(string: "https://files.rcsb.org/download/\(protein.id).pdb")!
-                let (data, response) = try await URLSession.shared.data(from: url)
+                print("🔍 Loading PDB structure for: \(protein.id)")
                 
-                guard let httpResponse = response as? HTTPURLResponse,
-                      httpResponse.statusCode == 200 else {
-                    throw URLError(.badServerResponse)
+                // PDB ID 유효성 검사
+                let validPDBId = protein.id.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+                guard validPDBId.count == 4 && validPDBId.allSatisfy({ $0.isLetter || $0.isNumber }) else {
+                    throw PDBError.invalidPDBID(protein.id)
                 }
                 
+                let url = URL(string: "https://files.rcsb.org/download/\(validPDBId).pdb")!
+                print("📡 Requesting PDB from: \(url)")
+                
+                // 네트워크 요청 타임아웃 설정
+                var request = URLRequest(url: url)
+                request.timeoutInterval = 30.0
+                request.setValue("ProteinApp/1.0", forHTTPHeaderField: "User-Agent")
+                
+                let (data, response) = try await URLSession.shared.data(for: request)
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw PDBError.invalidResponse
+                }
+                
+                print("📥 HTTP Response: \(httpResponse.statusCode)")
+                
+                guard httpResponse.statusCode == 200 else {
+                    if httpResponse.statusCode == 404 {
+                        throw PDBError.structureNotFound(validPDBId)
+                    } else {
+                        throw PDBError.serverError(httpResponse.statusCode)
+                    }
+                }
+                
+                guard !data.isEmpty else {
+                    throw PDBError.emptyResponse
+                }
+                
+                print("📦 Downloaded \(data.count) bytes")
+                
                 let pdbText = String(decoding: data, as: UTF8.self)
+                print("📄 PDB text length: \(pdbText.count) characters")
+                
                 let loadedStructure = try PDBParser.parse(pdbText: pdbText)
+                print("✅ Successfully parsed PDB structure with \(loadedStructure.atomCount) atoms")
                 
                 await MainActor.run {
                     self.proteinStructure = loadedStructure
                     self.isLoadingStructure = false
+                    self.structureError = nil
                 }
-            } catch {
+                
+            } catch let error as PDBError {
                 await MainActor.run {
-                    self.structureError = "Failed to load \(protein.id): \(error.localizedDescription)"
+                    self.structureError = error.userFriendlyMessage
                     self.isLoadingStructure = false
                 }
+                print("❌ PDB Error: \(error.localizedDescription)")
+            } catch let urlError as URLError {
+                await MainActor.run {
+                    self.structureError = urlError.userFriendlyMessage
+                    self.isLoadingStructure = false
+                }
+                print("🌐 Network Error: \(urlError.localizedDescription)")
+            } catch {
+                await MainActor.run {
+                    self.structureError = "Unexpected error loading \(protein.id): \(error.localizedDescription)"
+                    self.isLoadingStructure = false
+                }
+                print("💥 Unexpected Error: \(error.localizedDescription)")
             }
         }
     }

@@ -111,6 +111,7 @@ struct ContentView: View {
                 Text(error ?? "")
             }
         }
+        .navigationTitle(structure != nil ? "\(currentProteinId) - \(currentProteinName)" : "Protein Viewer")
         .navigationViewStyle(.automatic)
         .fullScreenCover(isPresented: $showingProteinLibrary) {
             // 모든 플랫폼에서 전체 화면으로 표시
@@ -216,29 +217,56 @@ struct ContentView: View {
         
         Task {
             do {
-                // Construct PDB download URL using the protein's PDB ID
-                let formattedPdbId = pdbId.uppercased()
-                let url = URL(string: "https://files.rcsb.org/download/\(formattedPdbId).pdb")!
+                // PDB ID 유효성 검사
+                let formattedPdbId = pdbId.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+                guard formattedPdbId.count == 4 && formattedPdbId.allSatisfy({ $0.isLetter || $0.isNumber }) else {
+                    throw PDBError.invalidPDBID(pdbId)
+                }
                 
-                print("Loading PDB structure for: \(formattedPdbId)")
+                let url = URL(string: "https://files.rcsb.org/download/\(formattedPdbId).pdb")!
+                print("🔍 Loading PDB structure for: \(formattedPdbId)")
+                print("📡 Requesting PDB from: \(url)")
                 
                 await MainActor.run {
                     self.loadingProgress = "Downloading PDB file..."
                 }
                 
-                let (data, response) = try await URLSession.shared.data(from: url)
+                // 네트워크 요청 타임아웃 설정
+                var request = URLRequest(url: url)
+                request.timeoutInterval = 30.0
+                request.setValue("ProteinApp/1.0", forHTTPHeaderField: "User-Agent")
                 
-                guard let httpResponse = response as? HTTPURLResponse,
-                      httpResponse.statusCode == 200 else {
-                    throw URLError(.badServerResponse)
+                let (data, response) = try await URLSession.shared.data(for: request)
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw PDBError.invalidResponse
                 }
+                
+                print("📥 HTTP Response: \(httpResponse.statusCode)")
+                
+                guard httpResponse.statusCode == 200 else {
+                    if httpResponse.statusCode == 404 {
+                        throw PDBError.structureNotFound(formattedPdbId)
+                    } else {
+                        throw PDBError.serverError(httpResponse.statusCode)
+                    }
+                }
+                
+                guard !data.isEmpty else {
+                    throw PDBError.emptyResponse
+                }
+                
+                print("📦 Downloaded \(data.count) bytes")
                 
                 await MainActor.run {
                     self.loadingProgress = "Parsing PDB structure..."
                 }
                 
                 let pdbText = String(decoding: data, as: UTF8.self)
+                print("📄 PDB text length: \(pdbText.count) characters")
+                
                 let loadedStructure = try PDBParser.parse(pdbText: pdbText)
+                print("✅ Successfully parsed PDB structure with \(loadedStructure.atomCount) atoms")
                 
                 // Fetch actual protein name from PDB API
                 let actualProteinName = await fetchProteinNameFromPDB(pdbId: formattedPdbId)
@@ -251,14 +279,27 @@ struct ContentView: View {
                     self.loadingProgress = ""
                     print("Successfully loaded PDB structure: \(formattedPdbId) with name: \(actualProteinName)")
                 }
-            } catch {
+            } catch let error as PDBError {
                 await MainActor.run {
-                    let errorMessage = "Failed to load protein structure for \(pdbId): \(error.localizedDescription)"
-                    self.error = errorMessage
+                    self.error = error.userFriendlyMessage
                     self.isLoading = false
                     self.loadingProgress = ""
-                    print("Error loading PDB structure: \(error)")
                 }
+                print("❌ PDB Error: \(error.localizedDescription)")
+            } catch let urlError as URLError {
+                await MainActor.run {
+                    self.error = urlError.userFriendlyMessage
+                    self.isLoading = false
+                    self.loadingProgress = ""
+                }
+                print("🌐 Network Error: \(urlError.localizedDescription)")
+            } catch {
+                await MainActor.run {
+                    self.error = "Failed to load protein structure for \(pdbId): \(error.localizedDescription)"
+                    self.isLoading = false
+                    self.loadingProgress = ""
+                }
+                print("💥 Unexpected Error: \(error)")
             }
         }
     }

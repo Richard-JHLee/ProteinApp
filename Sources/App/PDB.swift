@@ -112,6 +112,47 @@ enum PDBParseError: Error, LocalizedError {
     }
 }
 
+enum PDBError: Error, LocalizedError {
+    case invalidPDBID(String)
+    case structureNotFound(String)
+    case serverError(Int)
+    case invalidResponse
+    case emptyResponse
+    case networkUnavailable
+    case timeout
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidPDBID(let id): return "Invalid PDB ID: \(id)"
+        case .structureNotFound(let id): return "Structure not found: \(id)"
+        case .serverError(let code): return "Server error: \(code)"
+        case .invalidResponse: return "Invalid response from server"
+        case .emptyResponse: return "Empty response from server"
+        case .networkUnavailable: return "Network unavailable"
+        case .timeout: return "Request timeout"
+        }
+    }
+    
+    var userFriendlyMessage: String {
+        switch self {
+        case .invalidPDBID(let id):
+            return "Invalid protein ID '\(id)'. Please check the ID and try again."
+        case .structureNotFound(let id):
+            return "Protein structure '\(id)' not found in the database. Please try a different protein."
+        case .serverError(let code):
+            return "Server error (\(code)). Please check your internet connection and try again."
+        case .invalidResponse:
+            return "Invalid response from server. Please try again."
+        case .emptyResponse:
+            return "No data received from server. Please try again."
+        case .networkUnavailable:
+            return "No internet connection. Please check your network and try again."
+        case .timeout:
+            return "Request timed out. Please check your connection and try again."
+        }
+    }
+}
+
 final class PDBParser {
     
     // 표준 아미노산 잔기들
