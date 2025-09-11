@@ -114,6 +114,7 @@ struct ContentView: View {
             .navigationTitle(structure != nil ? "\(currentProteinId) - \(currentProteinName)" : "Protein Viewer")
         }
         .navigationViewStyle(.stack)
+        .navigationBarHidden(true)
         .fullScreenCover(isPresented: $showingProteinLibrary) {
             // 모든 플랫폼에서 전체 화면으로 표시
             NavigationView {
