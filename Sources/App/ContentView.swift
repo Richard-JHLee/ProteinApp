@@ -18,44 +18,7 @@ struct ContentView: View {
     
     var body: some View {
         NavigationView {
-            // iPad에서 왼쪽 사이드바용 뷰
-            if horizontalSizeClass == .regular {
-                VStack {
-                    Text("Protein Viewer")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .padding()
-                    
-                    List {
-                        Section("Current Protein") {
-                            HStack {
-                                Image(systemName: "atom")
-                                    .foregroundColor(.blue)
-                                VStack(alignment: .leading) {
-                                    Text(currentProteinId.isEmpty ? "Loading..." : currentProteinId)
-                                        .font(.headline)
-                                    Text(currentProteinName.isEmpty ? "Loading..." : currentProteinName)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        }
-                        
-                        Section("Actions") {
-                            Button(action: { showingProteinLibrary = true }) {
-                                HStack {
-                                    Image(systemName: "books.vertical")
-                                    Text("Protein Library")
-                                }
-                            }
-                        }
-                    }
-                    .listStyle(InsetGroupedListStyle())
-                }
-                .navigationTitle("Protein Library")
-            }
-            
-            // 메인 컨텐츠 영역 (iPad 오른쪽, iPhone 전체)
+            // 모든 플랫폼에서 전체 화면 Protein Viewer
             ZStack {
                 if let structure = structure {
                     ProteinSceneContainer(
@@ -150,7 +113,7 @@ struct ContentView: View {
             }
             .navigationTitle(structure != nil ? "\(currentProteinId) - \(currentProteinName)" : "Protein Viewer")
         }
-        .navigationViewStyle(.automatic)
+        .navigationViewStyle(.stack)
         .fullScreenCover(isPresented: $showingProteinLibrary) {
             // 모든 플랫폼에서 전체 화면으로 표시
             NavigationView {
