@@ -3,21 +3,25 @@ options:
   bundleIdPrefix: com.avas
   deploymentTarget:
     iOS: "15.0"
+    macOS: "12.0"
 
 settings:
   PRODUCT_BUNDLE_IDENTIFIER: com.avas.ProteinApp
   DEVELOPMENT_TEAM: DDU65CBFSC
   SWIFT_VERSION: 5.0
   IPHONEOS_DEPLOYMENT_TARGET: 15.0
+  MACOSX_DEPLOYMENT_TARGET: 12.0
   CODE_SIGN_STYLE: Automatic
   ALWAYS_SEARCH_USER_PATHS: NO
   CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]: NO
   CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]: NO
+  CODE_SIGNING_ALLOWED[sdk=macosx*]: NO
+  CODE_SIGNING_REQUIRED[sdk=macosx*]: NO
 
 targets:
   ProteinApp:
     type: application
-    platform: iOS
+    platform: [iOS, macOS]
     sources:
       - path: Sources
     resources:
@@ -48,6 +52,16 @@ targets:
         UIViewControllerBasedStatusBarAppearance: true
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+        # macOS specific settings
+        NSPrincipalClass: NSApplication
+        NSMainNibFile: MainMenu
+        LSSupportsOpeningDocumentsInPlace: true
+        UIFileSharingEnabled: true
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: "PDB Files"
+            CFBundleTypeRole: "Viewer"
+            LSItemContentTypes: ["public.data"]
+            CFBundleTypeExtensions: ["pdb"]
 
 schemes:
   ProteinApp:

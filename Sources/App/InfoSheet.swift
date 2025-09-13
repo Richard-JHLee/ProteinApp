@@ -53,8 +53,9 @@ struct InfoSheet: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.vertical, showsIndicators: false) {
+        NavigationView {
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 24) {
                         // 1단계: Overview Section
                         HeaderSectionView(protein: protein, 
@@ -114,21 +115,13 @@ struct InfoSheet: View {
                 }
                 .navigationTitle("Protein Details")
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button(action: { showingSideMenu = true }) {
-                            Image(systemName: "line.3.horizontal")
-                                .font(.title2)
-                                .foregroundColor(.primary)
-                        }
+                .navigationBarBackButtonHidden(true)
+                .navigationBarItems(leading: Button(action: { dismiss() }) {
+                    HStack {
+                        Image(systemName: "chevron.left")
+                        Text("Back")
                     }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Done") { dismiss() }
-                    }
-                }
-                .sheet(isPresented: $showingSideMenu) {
-                    SideMenuView()
-                }
+                })
                 // 1,2,3,4 단계 팝업 화면들 (임시로 주석 처리)
                 // .sheet(isPresented: $showingPrimaryStructure) {
                 //     PrimaryStructureView(protein: protein)
@@ -144,25 +137,27 @@ struct InfoSheet: View {
                 // }
             }
             .overlay {
-            // 3D Structure Loading Overlay
-            if is3DStructureLoading {
-                Color.black.opacity(0.3)
-                    .ignoresSafeArea()
-                    .overlay(
-                        VStack(spacing: 16) {
-                            ProgressView()
-                                .scaleEffect(1.2)
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            
-                            Text(structureLoadingProgress.isEmpty ? "Loading 3D Structure..." : structureLoadingProgress)
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal)
-                        }
-                    )
+                // 3D Structure Loading Overlay
+                if is3DStructureLoading {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .overlay(
+                            VStack(spacing: 16) {
+                                ProgressView()
+                                    .scaleEffect(1.2)
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                
+                                Text(structureLoadingProgress.isEmpty ? "Loading 3D Structure..." : structureLoadingProgress)
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                            }
+                        )
+                }
             }
         }
+        .navigationViewStyle(.stack)
         .sheet(isPresented: $showingProteinView) {
             if let structure = proteinStructure {
                 ProteinSceneContainer(
@@ -231,12 +226,10 @@ struct InfoSheet: View {
                                 .foregroundColor(.secondary)
                         }
                     }
-                    
-                    Button("Load Structure") {
-                        loadProteinStructure()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isLoadingStructure)
+                }
+                .onAppear {
+                    // 자동으로 구조 로딩 시작
+                    loadProteinStructure()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(.systemBackground))
@@ -249,6 +242,7 @@ struct InfoSheet: View {
         }
     }
     
+    // MARK: - Private Functions
     private func loadProteinStructure() {
         isLoadingStructure = true
         structureError = nil

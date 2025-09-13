@@ -88,7 +88,17 @@
 		</dict>
 	</dict>
 	<key>UILaunchScreen</key>
-	<dict/>
+	<dict>
+		<key>UIImageName</key>
+		<string>AppIcon</string>
+		<key>UIColorName</key>
+		<string>systemBackgroundColor</string>
+		<key>UILaunchScreen</key>
+		<dict>
+			<key>UIColorName</key>
+			<string>systemBackgroundColor</string>
+		</dict>
+	</dict>
 	<key>UIRequiresFullScreen</key>
 	<false/>
 	<key>UIRequiresPersistentWiFi</key>

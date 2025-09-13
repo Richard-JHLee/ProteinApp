@@ -289,12 +289,21 @@ struct ViewerTopBar: View {
             Spacer()
             
             // Protein Title
-            Text(proteinName ?? proteinId ?? "Protein Viewer")
-                .font(.headline)
-                .fontWeight(.semibold)
-                .foregroundColor(.primary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+            VStack(spacing: 2) {
+                if let id = proteinId {
+                    Text(id)
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                }
+                if let name = proteinName {
+                    Text(name)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
             
             Spacer()
             
@@ -984,6 +993,9 @@ struct ProteinSceneContainer: View {
     @Binding var externalIs3DStructureLoading: Bool
     @Binding var externalStructureLoadingProgress: String
     
+    // Size class for iPad detection
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    
     init(structure: PDBStructure?, proteinId: String?, proteinName: String?, onProteinLibraryTap: (() -> Void)? = nil, externalIsProteinLoading: Binding<Bool> = .constant(false), externalProteinLoadingProgress: Binding<String> = .constant(""), externalIs3DStructureLoading: Binding<Bool> = .constant(false), externalStructureLoadingProgress: Binding<String> = .constant("")) {
         self.structure = structure
         self.proteinId = proteinId
@@ -1060,17 +1072,24 @@ struct ProteinSceneContainer: View {
                             VStack(spacing: 0) {
                                 // Info mode header
                                 HStack {
-                                    Button(action: {
-                                        // 사이드 메뉴 표시 (애니메이션과 함께)
-                                        withAnimation(.easeInOut(duration: 0.3)) {
-                                            showingSideMenu = true
+                                    // iPad에서는 햄버거 메뉴 숨김 (외부 사이드바 사용)
+                                    if horizontalSizeClass != .regular {
+                                        Button(action: {
+                                            // 사이드 메뉴 표시 (애니메이션과 함께)
+                                            withAnimation(.easeInOut(duration: 0.3)) {
+                                                showingSideMenu = true
+                                            }
+                                        }) {
+                                            Image(systemName: "line.3.horizontal")
+                                                .font(.title2)
+                                                .foregroundColor(.primary)
                                         }
-                                    }) {
-                                        Image(systemName: "line.3.horizontal")
-                                            .font(.title2)
-                                            .foregroundColor(.primary)
+                                        .frame(minWidth: 44, minHeight: 44) // 터치 영역 확보
+                                    } else {
+                                        // iPad에서는 빈 공간으로 대체
+                                        Color.clear
+                                            .frame(width: 44, height: 44)
                                     }
-                                    .frame(minWidth: 44, minHeight: 44) // 터치 영역 확보
                                     
                                     Spacer()
                                     
@@ -1303,6 +1322,7 @@ struct ProteinSceneContainer: View {
                                 }
                             }
                         }
+                        .navigationViewStyle(.stack)
                     }
                 .overlay(
                     // 사이드 메뉴 오버레이

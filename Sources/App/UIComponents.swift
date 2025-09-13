@@ -96,7 +96,7 @@ struct LinkRow: View {
                     Text(subtitle).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: "arrow.up.right.square").foregroundStyle(tint)
+                Image(systemName: "arrow.up.right.square").foregroundStyle(.secondary).opacity(0.5)
             }
             .padding(14)
             .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))

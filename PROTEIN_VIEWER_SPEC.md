@@ -1,7 +1,7 @@
 # PROTEIN_VIEWER_SPEC.md
 절대 기존 기능을 없애지 말것, 없앨 경우 승인 받고 할것
 build 할때 platform 은 macOS로 할것
-
+소스 작성시 구조체 소스 수정 시 열고 닫는 위치를 확인 후 수정할것
 교육용 **Protein Viewer** 앱을 “네이티브 Swift만으로” 자동 개발(Copilot/Cursor Auto)하기 위한 **단일 설계 문서**입니다.  
 목표: 백엔드 없이도 PDB/AlphaFold 공개 리소스에서 직접 구조를 내려받아 **1–4차 구조 단계별 시각화 + 학습 기능**을 제공합니다.
 

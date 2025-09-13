@@ -20,6 +20,10 @@
 		7972842D2E587417000842BE /* MainInfoSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284282E587417000842BE /* MainInfoSectionView.swift */; };
 		7972842E2E587417000842BE /* ActionButtonsSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284242E587417000842BE /* ActionButtonsSectionView.swift */; };
 		7972842F2E587417000842BE /* DetailedInfoSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284262E587417000842BE /* DetailedInfoSectionView.swift */; };
+		799CDC502E73E87000185DF6 /* MacContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799CDC4E2E73E87000185DF6 /* MacContentView.swift */; };
+		799CDC512E73E87000185DF6 /* iPadContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799CDC4C2E73E87000185DF6 /* iPadContentView.swift */; };
+		799CDC522E73E87000185DF6 /* iPhoneContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799CDC4D2E73E87000185DF6 /* iPhoneContentView.swift */; };
+		799CDC532E73E87000185DF6 /* ProteinViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799CDC4F2E73E87000185DF6 /* ProteinViewModel.swift */; };
 		79D906062E6ABD3800C202D2 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D906052E6ABD3800C202D2 /* AboutView.swift */; };
 		79D9060E2E6ABD4800C202D2 /* LicenseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D906082E6ABD4800C202D2 /* LicenseView.swift */; };
 		79D9060F2E6ABD4800C202D2 /* FeaturesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D906072E6ABD4800C202D2 /* FeaturesView.swift */; };
@@ -57,6 +61,10 @@
 		797284272E587417000842BE /* HeaderSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderSectionView.swift; sourceTree = "<group>"; };
 		797284282E587417000842BE /* MainInfoSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainInfoSectionView.swift; sourceTree = "<group>"; };
 		797284292E587417000842BE /* UIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIComponents.swift; sourceTree = "<group>"; };
+		799CDC4C2E73E87000185DF6 /* iPadContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPadContentView.swift; sourceTree = "<group>"; };
+		799CDC4D2E73E87000185DF6 /* iPhoneContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPhoneContentView.swift; sourceTree = "<group>"; };
+		799CDC4E2E73E87000185DF6 /* MacContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacContentView.swift; sourceTree = "<group>"; };
+		799CDC4F2E73E87000185DF6 /* ProteinViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProteinViewModel.swift; sourceTree = "<group>"; };
 		79D906052E6ABD3800C202D2 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		79D906072E6ABD4800C202D2 /* FeaturesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeaturesView.swift; sourceTree = "<group>"; };
 		79D906082E6ABD4800C202D2 /* LicenseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseView.swift; sourceTree = "<group>"; };
@@ -122,6 +130,10 @@
 			children = (
 				79D906152E6D603B00C202D2 /* PrimaryStructureView.swift */,
 				79D9061D2E6D6AE200C202D2 /* FunctionDetailsView.swift */,
+				799CDC4C2E73E87000185DF6 /* iPadContentView.swift */,
+				799CDC4D2E73E87000185DF6 /* iPhoneContentView.swift */,
+				799CDC4E2E73E87000185DF6 /* MacContentView.swift */,
+				799CDC4F2E73E87000185DF6 /* ProteinViewModel.swift */,
 				79D9061F2E6D6CF000C202D2 /* RelatedProteinsView.swift */,
 				79D906162E6D603B00C202D2 /* QuaternaryStructureView.swift */,
 				79D906172E6D603B00C202D2 /* SecondaryStructureView.swift */,
@@ -249,6 +261,10 @@
 				79D906192E6D603B00C202D2 /* PrimaryStructureView.swift in Sources */,
 				79D9061A2E6D603B00C202D2 /* TertiaryStructureView.swift in Sources */,
 				79D9061B2E6D603B00C202D2 /* SecondaryStructureView.swift in Sources */,
+				799CDC502E73E87000185DF6 /* MacContentView.swift in Sources */,
+				799CDC512E73E87000185DF6 /* iPadContentView.swift in Sources */,
+				799CDC522E73E87000185DF6 /* iPhoneContentView.swift in Sources */,
+				799CDC532E73E87000185DF6 /* ProteinViewModel.swift in Sources */,
 				79D9061C2E6D603B00C202D2 /* QuaternaryStructureView.swift in Sources */,
 				79D9061E2E6D6AE200C202D2 /* FunctionDetailsView.swift in Sources */,
 				79D906122E6ABD4800C202D2 /* UserGuideView.swift in Sources */,
@@ -299,7 +315,7 @@
 				INFOPLIST_FILE = Sources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ProteinViewerApp;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -391,7 +407,7 @@
 				INFOPLIST_FILE = Sources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ProteinViewerApp;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
