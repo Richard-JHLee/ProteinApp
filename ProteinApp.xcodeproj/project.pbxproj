@@ -20,7 +20,6 @@
 		7972842D2E587417000842BE /* MainInfoSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284282E587417000842BE /* MainInfoSectionView.swift */; };
 		7972842E2E587417000842BE /* ActionButtonsSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284242E587417000842BE /* ActionButtonsSectionView.swift */; };
 		7972842F2E587417000842BE /* DetailedInfoSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284262E587417000842BE /* DetailedInfoSectionView.swift */; };
-		799CDC502E73E87000185DF6 /* MacContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799CDC4E2E73E87000185DF6 /* MacContentView.swift */; };
 		799CDC512E73E87000185DF6 /* iPadContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799CDC4C2E73E87000185DF6 /* iPadContentView.swift */; };
 		799CDC522E73E87000185DF6 /* iPhoneContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799CDC4D2E73E87000185DF6 /* iPhoneContentView.swift */; };
 		799CDC532E73E87000185DF6 /* ProteinViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 799CDC4F2E73E87000185DF6 /* ProteinViewModel.swift */; };
@@ -63,7 +62,6 @@
 		797284292E587417000842BE /* UIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIComponents.swift; sourceTree = "<group>"; };
 		799CDC4C2E73E87000185DF6 /* iPadContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPadContentView.swift; sourceTree = "<group>"; };
 		799CDC4D2E73E87000185DF6 /* iPhoneContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPhoneContentView.swift; sourceTree = "<group>"; };
-		799CDC4E2E73E87000185DF6 /* MacContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacContentView.swift; sourceTree = "<group>"; };
 		799CDC4F2E73E87000185DF6 /* ProteinViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProteinViewModel.swift; sourceTree = "<group>"; };
 		79D906052E6ABD3800C202D2 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		79D906072E6ABD4800C202D2 /* FeaturesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeaturesView.swift; sourceTree = "<group>"; };
@@ -132,7 +130,6 @@
 				79D9061D2E6D6AE200C202D2 /* FunctionDetailsView.swift */,
 				799CDC4C2E73E87000185DF6 /* iPadContentView.swift */,
 				799CDC4D2E73E87000185DF6 /* iPhoneContentView.swift */,
-				799CDC4E2E73E87000185DF6 /* MacContentView.swift */,
 				799CDC4F2E73E87000185DF6 /* ProteinViewModel.swift */,
 				79D9061F2E6D6CF000C202D2 /* RelatedProteinsView.swift */,
 				79D906162E6D603B00C202D2 /* QuaternaryStructureView.swift */,
@@ -261,7 +258,6 @@
 				79D906192E6D603B00C202D2 /* PrimaryStructureView.swift in Sources */,
 				79D9061A2E6D603B00C202D2 /* TertiaryStructureView.swift in Sources */,
 				79D9061B2E6D603B00C202D2 /* SecondaryStructureView.swift in Sources */,
-				799CDC502E73E87000185DF6 /* MacContentView.swift in Sources */,
 				799CDC512E73E87000185DF6 /* iPadContentView.swift in Sources */,
 				799CDC522E73E87000185DF6 /* iPhoneContentView.swift in Sources */,
 				799CDC532E73E87000185DF6 /* ProteinViewModel.swift in Sources */,
@@ -320,10 +316,12 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avas.proteinapp;
+				REGISTER_APP_GROUPS = YES;
 				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -412,10 +410,12 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avas.proteinapp;
+				REGISTER_APP_GROUPS = YES;
 				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;

@@ -62,8 +62,8 @@ struct ContentView: View {
                 iPhoneContentView(viewModel: viewModel)
             }
             #elseif os(macOS)
-            // Mac: NavigationSplitView 기반 레이아웃
-            MacContentView(viewModel: viewModel)
+            // Mac: iPad와 동일한 사이드바-디테일 패턴
+            iPadContentView(viewModel: viewModel)
             #endif
         }
         .onAppear {

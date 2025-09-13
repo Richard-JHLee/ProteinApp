@@ -292,9 +292,21 @@ struct SettingsView: View {
     }
     
     private func resetToDefaults() {
-        maxAtomsLimit = 5000
-        enableOptimization = true
-        samplingRatio = 0.25
+        // 사용자 피드백을 위한 애니메이션과 함께 초기화
+        withAnimation(.easeInOut(duration: 0.3)) {
+            maxAtomsLimit = 5000
+            enableOptimization = true
+            samplingRatio = 0.25
+        }
+        
+        // 햅틱 피드백 (iPhone에서만)
+        #if os(iOS)
+        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+        impactFeedback.impactOccurred()
+        #endif
+        
+        // 초기화 완료 알림 (선택사항)
+        print("✅ Settings reset to defaults successfully")
     }
 }
 
