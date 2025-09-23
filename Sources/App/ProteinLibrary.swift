@@ -668,6 +668,19 @@ class PDBAPIService {
         
         print("📤 요청 데이터: \(String(data: request.httpBody!, encoding: .utf8) ?? "N/A")")
         
+        // Enzymes 카테고리 디버깅을 위한 상세 로그
+        if description.contains("Enzymes") || description.contains("enzyme") {
+            print("🧬 Enzymes API 호출 디버깅:")
+            print("   - URL: \(url)")
+            print("   - Method: POST")
+            print("   - Content-Type: application/json")
+            if let jsonData = request.httpBody,
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("   - JSON Body:")
+                print("     \(jsonString)")
+            }
+        }
+        
         let (data, response) = try await URLSession.shared.data(for: request)
         
         if let httpResponse = response as? HTTPURLResponse {
@@ -675,6 +688,15 @@ class PDBAPIService {
         }
         
         print("📥 받은 데이터 크기: \(data.count) bytes")
+        
+        // Enzymes 카테고리 응답 디버깅
+        if description.contains("Enzymes") || description.contains("enzyme") {
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("🧬 Enzymes API 응답 데이터:")
+                print("   - 응답 크기: \(data.count) bytes")
+                print("   - 응답 내용: \(String(responseString.prefix(1000)))...")
+            }
+        }
         
         do {
             let response = try JSONDecoder().decode(PDBSearchResponse.self, from: data)
@@ -1200,6 +1222,13 @@ class PDBAPIService {
             print("   - 전체 쿼리: \(query)")
         }
         
+        // Enzymes 카테고리 특별 로깅
+        if category == .enzymes {
+            print("🔍 Enzymes 고급 검색 쿼리 생성:")
+            print("   - Limit: \(limit), Skip: \(skip)")
+            print("   - 전체 쿼리: \(query)")
+        }
+        
         return query
     }
     
@@ -1319,17 +1348,7 @@ class PDBAPIService {
             "type": "group",
             "logical_operator": "or",
             "nodes": [
-                // EC 번호가 있는 경우 (가장 정확)
-                [
-                    "type": "terminal",
-                    "service": "text",
-                    "parameters": [
-                        "attribute": "rcsb_polymer_entity_annotation.ec_number",
-                        "operator": "exists",
-                        "case_sensitive": false
-                    ]
-                ],
-                // 효소 관련 키워드 (OR 조건으로 유연하게)
+                // 효소 관련 키워드 (OR 조건으로 유연하게) - EC 번호 제거
                 [
                     "type": "group",
                     "logical_operator": "or",
