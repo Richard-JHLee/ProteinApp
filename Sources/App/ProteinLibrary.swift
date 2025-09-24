@@ -666,7 +666,12 @@ class PDBAPIService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: query)
         
-        print("📤 요청 데이터: \(String(data: request.httpBody!, encoding: .utf8) ?? "N/A")")
+        if let jsonData = request.httpBody,
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            print("📤 요청 데이터: \(jsonString)")
+        } else {
+            print("📤 요청 데이터: N/A")
+        }
         
         // Enzymes 카테고리 디버깅을 위한 상세 로그
         if description.contains("Enzymes") || description.contains("enzyme") {
@@ -681,10 +686,45 @@ class PDBAPIService {
             }
         }
         
+        // Transport 카테고리 디버깅을 위한 상세 로그
+        if description.contains("Transport") || description.contains("transport") {
+            print("🚚 Transport API 호출 디버깅:")
+            print("   - URL: \(url)")
+            print("   - Method: POST")
+            print("   - Content-Type: application/json")
+            if let jsonData = request.httpBody,
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("   - JSON Body:")
+                print("     \(jsonString)")
+            }
+        }
+        
+        // PDB ID 검색 디버깅을 위한 상세 로그
+        if description.contains("PDB ID") || description.contains("pdb") {
+            print("🔍 PDB ID 검색 API 호출 디버깅:")
+            print("   - URL: \(url)")
+            print("   - Method: POST")
+            print("   - Content-Type: application/json")
+            if let jsonData = request.httpBody,
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("   - JSON Body:")
+                print("     \(jsonString)")
+            }
+        }
+        
         let (data, response) = try await URLSession.shared.data(for: request)
         
         if let httpResponse = response as? HTTPURLResponse {
             print("📥 HTTP 응답: \(httpResponse.statusCode)")
+            
+            // HTTP 에러 상태 코드 처리
+            if httpResponse.statusCode >= 400 {
+                if let errorString = String(data: data, encoding: .utf8) {
+                    print("❌ HTTP \(httpResponse.statusCode) 에러: \(errorString)")
+                }
+                print("❌ HTTP \(httpResponse.statusCode) 에러로 빈 배열 반환")
+                return ([], 0)
+            }
         }
         
         print("📥 받은 데이터 크기: \(data.count) bytes")
@@ -695,6 +735,24 @@ class PDBAPIService {
                 print("🧬 Enzymes API 응답 데이터:")
                 print("   - 응답 크기: \(data.count) bytes")
                 print("   - 응답 내용: \(String(responseString.prefix(1000)))...")
+            }
+        }
+        
+        // Transport 카테고리 응답 디버깅
+        if description.contains("Transport") || description.contains("transport") {
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("🚚 Transport API 응답 데이터:")
+                print("   - 응답 크기: \(data.count) bytes")
+                print("   - 응답 내용: \(String(responseString.prefix(1000)))...")
+            }
+        }
+        
+        // PDB ID 검색 응답 디버깅
+        if description.contains("PDB ID") || description.contains("pdb") {
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("🔍 PDB ID 검색 API 응답 데이터:")
+                print("   - 응답 크기: \(data.count) bytes")
+                print("   - 응답 내용: \(responseString)")
             }
         }
         
@@ -1147,7 +1205,7 @@ class PDBAPIService {
                 "type": "terminal",
                 "service": "text",
                 "parameters": [
-                    "attribute": "entry.id",
+                    "attribute": "rcsb_entry_container_identifiers.entry_id",
                     "operator": "exact_match",
                     "value": pdbId
                 ]
@@ -1225,6 +1283,13 @@ class PDBAPIService {
         // Enzymes 카테고리 특별 로깅
         if category == .enzymes {
             print("🔍 Enzymes 고급 검색 쿼리 생성:")
+            print("   - Limit: \(limit), Skip: \(skip)")
+            print("   - 전체 쿼리: \(query)")
+        }
+        
+        // Transport 카테고리 특별 로깅
+        if category == .transport {
+            print("🔍 Transport 고급 검색 쿼리 생성:")
             print("   - Limit: \(limit), Skip: \(skip)")
             print("   - 전체 쿼리: \(query)")
         }
@@ -3463,6 +3528,7 @@ struct ProteinLibraryView: View {
         // 검색어 필터링
         if !searchText.isEmpty {
             result = result.filter { protein in
+                protein.id.localizedCaseInsensitiveContains(searchText) ||
                 protein.name.localizedCaseInsensitiveContains(searchText) ||
                 protein.description.localizedCaseInsensitiveContains(searchText) ||
                 protein.keywords.contains { $0.localizedCaseInsensitiveContains(searchText) }

@@ -218,6 +218,7 @@ struct SimpleProteinSceneView: View {
     @State private var highlightedPockets: Set<String> = []
     @State private var focusedElement: FocusedElement? = nil
     @State private var isFocused: Bool = false
+    @State private var highlightAllChains: Bool = false
     
     var body: some View {
         GeometryReader { geometry in
@@ -395,6 +396,23 @@ struct SimpleProteinSceneView: View {
                                             .cornerRadius(12)
                                         }
                                         
+                                        // Highlight All Chains
+                                        Button(action: {
+                                            toggleHighlightAllChains()
+                                        }) {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: highlightAllChains ? "lightbulb.circle.fill" : "lightbulb.circle")
+                                                    .font(.callout)
+                                                Text("Highlight All")
+                                                    .font(.caption)
+                                            }
+                                            .foregroundColor(highlightAllChains ? .white : .yellow)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 6)
+                                            .background(highlightAllChains ? Color.yellow : Color.yellow.opacity(0.1))
+                                            .cornerRadius(12)
+                                        }
+                                        
                                         // Zoom Reset
                                         Button(action: {
                                             withAnimation(.easeInOut(duration: 0.3)) {
@@ -465,6 +483,26 @@ struct SimpleProteinSceneView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - Helper Functions
+    private func toggleHighlightAllChains() {
+        highlightAllChains.toggle()
+        
+        if highlightAllChains {
+            // Highlight all chains
+            let allChains = Set(structure.atoms.map { $0.chain })
+            highlightedChains = allChains
+        } else {
+            // Clear all highlights
+            highlightedChains.removeAll()
+        }
+        
+        // Haptic feedback
+        #if os(iOS)
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        #endif
     }
 }
 
