@@ -69,6 +69,7 @@ struct InfoSheet: View {
                         // 2단계: Function Section
                         MainInfoSectionView(
                             protein: protein,
+                            structure: proteinStructure,
                             showingPDBWebsite: $showingPDBWebsite
                         )
                         .id("function")
@@ -122,16 +123,16 @@ struct InfoSheet: View {
                         Text("Back")
                     }
                 })
-                // 1,2,3,4 단계 팝업 화면들 (임시로 주석 처리)
-                // .sheet(isPresented: $showingPrimaryStructure) {
-                //     PrimaryStructureView(protein: protein)
-                // }
-                // .sheet(isPresented: $showingSecondaryStructure) {
-                //     SecondaryStructureView(protein: protein)
-                // }
-                // .sheet(isPresented: $showingTertiaryStructure) {
-                //     TertiaryStructureView(protein: protein)
-                // }
+                // 1,2,3,4 단계 팝업 화면들
+                .sheet(isPresented: $showingPrimaryStructure) {
+                    PrimaryStructureView(protein: protein)
+                }
+                .sheet(isPresented: $showingSecondaryStructure) {
+                    SecondaryStructureView(protein: protein, structure: proteinStructure)
+                }
+                .sheet(isPresented: $showingTertiaryStructure) {
+                    TertiaryStructureView(protein: protein)
+                }
                 // .sheet(isPresented: $showingQuaternaryStructure) {
                 //     QuaternaryStructureView(protein: protein)
                 // }

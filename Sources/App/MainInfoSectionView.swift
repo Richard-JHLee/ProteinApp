@@ -3,8 +3,11 @@ import UIKit
 
 struct MainInfoSectionView: View {
     let protein: ProteinInfo
+    let structure: PDBStructure?
     @Binding var showingPDBWebsite: Bool
     @State private var showingStructureDetails = false // 구조 세부 정보 표시 상태
+    @State private var showingColoringDetails = false // 색상 정보 표시 상태
+    @State private var showingInteractDetails = false // 상호작용 정보 표시 상태
     @State private var showingAminoAcidSequence = false // 아미노산 서열 화면 표시 상태
     @State private var aminoAcidSequences: [String] = [] // 아미노산 서열 데이터
     @State private var isLoadingSequence = false // 서열 로딩 상태
@@ -54,8 +57,108 @@ struct MainInfoSectionView: View {
                 }
                 .buttonStyle(.plain)
                 
-                MetricPill(title: "Coloring",  value: "Element/Chain/SS", icon: "paintbrush")
-                MetricPill(title: "Interact",  value: "Rotate/Zoom/Slice", icon: "hand.tap")
+                Button(action: {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        showingColoringDetails.toggle()
+                    }
+                }) {
+                    MetricPill(title: "Coloring",  value: "Element/Chain/SS", icon: "paintbrush")
+                }
+                .buttonStyle(.plain)
+                Button(action: {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        showingInteractDetails.toggle()
+                    }
+                }) {
+                    MetricPill(title: "Interact",  value: "Rotate/Zoom/Slice", icon: "hand.tap")
+                }
+                .buttonStyle(.plain)
+            }
+            
+            // 색상 정보 세부사항
+            if showingColoringDetails {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Coloring Schemes")
+                        .font(.headline.weight(.semibold))
+                        .foregroundColor(.primary)
+                    
+                    VStack(spacing: 8) {
+                        coloringScheme(title: "Element Coloring", description: "원소별 색상 구분", colors: [
+                            ("C", "Carbon", Color.gray),
+                            ("N", "Nitrogen", Color.blue),
+                            ("O", "Oxygen", Color.red),
+                            ("S", "Sulfur", Color.yellow),
+                            ("P", "Phosphorus", Color.orange),
+                            ("H", "Hydrogen", Color.white)
+                        ])
+                        
+                        coloringScheme(title: "Chain Coloring", description: "체인별 색상 구분", colors: [
+                            ("A", "Chain A", Color.blue),
+                            ("B", "Chain B", Color.green),
+                            ("C", "Chain C", Color.red),
+                            ("D", "Chain D", Color.orange)
+                        ])
+                        
+                        coloringScheme(title: "Secondary Structure", description: "2차 구조별 색상", colors: [
+                            ("α-Helix", "Alpha Helix", Color.red),
+                            ("β-Sheet", "Beta Sheet", Color.yellow),
+                            ("Coil", "Random Coil", Color.gray),
+                            ("Turn", "Turn", Color.orange)
+                        ])
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+            }
+            
+            // 상호작용 정보 세부사항
+            if showingInteractDetails {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("3D Interaction Controls")
+                        .font(.headline.weight(.semibold))
+                        .foregroundColor(.primary)
+                    
+                    VStack(spacing: 8) {
+                        interactionControl(
+                            icon: "arrow.triangle.2.circlepath",
+                            title: "Rotate",
+                            description: "단일 터치로 구조 회전",
+                            gesture: "드래그"
+                        )
+                        
+                        interactionControl(
+                            icon: "magnifyingglass",
+                            title: "Zoom",
+                            description: "핀치 제스처로 확대/축소",
+                            gesture: "핀치"
+                        )
+                        
+                        interactionControl(
+                            icon: "rectangle.split.2x1",
+                            title: "Slice",
+                            description: "구조를 평면으로 자르기",
+                            gesture: "슬라이더"
+                        )
+                        
+                        interactionControl(
+                            icon: "hand.tap",
+                            title: "Select",
+                            description: "원자/잔기 선택 및 정보 표시",
+                            gesture: "탭"
+                        )
+                        
+                        interactionControl(
+                            icon: "arrow.up.arrow.down",
+                            title: "Reset View",
+                            description: "초기 뷰로 되돌리기",
+                            gesture: "더블탭"
+                        )
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
             }
             
             // 구조 단계별 세부 정보
@@ -124,7 +227,7 @@ struct MainInfoSectionView: View {
             PrimaryStructureView(protein: protein)
         }
         .sheet(isPresented: $showingSecondaryStructure) {
-            SecondaryStructureView(protein: protein)
+            SecondaryStructureView(protein: protein, structure: structure)
         }
         .sheet(isPresented: $showingTertiaryStructure) {
             TertiaryStructureView(protein: protein)
@@ -638,5 +741,87 @@ struct MainInfoSectionView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .background(color.opacity(0.1), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+    
+    // MARK: - Coloring Scheme Helper
+    private func coloringScheme(title: String, description: String, colors: [(String, String, Color)]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
+                ForEach(colors, id: \.0) { colorInfo in
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(colorInfo.2)
+                            .frame(width: 12, height: 12)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.gray.opacity(0.3), lineWidth: 0.5)
+                            )
+                        
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(colorInfo.0)
+                                .font(.caption.weight(.medium))
+                                .foregroundColor(.primary)
+                            Text(colorInfo.1)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.systemBackground))
+                    .cornerRadius(6)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(8)
+    }
+    
+    // MARK: - Interaction Control Helper
+    private func interactionControl(icon: String, title: String, description: String, gesture: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(protein.category.color)
+                .frame(width: 24, height: 24)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.primary)
+                
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Text(gesture)
+                .font(.caption.weight(.medium))
+                .foregroundColor(protein.category.color)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(protein.category.color.opacity(0.1))
+                .cornerRadius(6)
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(8)
     }
 }

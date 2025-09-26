@@ -14,6 +14,25 @@ extension Array {
 
 // MARK: - API Models
 
+// MARK: - Amino Acid Sequence Models
+struct EntryResponse: Codable {
+    let rcsb_entry_container_identifiers: EntryContainerIdentifiers?
+}
+
+struct EntryContainerIdentifiers: Codable {
+    let polymer_entity_ids: [String]?
+    let assembly_ids: [String]?
+}
+
+struct PolymerEntityResponse: Codable {
+    let entity_poly: PolymerEntityPoly?
+}
+
+struct PolymerEntityPoly: Codable {
+    let pdbx_seq_one_letter_code: String?
+    let pdbx_seq_one_letter_code_can: String?
+}
+
 struct PDBSearchResponse: Codable {
     let result_set: [PDBEntry]?
     let total_count: Int?
@@ -2080,6 +2099,33 @@ class PDBAPIService {
         
         print("⚠️ 모든 Storage fallback 검색 실패")
         return ([], 0)
+    }
+    
+    // MARK: - Amino Acid Sequence API
+    func fetchAminoAcidSequence(pdbId: String) async throws -> [String] {
+        // 먼저 entry 정보에서 entity ID들을 가져옵니다
+        let entryUrl = URL(string: "https://data.rcsb.org/rest/v1/core/entry/\(pdbId.uppercased())")!
+        let (entryData, _) = try await URLSession.shared.data(from: entryUrl)
+        let entryResponse = try JSONDecoder().decode(EntryResponse.self, from: entryData)
+        
+        var sequences: [String] = []
+        
+        // 각 entity ID에 대해 polymer entity 정보를 가져옵니다
+        for entityId in entryResponse.rcsb_entry_container_identifiers?.polymer_entity_ids ?? [] {
+            let entityUrl = URL(string: "https://data.rcsb.org/rest/v1/core/polymer_entity/\(pdbId.uppercased())/\(entityId)")!
+            let (entityData, _) = try await URLSession.shared.data(from: entityUrl)
+            let entityResponse = try JSONDecoder().decode(PolymerEntityResponse.self, from: entityData)
+            
+            if let entityPoly = entityResponse.entity_poly {
+                // 우선순위: pdbx_seq_one_letter_code_can > pdbx_seq_one_letter_code
+                if let sequence = entityPoly.pdbx_seq_one_letter_code_can ?? 
+                                  entityPoly.pdbx_seq_one_letter_code {
+                    sequences.append(sequence)
+                }
+            }
+        }
+        
+        return sequences
     }
     
     // GraphQL을 통한 일괄 상세 정보 수집 (의도된 카테고리 정보 포함)

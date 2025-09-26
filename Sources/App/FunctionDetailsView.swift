@@ -116,7 +116,7 @@ struct FunctionDetailsView: View {
             }
             
             // Cellular Component
-            InfoCard(icon: "cell", title: "Cellular Component", tint: .orange) {
+            InfoCard(icon: "building.2", title: "Cellular Component", tint: .orange) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(details.cellularComponent)
                         .font(.body)
@@ -217,35 +217,112 @@ struct FunctionDetailsView: View {
         
         Task {
             do {
-                // 실제 API 호출 대신 샘플 데이터 사용
-                try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5초 지연
+                // 실제 API 호출
+                let details = try await fetchFunctionDetails(pdbId: protein.id)
                 
                 await MainActor.run {
-                    // 샘플 Function 데이터
-                    functionDetails = FunctionDetails(
-                        molecularFunction: "Catalyzes the hydrolysis of peptide bonds in proteins and peptides. Acts as a key enzyme in protein degradation and recycling processes.",
-                        biologicalProcess: "Protein catabolic process, proteolysis, cellular protein metabolic process, protein folding, and regulation of protein stability.",
-                        cellularComponent: "Cytoplasm, lysosome, proteasome complex, and endoplasmic reticulum lumen.",
-                        goTerms: [
-                            GOTerm(id: "GO:0004252", name: "serine-type endopeptidase activity", category: "MF"),
-                            GOTerm(id: "GO:0006508", name: "proteolysis", category: "BP"),
-                            GOTerm(id: "GO:0005622", name: "intracellular", category: "CC"),
-                            GOTerm(id: "GO:0004175", name: "endopeptidase activity", category: "MF")
-                        ],
-                        ecNumbers: ["3.4.21.1", "3.4.21.2"],
-                        catalyticActivity: "Hydrolyzes peptide bonds with broad specificity, cleaving preferentially at hydrophobic residues. Requires a serine residue in the active site for catalysis.",
-                        resolution: 2.1,
-                        method: "X-RAY DIFFRACTION"
-                    )
+                    functionDetails = details
                     isLoadingFunction = false
                 }
             } catch {
                 await MainActor.run {
-                    functionError = error.localizedDescription
+                    functionError = "Failed to load function details: \(error.localizedDescription)"
                     isLoadingFunction = false
                 }
             }
         }
+    }
+    
+    // MARK: - API Function
+    private func fetchFunctionDetails(pdbId: String) async throws -> FunctionDetails {
+        // PDB REST API에서 기능 정보 가져오기
+        let entryUrl = URL(string: "https://data.rcsb.org/rest/v1/core/entry/\(pdbId.uppercased())")!
+        let (entryData, _) = try await URLSession.shared.data(from: entryUrl)
+        let entryResponse = try JSONDecoder().decode(EntryDetailsResponse.self, from: entryData)
+        
+        // 각 polymer entity에서 기능 정보 가져오기
+        var molecularFunction = "Function information not available"
+        let biologicalProcess = "Biological process information not available"
+        let cellularComponent = "Cellular component information not available"
+        var goTerms: [GOTerm] = []
+        var ecNumbers: [String] = []
+        var catalyticActivity = "Catalytic activity information not available"
+        
+        if let polymerEntityIds = entryResponse.rcsb_entry_container_identifiers?.polymer_entity_ids {
+            for entityId in polymerEntityIds {
+                let entityUrl = URL(string: "https://data.rcsb.org/rest/v1/core/polymer_entity/\(pdbId.uppercased())/\(entityId)")!
+                let (entityData, _) = try await URLSession.shared.data(from: entityUrl)
+                let entityResponse = try JSONDecoder().decode(PolymerEntityDetailsResponse.self, from: entityData)
+                
+                if entityResponse.entity_poly != nil {
+                    // UniProt 정보에서 기능 정보 추출
+                    if let uniprotAccession = entityResponse.rcsb_polymer_entity?.rcsb_polymer_entity_container_identifiers?.uniprot_accession?.first {
+                        // UniProt API에서 상세 정보 가져오기
+                        let uniprotUrl = URL(string: "https://rest.uniprot.org/uniprotkb/\(uniprotAccession).json")!
+                        do {
+                            let (uniprotData, _) = try await URLSession.shared.data(from: uniprotUrl)
+                            let uniprotResponse = try JSONDecoder().decode(UniProtResponse.self, from: uniprotData)
+                            
+                            // GO terms 추출
+                            if let comments = uniprotResponse.comments {
+                                for comment in comments {
+                                    if comment.commentType == "FUNCTION" {
+                                        molecularFunction = comment.texts?.first?.value ?? molecularFunction
+                                    } else if comment.commentType == "CATALYTIC_ACTIVITY" {
+                                        catalyticActivity = comment.texts?.first?.value ?? catalyticActivity
+                                    }
+                                }
+                            }
+                            
+                            // GO annotations 추출
+                            if let features = uniprotResponse.features {
+                                for feature in features {
+                                    if feature.type == "GO" {
+                                        if let goId = feature.properties?.goId,
+                                           let goName = feature.properties?.goName,
+                                           let goCategory = feature.properties?.goCategory {
+                                            goTerms.append(GOTerm(id: goId, name: goName, category: goCategory))
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // EC numbers 추출
+                            if let proteinDescription = uniprotResponse.proteinDescription {
+                                if let recommendedName = proteinDescription.recommendedName {
+                                    if let uniprotEcNumbers = recommendedName.ecNumbers {
+                                        for ecNumber in uniprotEcNumbers {
+                                            if let value = ecNumber.value {
+                                                ecNumbers.append(value)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch {
+                            // UniProt API 실패 시 기본 정보 사용
+                            print("Failed to fetch UniProt data: \(error)")
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 기본 정보 설정
+        if molecularFunction == "Function information not available" {
+            molecularFunction = protein.description
+        }
+        
+        return FunctionDetails(
+            molecularFunction: molecularFunction,
+            biologicalProcess: biologicalProcess,
+            cellularComponent: cellularComponent,
+            goTerms: goTerms,
+            ecNumbers: ecNumbers,
+            catalyticActivity: catalyticActivity,
+            resolution: entryResponse.refine?.first?.ls_d_res_high ?? 0.0,
+            method: "X-RAY DIFFRACTION" // 기본값으로 설정
+        )
     }
 }
 
@@ -274,4 +351,54 @@ struct GOTerm {
         default: return .gray
         }
     }
+}
+
+// MARK: - UniProt API Models
+struct UniProtResponse: Codable {
+    let comments: [UniProtComment]?
+    let features: [UniProtFeature]?
+    let proteinDescription: UniProtProteinDescription?
+}
+
+struct UniProtComment: Codable {
+    let commentType: String?
+    let texts: [UniProtText]?
+    
+    enum CodingKeys: String, CodingKey {
+        case commentType = "commentType"
+        case texts = "texts"
+    }
+}
+
+struct UniProtText: Codable {
+    let value: String?
+}
+
+struct UniProtFeature: Codable {
+    let type: String?
+    let properties: UniProtFeatureProperties?
+}
+
+struct UniProtFeatureProperties: Codable {
+    let goId: String?
+    let goName: String?
+    let goCategory: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case goId = "goId"
+        case goName = "goName"
+        case goCategory = "goCategory"
+    }
+}
+
+struct UniProtProteinDescription: Codable {
+    let recommendedName: UniProtRecommendedName?
+}
+
+struct UniProtRecommendedName: Codable {
+    let ecNumbers: [UniProtECNumber]?
+}
+
+struct UniProtECNumber: Codable {
+    let value: String?
 }
