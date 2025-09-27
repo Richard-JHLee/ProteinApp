@@ -202,7 +202,7 @@ struct SimpleProteinSceneView: View {
     let proteinId: String
     let proteinName: String
     
-    @State private var selectedStyle: RenderStyle = .spheres
+    @State private var selectedStyle: RenderStyle = .ribbon
     @State private var selectedColorMode: ColorMode = .element
     @State private var selectedTab: InfoTabType = .overview
     
@@ -211,6 +211,10 @@ struct SimpleProteinSceneView: View {
     @State private var zoomLevel: Double = 2.0  // 아이패드용 2배 크기
     @State private var transparency: Double = 1.0
     @State private var atomSize: Double = 1.0
+    
+    // Loading states for 3D rendering progress
+    @State private var isRendering3D: Bool = false
+    @State private var renderingProgress: String = ""
     
     // Highlight and Focus states
     @State private var highlightedChains: Set<String> = []
@@ -314,9 +318,8 @@ struct SimpleProteinSceneView: View {
                                 colorMode: selectedColorMode,
                                 uniformColor: .blue,
                                 autoRotate: autoRotate,
-                                isInfoMode: false,
+                                isInfoMode: true,
                                 showInfoBar: .constant(false),
-                                onSelectAtom: nil,
                                 highlightedChains: highlightedChains,
                                 highlightedLigands: highlightedLigands,
                                 highlightedPockets: highlightedPockets,
@@ -325,12 +328,31 @@ struct SimpleProteinSceneView: View {
                                     focusedElement = element
                                     isFocused = true
                                 },
-                                isRendering3D: .constant(false),
-                                renderingProgress: .constant(""),
+                                isRendering3D: $isRendering3D,
+                                renderingProgress: $renderingProgress,
                                 zoomLevel: zoomLevel,
                                 transparency: transparency,
                                 atomSize: atomSize
                             )
+                            
+                            // 3D Rendering Progress Overlay
+                            if isRendering3D {
+                                Color.black.opacity(0.3)
+                                    .ignoresSafeArea()
+                                    .overlay(
+                                        VStack(spacing: 16) {
+                                            ProgressView()
+                                                .scaleEffect(1.2)
+                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                            
+                                            Text(renderingProgress.isEmpty ? "Rendering 3D Structure..." : renderingProgress)
+                                                .font(.headline)
+                                                .foregroundColor(.white)
+                                                .multilineTextAlignment(.center)
+                                                .padding(.horizontal)
+                                        }
+                                    )
+                            }
                             
                             // 3D View Controls overlay
                             VStack {
@@ -511,6 +533,8 @@ struct SimpleProteinSceneView: View {
 struct ProteinViewerDetailView: View {
     @ObservedObject var viewModel: ProteinViewModel
     @State private var showingProteinLibrary = false
+    @State private var is3DStructureLoading = false
+    @State private var structureLoadingProgress = ""
     
     var body: some View {
         VStack(spacing: 0) {
@@ -596,9 +620,40 @@ struct ProteinViewerDetailView: View {
         .sheet(isPresented: $showingProteinLibrary) {
             NavigationView {
                 ProteinLibraryView { selectedProteinId in
+                    is3DStructureLoading = true
+                    structureLoadingProgress = "Loading 3D structure for \(selectedProteinId)..."
                     viewModel.loadSelectedProtein(selectedProteinId)
                     showingProteinLibrary = false
+                    
+                    // 로딩 완료 시뮬레이션 (실제로는 단백질 데이터 로드 완료 시)
+                    Task {
+                        try? await Task.sleep(nanoseconds: 3_000_000_000) // 3초
+                        await MainActor.run {
+                            is3DStructureLoading = false
+                            structureLoadingProgress = ""
+                        }
+                    }
                 }
+            }
+        }
+        .overlay {
+            // 3D Structure Loading Overlay
+            if is3DStructureLoading {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .overlay(
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            
+                            Text(structureLoadingProgress.isEmpty ? "Loading 3D Structure..." : structureLoadingProgress)
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                    )
             }
         }
     }
@@ -855,72 +910,73 @@ struct ChainsTabContent: View {
                     
                     // Highlight and Focus buttons
                     HStack(spacing: 12) {
-                        Button(action: {
-                            if highlightedChains.contains(chain) {
-                                highlightedChains.remove(chain)
-                            } else {
-                                highlightedChains.insert(chain)
+                            Button(action: {
+                                if highlightedChains.contains(chain) {
+                                    highlightedChains.remove(chain)
+                                } else {
+                                    highlightedChains.insert(chain)
+                                }
+                                // 3D 뷰어는 자동으로 업데이트되므로 강제 렌더링 불필요
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: highlightedChains.contains(chain) ? "pencil.and.outline" : "pencil")
+                                    Text(highlightedChains.contains(chain) ? "Unhighlight" : "Highlight")
+                                }
+                                .font(.caption)
+                                .foregroundColor(highlightedChains.contains(chain) ? .white : .blue)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(highlightedChains.contains(chain) ? Color.blue : Color.blue.opacity(0.1))
+                                .cornerRadius(16)
                             }
-                            // 3D 뷰어는 자동으로 업데이트되므로 강제 렌더링 불필요
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: highlightedChains.contains(chain) ? "pencil.and.outline" : "pencil")
-                                Text(highlightedChains.contains(chain) ? "Unhighlight" : "Highlight")
-                            }
-                            .font(.caption)
-                            .foregroundColor(highlightedChains.contains(chain) ? .white : .blue)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(highlightedChains.contains(chain) ? Color.blue : Color.blue.opacity(0.1))
-                            .cornerRadius(16)
-                        }
-                        
-                        Button(action: {
-                            if let currentFocus = focusedElement,
-                               case .chain(let currentChain) = currentFocus,
-                               currentChain == chain {
-                                focusedElement = nil
-                                isFocused = false
-                            } else {
-                                focusedElement = .chain(chain)
-                                isFocused = true
-                            }
-                            // 3D 뷰어는 자동으로 업데이트되므로 강제 렌더링 불필요
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: {
+                            
+                            Button(action: {
+                                if let currentFocus = focusedElement,
+                                   case .chain(let currentChain) = currentFocus,
+                                   currentChain == chain {
+                                    focusedElement = nil
+                                    isFocused = false
+                                } else {
+                                    focusedElement = .chain(chain)
+                                    isFocused = true
+                                }
+                                // 3D 뷰어는 자동으로 업데이트되므로 강제 렌더링 불필요
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: {
+                                        if let currentFocus = focusedElement,
+                                           case .chain(let currentChain) = currentFocus {
+                                            return currentChain == chain ? "scope.fill" : "scope"
+                                        }
+                                        return "scope"
+                                    }())
+                                    Text({
+                                        if let currentFocus = focusedElement,
+                                           case .chain(let currentChain) = currentFocus {
+                                            return currentChain == chain ? "Unfocus" : "Focus"
+                                        }
+                                        return "Focus"
+                                    }())
+                                }
+                                .font(.caption)
+                                .foregroundColor({
                                     if let currentFocus = focusedElement,
                                        case .chain(let currentChain) = currentFocus {
-                                        return currentChain == chain ? "scope.fill" : "scope"
+                                        return currentChain == chain ? .white : .green
                                     }
-                                    return "scope"
+                                    return .green
                                 }())
-                                Text({
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background({
                                     if let currentFocus = focusedElement,
                                        case .chain(let currentChain) = currentFocus {
-                                        return currentChain == chain ? "Unfocus" : "Focus"
+                                        return currentChain == chain ? Color.green : Color.green.opacity(0.1)
                                     }
-                                    return "Focus"
+                                    return Color.green.opacity(0.1)
                                 }())
+                                .cornerRadius(16)
                             }
-                            .font(.caption)
-                            .foregroundColor({
-                                if let currentFocus = focusedElement,
-                                   case .chain(let currentChain) = currentFocus {
-                                    return currentChain == chain ? .white : .green
-                                }
-                                return .green
-                            }())
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background({
-                                if let currentFocus = focusedElement,
-                                   case .chain(let currentChain) = currentFocus {
-                                    return currentChain == chain ? Color.green : Color.green.opacity(0.1)
-                                }
-                                return Color.green.opacity(0.1)
-                            }())
-                            .cornerRadius(16)
                         }
                     }
                 }
@@ -931,7 +987,6 @@ struct ChainsTabContent: View {
             }
         }
     }
-}
 
 struct ResiduesTabContent: View {
     let structure: PDBStructure

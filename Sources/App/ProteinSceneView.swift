@@ -90,7 +90,37 @@ final class GeometryCache {
     }
 }
 
+// MARK: - Ribbon Cache
+class RibbonCache {
+    static let shared = RibbonCache()
+    private var ribbonCache: [String: SCNNode] = [:]
+    private let maxCacheSize = 50 // 최대 캐시 크기
+    
+    private init() {}
+    
+    func getRibbon(for key: String) -> SCNNode? {
+        return ribbonCache[key]
+    }
+    
+    func setRibbon(_ node: SCNNode, for key: String) {
+        // 캐시 크기 제한
+        if ribbonCache.count >= maxCacheSize {
+            // 가장 오래된 항목 제거 (간단한 FIFO 방식)
+            if let firstKey = ribbonCache.keys.first {
+                ribbonCache.removeValue(forKey: firstKey)
+            }
+        }
+        
+        ribbonCache[key] = node
+    }
+    
+    func clearCache() {
+        ribbonCache.removeAll()
+    }
+}
+
 enum RenderStyle: String, CaseIterable { 
+    case ribbon = "Ribbon"
     case spheres = "Spheres"
     case sticks = "Sticks" 
     case cartoon = "Cartoon"
@@ -98,6 +128,7 @@ enum RenderStyle: String, CaseIterable {
     
     var icon: String {
         switch self {
+        case .ribbon: return "waveform.path.ecg"
         case .spheres: return "circle.fill"
         case .sticks: return "line.3.horizontal"
         case .cartoon: return "waveform.path"
@@ -169,8 +200,10 @@ struct ViewerModeUI: View {
     @State private var secondaryBarType: SecondaryBarType = .none
     @State private var rotationEnabled: Bool = false
     @State private var zoomLevel: Double = 1.0
-    @State private var transparency: Double = 1.0
+    @State private var transparency: Double = 0.7
     @State private var atomSize: Double = 1.0
+    @State private var ribbonWidth: Double = 3.0
+    @State private var ribbonFlatness: Double = 0.5
     
     var body: some View {
         ZStack {
@@ -194,7 +227,9 @@ struct ViewerModeUI: View {
                         renderingProgress: $renderingProgress,
                         zoomLevel: zoomLevel,
                         transparency: transparency,
-                        atomSize: atomSize
+                        atomSize: atomSize,
+                        ribbonWidth: ribbonWidth,
+                        ribbonFlatness: ribbonFlatness
                 )
                 .ignoresSafeArea()
                 
@@ -220,6 +255,8 @@ struct ViewerModeUI: View {
                                 zoomLevel: $zoomLevel,
                                 transparency: $transparency,
                                 atomSize: $atomSize,
+                                ribbonWidth: $ribbonWidth,
+                                ribbonFlatness: $ribbonFlatness,
                                 highlightAllChains: $highlightAllChains,
                                 highlightedChains: $highlightedChains,
                                 structure: structure
@@ -330,6 +367,8 @@ struct SecondaryOptionsBar: View {
     @Binding var zoomLevel: Double
     @Binding var transparency: Double
     @Binding var atomSize: Double
+    @Binding var ribbonWidth: Double
+    @Binding var ribbonFlatness: Double
     @Binding var highlightAllChains: Bool
     @Binding var highlightedChains: Set<String>
     let structure: PDBStructure?
@@ -339,9 +378,9 @@ struct SecondaryOptionsBar: View {
         
         if highlightAllChains {
             // Highlight all chains
-            if let structure = structure {
-                let allChains = Set(structure.atoms.map { $0.chain })
-                highlightedChains = allChains
+            if structure != nil {
+                // 초기 상태에서는 highlight 없음
+                highlightedChains = []
             }
         } else {
             // Clear all highlights
@@ -427,7 +466,10 @@ struct SecondaryOptionsBar: View {
                             rotationEnabled: $rotationEnabled,
                             zoomLevel: $zoomLevel,
                             transparency: $transparency,
-                            atomSize: $atomSize
+                            atomSize: $atomSize,
+                            ribbonWidth: $ribbonWidth,
+                            ribbonFlatness: $ribbonFlatness,
+                            selectedStyle: selectedStyle
                         )
                     case .none:
                         EmptyView()
@@ -448,6 +490,9 @@ struct OptionsSecondaryBar: View {
     @Binding var zoomLevel: Double
     @Binding var transparency: Double
     @Binding var atomSize: Double
+    @Binding var ribbonWidth: Double
+    @Binding var ribbonFlatness: Double
+    let selectedStyle: RenderStyle
     
     var body: some View {
         HStack(spacing: 0) {
@@ -536,8 +581,56 @@ struct OptionsSecondaryBar: View {
             .cornerRadius(8)
             .frame(maxWidth: .infinity)
             
+            // Ribbon Width (리본 모드일 때만 표시)
+            if selectedStyle == .ribbon {
+                VStack(spacing: 4) {
+                    HStack {
+                        Image(systemName: "arrow.left.and.right")
+                            .font(.caption)
+                        Spacer()
+                        Text("Width")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Image(systemName: "arrow.left.and.right")
+                            .font(.caption)
+                    }
+                    Slider(value: $ribbonWidth, in: 1.0...8.0, step: 0.2)
+                        .frame(width: 60)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(Color.purple.opacity(0.1))
+                .cornerRadius(8)
+                .frame(maxWidth: .infinity)
+            }
+            
+            // Ribbon Flatness (리본 모드일 때만 표시)
+            if selectedStyle == .ribbon {
+                VStack(spacing: 4) {
+                    HStack {
+                        Image(systemName: "rectangle.portrait")
+                            .font(.caption)
+                        Spacer()
+                        Text("Flat")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Image(systemName: "rectangle.portrait")
+                            .font(.caption)
+                    }
+                    Slider(value: $ribbonFlatness, in: 0.1...1.0, step: 0.1)
+                        .frame(width: 60)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(Color.indigo.opacity(0.1))
+                .cornerRadius(8)
+                .frame(maxWidth: .infinity)
+            }
+            
             // Reset Button
-                            Button(action: {
+            Button(action: {
                 resetToDefaults()
             }) {
                 VStack(spacing: 4) {
@@ -562,8 +655,10 @@ struct OptionsSecondaryBar: View {
         withAnimation(.easeInOut(duration: 0.3)) {
             rotationEnabled = false
             zoomLevel = 1.0
-            transparency = 1.0
+            transparency = 0.7
             atomSize = 1.0
+            ribbonWidth = 3.0
+            ribbonFlatness = 0.5
         }
         
         // Haptic feedback
@@ -797,9 +892,9 @@ struct ViewerBottomControls: View {
         
         if highlightAllChains {
             // Highlight all chains
-            if let structure = structure {
-                let allChains = Set(structure.atoms.map { $0.chain })
-                highlightedChains = allChains
+            if structure != nil {
+                // 초기 상태에서는 highlight 없음
+                highlightedChains = []
             }
         } else {
             // Clear all highlights
@@ -1007,7 +1102,7 @@ struct ProteinSceneContainer: View {
         self._externalStructureLoadingProgress = externalStructureLoadingProgress
     }
     
-    @State private var selectedStyle: RenderStyle = .spheres
+    @State private var selectedStyle: RenderStyle = .ribbon
     @State private var selectedColorMode: ColorMode = .element
     @State private var selectedTab: InfoTabType = .overview
     @State private var viewMode: ViewMode = .info
@@ -1034,6 +1129,12 @@ struct ProteinSceneContainer: View {
     // 3D Rendering loading state
     @State private var isRendering3D: Bool = false
     @State private var renderingProgress: String = ""
+    
+    // Update external loading state when internal state changes
+    private func updateExternalLoadingState() {
+        externalIs3DStructureLoading = isRendering3D
+        externalStructureLoadingProgress = renderingProgress
+    }
     
     // Side menu state
     @State private var showingSideMenu: Bool = false
@@ -1210,7 +1311,9 @@ struct ProteinSceneContainer: View {
                                         onFocusRequest: { element in
                                             focusedElement = element
                                             isFocused = true
-                                        }
+                                        },
+                                        isRendering3D: $isRendering3D,
+                                        renderingProgress: $renderingProgress
                                     )
                                     .frame(height: 220)
                                     .padding(.horizontal, 16)
@@ -1249,7 +1352,7 @@ struct ProteinSceneContainer: View {
                                             case .overview:
                                                 overviewContent(structure: structure)
                                             case .chains:
-                                                chainsContent(structure: structure)
+                                                chainsContent(structure: structure, selectedStyle: selectedStyle)
                                             case .residues:
                                                 residuesContent(structure: structure)
                                             case .ligands:
@@ -1458,6 +1561,12 @@ struct ProteinSceneContainer: View {
                 }
             }
         }
+        .onChange(of: isRendering3D) { _ in
+            updateExternalLoadingState()
+        }
+        .onChange(of: renderingProgress) { _ in
+            updateExternalLoadingState()
+        }
     }
     
     // MARK: - Tab Icon Helper
@@ -1582,7 +1691,7 @@ struct ProteinSceneContainer: View {
         }
     }
     
-    private func chainsContent(structure: PDBStructure) -> some View {
+    private func chainsContent(structure: PDBStructure, selectedStyle: RenderStyle) -> some View {
         VStack(spacing: 16) {
             let chains = Set(structure.atoms.map { $0.chain })
             
@@ -2812,9 +2921,11 @@ struct ProteinSceneView: UIViewRepresentable {
     let zoomLevel: Double
     let transparency: Double
     let atomSize: Double
+    let ribbonWidth: Double
+    let ribbonFlatness: Double
     
     // 기본 초기화
-    init(structure: PDBStructure?, style: RenderStyle, colorMode: ColorMode, uniformColor: UIColor, autoRotate: Bool, isInfoMode: Bool, showInfoBar: Binding<Bool>? = nil, onSelectAtom: ((Atom) -> Void)? = nil, highlightedChains: Set<String>, highlightedLigands: Set<String>, highlightedPockets: Set<String>, focusedElement: FocusedElement?, onFocusRequest: ((FocusedElement) -> Void)? = nil, isRendering3D: Binding<Bool>? = nil, renderingProgress: Binding<String>? = nil, zoomLevel: Double = 1.0, transparency: Double = 1.0, atomSize: Double = 1.0) {
+    init(structure: PDBStructure?, style: RenderStyle, colorMode: ColorMode, uniformColor: UIColor, autoRotate: Bool, isInfoMode: Bool, showInfoBar: Binding<Bool>? = nil, onSelectAtom: ((Atom) -> Void)? = nil, highlightedChains: Set<String>, highlightedLigands: Set<String>, highlightedPockets: Set<String>, focusedElement: FocusedElement?, onFocusRequest: ((FocusedElement) -> Void)? = nil, isRendering3D: Binding<Bool>? = nil, renderingProgress: Binding<String>? = nil, zoomLevel: Double = 1.0, transparency: Double = 0.7, atomSize: Double = 1.0, ribbonWidth: Double = 3.0, ribbonFlatness: Double = 0.5) {
         self.structure = structure
         self.style = style
         self.colorMode = colorMode
@@ -2833,6 +2944,8 @@ struct ProteinSceneView: UIViewRepresentable {
         self.zoomLevel = zoomLevel
         self.transparency = transparency
         self.atomSize = atomSize
+        self.ribbonWidth = ribbonWidth
+        self.ribbonFlatness = ribbonFlatness
     }
 
     func makeUIView(context: Context) -> SCNView {
@@ -2840,6 +2953,7 @@ struct ProteinSceneView: UIViewRepresentable {
         view.scene = SCNScene()
         view.backgroundColor = .clear
         view.allowsCameraControl = true
+        view.isUserInteractionEnabled = true
         view.defaultCameraController.interactionMode = .orbitTurntable
         view.defaultCameraController.inertiaEnabled = true
         view.antialiasingMode = .multisampling4X
@@ -2852,6 +2966,12 @@ struct ProteinSceneView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: SCNView, context: Context) {
+        // 제스처 설정 확인 및 복원
+        uiView.allowsCameraControl = true
+        uiView.isUserInteractionEnabled = true
+        uiView.defaultCameraController.interactionMode = .orbitTurntable
+        uiView.defaultCameraController.inertiaEnabled = true
+        
         // 실제 변경된 경우에만 빌드 (성능 최적화)
         let structureChanged = context.coordinator.lastStructure?.atoms.count != structure?.atoms.count
         let styleChanged = context.coordinator.lastStyle != style
@@ -2865,8 +2985,13 @@ struct ProteinSceneView: UIViewRepresentable {
         let zoomChanged = abs(context.coordinator.lastZoomLevel - zoomLevel) > 0.01
         let transparencyChanged = abs(context.coordinator.lastTransparency - transparency) > 0.01
         let atomSizeChanged = abs(context.coordinator.lastAtomSize - atomSize) > 0.01
+        let ribbonWidthChanged = abs(context.coordinator.lastRibbonWidth - ribbonWidth) > 0.01
+        let ribbonFlatnessChanged = abs(context.coordinator.lastRibbonFlatness - ribbonFlatness) > 0.01
         
-        let needsRebuild = structureChanged || styleChanged || colorModeChanged || chainsChanged || ligandsChanged || pocketsChanged || focusChanged || zoomChanged || transparencyChanged || atomSizeChanged
+        // 체인 변경사항 감지 (선택적 업데이트용)
+        let changedChains = getChangedChains(old: context.coordinator.lastHighlightedChains, new: highlightedChains)
+        
+        let needsRebuild = structureChanged || styleChanged || colorModeChanged || chainsChanged || ligandsChanged || pocketsChanged || focusChanged || zoomChanged || transparencyChanged || atomSizeChanged || ribbonWidthChanged || ribbonFlatnessChanged
         
         if needsRebuild {
             print("🔧 3D 구조 변경 감지 - 한 번만 빌드")
@@ -2878,6 +3003,24 @@ struct ProteinSceneView: UIViewRepresentable {
                     self.renderingProgress?.wrappedValue = "Updating highlights..."
                 } else {
                     self.renderingProgress?.wrappedValue = "Updating 3D structure..."
+                }
+            }
+            
+            // 체인 변경만 있는 경우 선택적 업데이트 시도
+            if chainsChanged && !structureChanged && !styleChanged && !colorModeChanged && !ligandsChanged && !pocketsChanged && !focusChanged && !zoomChanged && !transparencyChanged && !atomSizeChanged && !ribbonWidthChanged && !ribbonFlatnessChanged {
+                if updateHighlightedChainsOnly(view: uiView, changedChains: changedChains) {
+                    print("🔧 체인 highlight만 선택적 업데이트 성공")
+                    // 상태 저장
+                    context.coordinator.lastHighlightedChains = highlightedChains
+                    
+                    // Loading 종료
+                    DispatchQueue.main.async {
+                        self.isRendering3D?.wrappedValue = false
+                        self.renderingProgress?.wrappedValue = ""
+                    }
+                    return
+                } else {
+                    print("🔧 선택적 업데이트 실패 - 전체 빌드 진행")
                 }
             }
             
@@ -2896,6 +3039,8 @@ struct ProteinSceneView: UIViewRepresentable {
             context.coordinator.lastZoomLevel = zoomLevel
             context.coordinator.lastTransparency = transparency
             context.coordinator.lastAtomSize = atomSize
+            context.coordinator.lastRibbonWidth = ribbonWidth
+            context.coordinator.lastRibbonFlatness = ribbonFlatness
         }
         
         // autoRotate는 별도 처리 (빌드와 무관)
@@ -2910,6 +3055,55 @@ struct ProteinSceneView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
+    }
+    
+    /// 변경된 체인들을 감지합니다
+    private func getChangedChains(old: Set<String>, new: Set<String>) -> Set<String> {
+        let added = new.subtracting(old)
+        let removed = old.subtracting(new)
+        return added.union(removed)
+    }
+    
+    /// 특정 체인들의 highlight만 업데이트합니다
+    private func updateHighlightedChainsOnly(view: SCNView, changedChains: Set<String>) -> Bool {
+        guard let scene = view.scene else { return false }
+        
+        // 리본 스타일인 경우에만 선택적 업데이트 가능
+        guard style == .ribbon else { return false }
+        
+        print("🔧 선택적 업데이트: \(changedChains) 체인들")
+        
+        for chainId in changedChains {
+            // 해당 체인의 노드를 찾습니다
+            let chainNodeName = "ribbon_chain_\(chainId)"
+            guard let chainNode = scene.rootNode.childNode(withName: chainNodeName, recursively: true) else {
+                print("🔧 체인 노드를 찾을 수 없음: \(chainId)")
+                continue
+            }
+            
+            // 체인의 원자들을 가져옵니다
+            guard let structure = structure else { continue }
+            let chainAtoms = structure.atoms.filter { $0.chain == chainId }
+            let caAtoms = chainAtoms.filter { $0.element == "CA" }
+            
+            guard caAtoms.count >= 3 else { continue }
+            
+            // highlight 상태 확인
+            let isChainHighlighted = highlightedChains.contains(chainId)
+            let isLigandHighlighted = highlightedLigands.contains { ligandId in
+                caAtoms.contains { $0.residueName == ligandId }
+            }
+            let isPocketHighlighted = highlightedPockets.contains { pocketId in
+                caAtoms.contains { $0.residueName == pocketId }
+            }
+            
+            // highlight 적용
+            applyHighlightToRibbonNode(chainNode, isChainHighlighted: isChainHighlighted, isLigandHighlighted: isLigandHighlighted, isPocketHighlighted: isPocketHighlighted, caAtoms: caAtoms)
+            
+            print("🔧 체인 \(chainId) highlight 업데이트 완료")
+        }
+        
+        return true
     }
 
     // Improved rebuild method for ProteinSceneView
@@ -3029,53 +3223,1105 @@ struct ProteinSceneView: UIViewRepresentable {
             atomsToRender = structure.atoms
         }
         
-        print("Creating \(atomsToRender.count) atoms...")
-        
-        // Create atoms with progress updates
-        let totalAtoms = atomsToRender.count
-        for (index, atom) in atomsToRender.enumerated() {
-            let atomNode = createAtomNode(atom)
-            rootNode.addChildNode(atomNode)
+        // 리본 모드와 일반 모드 분기 처리
+        if style == .ribbon {
+            // 리본 모드: 리본 지오메트리 생성
+            DispatchQueue.main.async {
+                self.renderingProgress?.wrappedValue = "Creating ribbon structure..."
+            }
             
-            // Update progress every 100 atoms or at the end
-            if index % 100 == 0 || index == totalAtoms - 1 {
-                DispatchQueue.main.async {
-                    self.renderingProgress?.wrappedValue = "Creating atoms (\(index + 1)/\(totalAtoms))..."
+            let ribbonNodes = createRibbonNodes(from: structure, atoms: atomsToRender)
+            for ribbonNode in ribbonNodes {
+                rootNode.addChildNode(ribbonNode)
+            }
+            
+            print("Created \(ribbonNodes.count) ribbon segments")
+            
+            // 리본 모드에서도 리간드와 보조 인자 렌더링
+            DispatchQueue.main.async {
+                self.renderingProgress?.wrappedValue = "Creating ligands and cofactors..."
+            }
+            
+            let ligandNodes = createLigandNodes(from: structure, atoms: atomsToRender)
+            for ligandNode in ligandNodes {
+                rootNode.addChildNode(ligandNode)
+            }
+            
+            print("Created \(ligandNodes.count) ligand/cofactor nodes")
+            
+            // 리본 모드에서도 포켓 렌더링
+            DispatchQueue.main.async {
+                self.renderingProgress?.wrappedValue = "Creating pockets..."
+            }
+            
+            let pocketNodes = createPocketNodes(from: structure, atoms: atomsToRender)
+            for pocketNode in pocketNodes {
+                rootNode.addChildNode(pocketNode)
+            }
+            
+            print("Created \(pocketNodes.count) pocket nodes")
+        } else {
+            // 일반 모드: 원자와 결합 생성
+            print("Creating \(atomsToRender.count) atoms...")
+            
+            // 단백질 원자들만 필터링 (리간드 제외)
+            let proteinAtoms = atomsToRender.filter { !$0.isLigand }
+            
+            // Create protein atoms with progress updates
+            let totalAtoms = proteinAtoms.count
+            for (index, atom) in proteinAtoms.enumerated() {
+                let atomNode = createAtomNode(atom)
+                rootNode.addChildNode(atomNode)
+                
+                // Update progress every 100 atoms or at the end
+                if index % 100 == 0 || index == totalAtoms - 1 {
+                    DispatchQueue.main.async {
+                        self.renderingProgress?.wrappedValue = "Creating atoms (\(index + 1)/\(totalAtoms))..."
+                    }
+                }
+                
+                if index < 5 { // Log first 5 atoms for debugging
+                    print("Atom \(index): \(atom.element) at position \(atom.position)")
                 }
             }
             
-            if index < 5 { // Log first 5 atoms for debugging
-                print("Atom \(index): \(atom.element) at position \(atom.position)")
+            // 리간드와 보조 인자도 일반 모드에서 렌더링
+            DispatchQueue.main.async {
+                self.renderingProgress?.wrappedValue = "Creating ligands and cofactors..."
             }
-        }
-        
-        // Filter bonds to only include those between rendered atoms
-        let renderedAtomIds = Set(atomsToRender.map { $0.id })
-        let filteredBonds = structure.bonds.filter { bond in
-            renderedAtomIds.contains(bond.atomA) && renderedAtomIds.contains(bond.atomB)
-        }
-        
-        print("Creating \(filteredBonds.count) bonds...")
-        
-        // Create bonds with progress updates
-        let totalBonds = filteredBonds.count
-        for (index, bond) in filteredBonds.enumerated() {
-            let bondNode = createBondNode(bond, atoms: atomsToRender)
-            rootNode.addChildNode(bondNode)
             
-            // Update progress every 100 bonds or at the end
-            if index % 100 == 0 || index == totalBonds - 1 {
-                DispatchQueue.main.async {
-                    self.renderingProgress?.wrappedValue = "Creating bonds (\(index + 1)/\(totalBonds))..."
+            let ligandNodes = createLigandNodes(from: structure, atoms: atomsToRender)
+            for ligandNode in ligandNodes {
+                rootNode.addChildNode(ligandNode)
+            }
+            
+            print("Created \(ligandNodes.count) ligand/cofactor nodes")
+            
+            // Filter bonds to only include those between rendered atoms
+            let renderedAtomIds = Set(proteinAtoms.map { $0.id })
+            let filteredBonds = structure.bonds.filter { bond in
+                renderedAtomIds.contains(bond.atomA) && renderedAtomIds.contains(bond.atomB)
+            }
+            
+            print("Creating \(filteredBonds.count) bonds...")
+            
+            // Create bonds with progress updates
+            let totalBonds = filteredBonds.count
+            for (index, bond) in filteredBonds.enumerated() {
+                let bondNode = createBondNode(bond, atoms: atomsToRender)
+                rootNode.addChildNode(bondNode)
+                
+                // Update progress every 100 bonds or at the end
+                if index % 100 == 0 || index == totalBonds - 1 {
+                    DispatchQueue.main.async {
+                        self.renderingProgress?.wrappedValue = "Creating bonds (\(index + 1)/\(totalBonds))..."
+                    }
                 }
-            }
-            
-            if index < 5 { // Log first 5 bonds for debugging
-                print("Bond \(index): \(bond.atomA) - \(bond.atomB)")
+                
+                if index < 5 { // Log first 5 bonds for debugging
+                    print("Bond \(index): \(bond.atomA) - \(bond.atomB)")
+                }
             }
         }
         
         return rootNode
+    }
+    
+    // MARK: - Ribbon Rendering Functions
+    
+    /// 체인별로 리본 노드들을 생성합니다 (성능 최적화 적용)
+    private func createRibbonNodes(from structure: PDBStructure, atoms: [Atom]) -> [SCNNode] {
+        var ribbonNodes: [SCNNode] = []
+        
+        // Performance optimization settings - 사용자 설정 반영
+        let maxAtomsLimit = UserDefaults.standard.integer(forKey: "maxAtomsLimit")
+        let enableOptimization = UserDefaults.standard.bool(forKey: "enableOptimization")
+        let samplingRatio = UserDefaults.standard.double(forKey: "samplingRatio")
+        
+        // Use default values if not set
+        let effectiveMaxAtoms = maxAtomsLimit > 0 ? maxAtomsLimit : 5000
+        let effectiveOptimization = enableOptimization
+        let effectiveSamplingRatio = samplingRatio > 0 ? samplingRatio : 0.25
+        
+        print("🔧 Ribbon optimization settings: maxAtoms=\(effectiveMaxAtoms), optimization=\(effectiveOptimization), sampling=\(effectiveSamplingRatio)")
+        
+        // 체인별로 원자들을 그룹화
+        let chainAtoms = Dictionary(grouping: atoms) { $0.chain }
+        let totalChains = chainAtoms.count
+        
+        print("🔧 Processing \(totalChains) chains for ribbon rendering")
+        
+        var processedChains = 0
+        
+        for (chainId, chainAtoms) in chainAtoms {
+            // Cα 원자들만 필터링하고 잔기 번호순으로 정렬
+            var caAtoms = chainAtoms
+                .filter { $0.name == "CA" }
+                .sorted { $0.residueNumber < $1.residueNumber }
+            
+            // 체인별 원자 수 최적화 적용
+            if effectiveOptimization && caAtoms.count > effectiveMaxAtoms / chainAtoms.count {
+                let targetCount = max(50, effectiveMaxAtoms / chainAtoms.count) // 체인당 최소 50개 보장
+                print("🔧 Chain \(chainId): Optimizing Cα atoms \(caAtoms.count) → \(targetCount)")
+                caAtoms = optimizeChainAtoms(caAtoms, maxAtoms: targetCount)
+            }
+            
+            guard caAtoms.count >= 3 else {
+                print("Chain \(chainId): Not enough Cα atoms for ribbon (\(caAtoms.count))")
+                continue
+            }
+            
+            // 기본 캐시 키 (highlight 상태 제외) - 지오메트리 재사용
+            let baseCacheKey = "ribbon_base_\(chainId)_\(ribbonWidth)_\(ribbonFlatness)_\(caAtoms.count)_\(effectiveOptimization)"
+            
+            // highlight 상태 확인
+            let isChainHighlighted = highlightedChains.contains(chainId)
+            let isLigandHighlighted = highlightedLigands.contains { ligandId in
+                caAtoms.contains { $0.residueName == ligandId }
+            }
+            let isPocketHighlighted = highlightedPockets.contains { pocketId in
+                caAtoms.contains { $0.residueName == pocketId }
+            }
+            
+            // 체인 처리 시작 - 진행률 업데이트
+            DispatchQueue.main.async {
+                processedChains += 1
+                let progress = Int((Double(processedChains) / Double(totalChains)) * 100)
+                self.renderingProgress?.wrappedValue = "Processing chain \(chainId) (\(processedChains)/\(totalChains)) - \(progress)%"
+            }
+            
+            // 기본 지오메트리 캐시에서 확인
+            var ribbonNode: SCNNode?
+            if let cachedBaseNode = RibbonCache.shared.getRibbon(for: baseCacheKey) {
+                // 기본 지오메트리가 캐시되어 있으면 복사하고 highlight 적용
+                ribbonNode = cachedBaseNode.clone()
+                print("🔧 Chain \(chainId): Using cached base ribbon, applying highlights")
+            } else {
+                // 기본 지오메트리 생성 및 캐시
+                ribbonNode = createRibbonGeometry(for: caAtoms, chainId: chainId)
+                if let node = ribbonNode {
+                    RibbonCache.shared.setRibbon(node, for: baseCacheKey)
+                    print("🔧 Chain \(chainId): Created new base ribbon with \(caAtoms.count) atoms")
+                }
+            }
+            
+            // Highlight 적용 (기존 노드에 색상 변경)
+            if let node = ribbonNode {
+                // 체인 노드에 이름 설정 (선택적 업데이트용)
+                node.name = "ribbon_chain_\(chainId)"
+                applyHighlightToRibbonNode(node, isChainHighlighted: isChainHighlighted, isLigandHighlighted: isLigandHighlighted, isPocketHighlighted: isPocketHighlighted, caAtoms: caAtoms)
+                ribbonNodes.append(node)
+            }
+        }
+        
+        return ribbonNodes
+    }
+    
+    /// 리본 노드에 highlight 효과를 적용합니다
+    private func applyHighlightToRibbonNode(_ node: SCNNode, isChainHighlighted: Bool, isLigandHighlighted: Bool, isPocketHighlighted: Bool, caAtoms: [Atom]) {
+        guard let geometry = node.geometry else { return }
+        
+        // 각 세그먼트의 material 업데이트
+        for (index, material) in geometry.materials.enumerated() {
+            if index < caAtoms.count {
+                let atom = caAtoms[index]
+                let isHighlighted = isChainHighlighted || isLigandHighlighted || isPocketHighlighted
+                
+                // 색상 업데이트
+                let ribbonColor = getRibbonColorWithHighlight(for: atom, isChainHighlighted: isChainHighlighted, isLigandHighlighted: isLigandHighlighted, isPocketHighlighted: isPocketHighlighted)
+                
+                // 투명도 계산
+                let baseOpacity: CGFloat
+                if isHighlighted {
+                    baseOpacity = 1.0
+                } else if focusedElement != nil {
+                    baseOpacity = 0.15
+                } else {
+                    baseOpacity = 0.7
+                }
+                
+                let finalOpacity = baseOpacity * CGFloat(transparency)
+                material.diffuse.contents = ribbonColor.withAlphaComponent(finalOpacity)
+            }
+        }
+    }
+    
+    /// Cα 원자들의 좌표를 이용해 리본 지오메트리를 생성합니다
+    private func createRibbonGeometry(for caAtoms: [Atom], chainId: String) -> SCNNode? {
+        guard caAtoms.count >= 3 else { return nil }
+        
+        // Cα 좌표 추출
+        let positions = caAtoms.map { SCNVector3($0.position.x, $0.position.y, $0.position.z) }
+        
+        // 동적 세그먼트 수 조정 (성능 최적화)
+        let segmentsPerSpan = calculateOptimalSegments(for: caAtoms.count)
+        print("🔧 Chain \(chainId): Using \(segmentsPerSpan) segments per span for \(caAtoms.count) atoms")
+        
+        // Catmull-Rom 스플라인으로 부드러운 곡선 생성
+        let splinePoints = generateCatmullRomSpline(points: positions, segmentsPerSpan: segmentsPerSpan)
+        
+        // 리본 지오메트리 생성
+        let ribbonGeometry = buildRibbonGeometry(
+            splinePoints: splinePoints,
+            ribbonWidth: CGFloat(ribbonWidth),
+            flatness: CGFloat(ribbonFlatness),
+            caAtoms: caAtoms
+        )
+        
+        let ribbonNode = SCNNode(geometry: ribbonGeometry)
+        ribbonNode.name = "ribbon_\(chainId)"
+        
+        return ribbonNode
+    }
+    
+    /// Catmull-Rom 스플라인을 생성합니다
+    private func generateCatmullRomSpline(points: [SCNVector3], segmentsPerSpan: Int) -> [SCNVector3] {
+        guard points.count >= 4 else { return points }
+        
+        var splinePoints: [SCNVector3] = []
+        
+        // 첫 번째 점 추가
+        splinePoints.append(points[0])
+        
+        // 각 구간에 대해 Catmull-Rom 보간 수행
+        for i in 0..<(points.count - 3) {
+            let p0 = points[i]
+            let p1 = points[i + 1]
+            let p2 = points[i + 2]
+            let p3 = points[i + 3]
+            
+            for j in 1...segmentsPerSpan {
+                let t = Float(j) / Float(segmentsPerSpan)
+                let point = catmullRomInterpolation(p0: p0, p1: p1, p2: p2, p3: p3, t: t)
+                splinePoints.append(point)
+            }
+        }
+        
+        // 마지막 점 추가
+        splinePoints.append(points.last!)
+        
+        return splinePoints
+    }
+    
+    /// Catmull-Rom 보간 계산
+    private func catmullRomInterpolation(p0: SCNVector3, p1: SCNVector3, p2: SCNVector3, p3: SCNVector3, t: Float) -> SCNVector3 {
+        let t2 = t * t
+        let t3 = t2 * t
+        
+        let x = 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3)
+        let y = 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
+        let z = 0.5 * ((2 * p1.z) + (-p0.z + p2.z) * t + (2 * p0.z - 5 * p1.z + 4 * p2.z - p3.z) * t2 + (-p0.z + 3 * p1.z - 3 * p2.z + p3.z) * t3)
+        
+        return SCNVector3(x, y, z)
+    }
+    
+    /// 리본 지오메트리를 생성합니다
+    private func buildRibbonGeometry(splinePoints: [SCNVector3], ribbonWidth: CGFloat, flatness: CGFloat, caAtoms: [Atom]) -> SCNGeometry? {
+        guard splinePoints.count >= 2 else { return nil }
+        
+        var vertices: [SCNVector3] = []
+        var normals: [SCNVector3] = []
+        var texCoords: [CGPoint] = []
+        var indices: [Int32] = []
+        
+        let halfWidth = ribbonWidth * 0.5
+        
+        // 각 스플라인 점에 대해 접선과 법선 계산
+        for i in 0..<splinePoints.count {
+            let point = splinePoints[i]
+            
+            // 접선 계산 (이전/다음 점과의 차이)
+            let tangent: SCNVector3
+            if i == 0 {
+                tangent = SCNVector3(
+                    splinePoints[i + 1].x - point.x,
+                    splinePoints[i + 1].y - point.y,
+                    splinePoints[i + 1].z - point.z
+                )
+            } else if i == splinePoints.count - 1 {
+                tangent = SCNVector3(
+                    point.x - splinePoints[i - 1].x,
+                    point.y - splinePoints[i - 1].y,
+                    point.z - splinePoints[i - 1].z
+                )
+            } else {
+                tangent = SCNVector3(
+                    splinePoints[i + 1].x - splinePoints[i - 1].x,
+                    splinePoints[i + 1].y - splinePoints[i - 1].y,
+                    splinePoints[i + 1].z - splinePoints[i - 1].z
+                )
+            }
+            
+            // 접선 정규화
+            let tangentLength = sqrt(tangent.x * tangent.x + tangent.y * tangent.y + tangent.z * tangent.z)
+            guard tangentLength > 0 else { continue }
+            
+            let normalizedTangent = SCNVector3(
+                tangent.x / tangentLength,
+                tangent.y / tangentLength,
+                tangent.z / tangentLength
+            )
+            
+            // 법선 계산 (Y축과의 외적)
+            let up = SCNVector3(0, 1, 0)
+            let normal = SCNVector3(
+                up.y * normalizedTangent.z - up.z * normalizedTangent.y,
+                up.z * normalizedTangent.x - up.x * normalizedTangent.z,
+                up.x * normalizedTangent.y - up.y * normalizedTangent.x
+            )
+            
+            // 법선 정규화
+            let normalLength = sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z)
+            guard normalLength > 0 else { continue }
+            
+            let normalizedNormal = SCNVector3(
+                normal.x / normalLength,
+                normal.y / normalLength,
+                normal.z / normalLength
+            )
+            
+            // 리본의 양쪽 가장자리 점 생성 (더 정교한 단면)
+            let leftPoint = SCNVector3(
+                point.x - normalizedNormal.x * Float(halfWidth),
+                point.y - normalizedNormal.y * Float(halfWidth),
+                point.z - normalizedNormal.z * Float(halfWidth)
+            )
+            
+            let rightPoint = SCNVector3(
+                point.x + normalizedNormal.x * Float(halfWidth),
+                point.y + normalizedNormal.y * Float(halfWidth),
+                point.z + normalizedNormal.z * Float(halfWidth)
+            )
+            
+            // 두께를 고려한 상하 점 생성 (평탄도에 따라)
+            let upOffset: SCNVector3
+            if ribbonFlatness > 0.3 {
+                let halfThickness = ribbonWidth * 0.1 * CGFloat(ribbonFlatness)
+                upOffset = SCNVector3(
+                    normalizedTangent.x * Float(halfThickness),
+                    normalizedTangent.y * Float(halfThickness),
+                    normalizedTangent.z * Float(halfThickness)
+                )
+            } else {
+                upOffset = SCNVector3(0, 0, 0)
+            }
+            
+            let leftTopPoint = SCNVector3(
+                leftPoint.x + upOffset.x,
+                leftPoint.y + upOffset.y,
+                leftPoint.z + upOffset.z
+            )
+            
+            let rightTopPoint = SCNVector3(
+                rightPoint.x + upOffset.x,
+                rightPoint.y + upOffset.y,
+                rightPoint.z + upOffset.z
+            )
+            
+            // 정점 추가 (하단)
+            vertices.append(leftPoint)
+            vertices.append(rightPoint)
+            
+            // 정점 추가 (상단 - 평탄도가 높을 때만)
+            if ribbonFlatness > 0.3 {
+                vertices.append(leftTopPoint)
+                vertices.append(rightTopPoint)
+            }
+            
+            // 법선 추가
+            normals.append(normalizedNormal)
+            normals.append(normalizedNormal)
+            
+            if ribbonFlatness > 0.3 {
+                normals.append(normalizedNormal)
+                normals.append(normalizedNormal)
+            }
+            
+            // 텍스처 좌표
+            let u = Float(i) / Float(splinePoints.count - 1)
+            texCoords.append(CGPoint(x: 0, y: CGFloat(u)))
+            texCoords.append(CGPoint(x: 1, y: CGFloat(u)))
+            
+            if ribbonFlatness > 0.3 {
+                texCoords.append(CGPoint(x: 0, y: CGFloat(u)))
+                texCoords.append(CGPoint(x: 1, y: CGFloat(u)))
+            }
+        }
+        
+        // 삼각형 인덱스 생성 (개선된 로직)
+        let pointsPerSegment = ribbonFlatness > 0.3 ? 4 : 2 // 평탄도에 따라 점 개수 조절
+        
+        for i in 0..<(vertices.count / pointsPerSegment - 1) {
+            let currentLeft = i * pointsPerSegment
+            let currentRight = i * pointsPerSegment + 1
+            let nextLeft = (i + 1) * pointsPerSegment
+            let nextRight = (i + 1) * pointsPerSegment + 1
+            
+            // 첫 번째 삼각형 (하단)
+            indices.append(Int32(currentLeft))
+            indices.append(Int32(nextLeft))
+            indices.append(Int32(currentRight))
+            
+            // 두 번째 삼각형 (하단)
+            indices.append(Int32(currentRight))
+            indices.append(Int32(nextLeft))
+            indices.append(Int32(nextRight))
+            
+            // 평탄도가 높을 때 상단 삼각형도 추가
+            if ribbonFlatness > 0.3 {
+                let currentLeftTop = i * pointsPerSegment + 2
+                let currentRightTop = i * pointsPerSegment + 3
+                let nextLeftTop = (i + 1) * pointsPerSegment + 2
+                let nextRightTop = (i + 1) * pointsPerSegment + 3
+                
+                // 상단 삼각형들
+                indices.append(Int32(currentLeftTop))
+                indices.append(Int32(currentRightTop))
+                indices.append(Int32(nextLeftTop))
+                
+                indices.append(Int32(nextLeftTop))
+                indices.append(Int32(currentRightTop))
+                indices.append(Int32(nextRightTop))
+            }
+        }
+        
+        // 지오메트리 소스 생성
+        let vertexSource = SCNGeometrySource(vertices: vertices)
+        let normalSource = SCNGeometrySource(normals: normals)
+        let texCoordSource = SCNGeometrySource(textureCoordinates: texCoords)
+        
+        // 지오메트리 엘리먼트 생성
+        let geometryElement = SCNGeometryElement(indices: indices, primitiveType: .triangles)
+        
+        // 지오메트리 생성
+        let geometry = SCNGeometry(sources: [vertexSource, normalSource, texCoordSource], elements: [geometryElement])
+        
+        // 세그먼트별 색상 적용을 위한 다중 머티리얼 생성
+        var materials: [SCNMaterial] = []
+        let segmentsCount = max(1, splinePoints.count - 1)
+        
+        for i in 0..<segmentsCount {
+            let material = SCNMaterial()
+            let segmentIndex = min(i, caAtoms.count - 1)
+            let ribbonColor = getRibbonColor(for: caAtoms, segmentIndex: segmentIndex)
+            
+            // Focus/Highlight 상태에 따른 투명도 계산 (다른 스타일과 동일한 로직)
+            let atom = caAtoms[segmentIndex]
+            let isHighlighted = highlightedChains.contains(atom.chain) || 
+                               highlightedLigands.contains(atom.residueName) || 
+                               highlightedPockets.contains(atom.residueName)
+            let isInFocus = isAtomInFocus(atom)
+            
+            let baseOpacity: CGFloat
+            if isInFocus {
+                baseOpacity = 1.0 // Focus된 원자는 완전 불투명
+            } else if isHighlighted {
+                baseOpacity = 1.0 // Highlight된 원자는 완전 불투명으로 더 명확하게
+            } else if focusedElement != nil {
+                baseOpacity = 0.15 // Focus가 있을 때 다른 원자는 매우 희미하게
+            } else {
+                baseOpacity = 0.5 // 일반 상태에서는 더 희미하게
+            }
+            
+            // 투명도 슬라이더와 결합
+            let finalOpacity = baseOpacity * CGFloat(transparency)
+            
+            material.diffuse.contents = ribbonColor.withAlphaComponent(finalOpacity)
+            material.specular.contents = UIColor.white
+            material.shininess = 0.1
+            // transparency는 diffuse.contents의 alpha와 충돌하므로 제거
+            material.isDoubleSided = true // 양면 렌더링 활성화
+            material.cullMode = .back // 컬링 완전 비활성화 (양면 모두 렌더링)
+            material.writesToDepthBuffer = true
+            material.readsFromDepthBuffer = true
+            material.fillMode = .fill // 채우기 모드
+            material.lightingModel = .lambert // 람버트 조명 모델
+            materials.append(material)
+        }
+        
+        geometry.materials = materials
+        
+        return geometry
+    }
+    
+    /// Highlight 상태를 고려한 리본 색상을 반환합니다
+    private func getRibbonColorWithHighlight(for atom: Atom, isChainHighlighted: Bool, isLigandHighlighted: Bool, isPocketHighlighted: Bool) -> UIColor {
+        let secondaryStructure = atom.secondaryStructure
+        let chainColor = getChainColor(for: atom.chain)
+        
+        // Highlight 상태 확인
+        let isHighlighted = isChainHighlighted || isLigandHighlighted || isPocketHighlighted
+        
+        // 2차 구조별 색상과 체인 색상을 조합
+        let baseColor: UIColor
+        if isHighlighted {
+            // Highlight된 경우 매우 밝고 대비가 강한 색상 사용
+            switch secondaryStructure {
+            case .helix:
+                baseColor = UIColor.systemPink // 더 밝은 분홍색
+            case .sheet:
+                baseColor = UIColor.systemYellow // 밝은 노란색
+            case .coil:
+                baseColor = UIColor.systemGreen // 밝은 녹색
+            case .unknown:
+                baseColor = UIColor.systemOrange // 밝은 주황색
+            }
+        } else {
+            // 일반 상태 - 더 어둡고 차분한 색상
+            switch secondaryStructure {
+            case .helix:
+                baseColor = UIColor.systemRed.withAlphaComponent(0.6) // 반투명 빨간색
+            case .sheet:
+                baseColor = UIColor.systemYellow.withAlphaComponent(0.5) // 반투명 노란색
+            case .coil:
+                baseColor = UIColor.systemGray2 // 더 어두운 회색
+            case .unknown:
+                baseColor = UIColor.systemBlue.withAlphaComponent(0.7) // 반투명 파란색
+            }
+        }
+        
+        return blendColors(chainColor, baseColor, alpha: 0.8)
+    }
+    
+    /// 2차 구조에 따른 리본 색상을 반환합니다
+    private func getRibbonColor(for caAtoms: [Atom], segmentIndex: Int) -> UIColor {
+        guard segmentIndex < caAtoms.count else { return UIColor.systemBlue }
+        
+        let atom = caAtoms[segmentIndex]
+        let secondaryStructure = atom.secondaryStructure
+        let chainColor = getChainColor(for: atom.chain)
+        
+        // Highlight 상태 확인
+        let isHighlighted = highlightedChains.contains(atom.chain) || 
+                           highlightedLigands.contains(atom.residueName) || 
+                           highlightedPockets.contains(atom.residueName)
+        
+        // 2차 구조별 색상과 체인 색상을 조합
+        let baseColor: UIColor
+        if isHighlighted {
+            // Highlight된 경우 매우 밝고 대비가 강한 색상 사용
+            switch secondaryStructure {
+            case .helix:
+                baseColor = UIColor.systemPink // 더 밝은 분홍색
+            case .sheet:
+                baseColor = UIColor.systemYellow // 밝은 노란색
+            case .coil:
+                baseColor = UIColor.systemGreen // 밝은 녹색
+            case .unknown:
+                baseColor = UIColor.systemOrange // 밝은 주황색
+            }
+        } else {
+            // 일반 상태 - 더 어둡고 차분한 색상
+            switch secondaryStructure {
+            case .helix:
+                baseColor = UIColor.systemRed.withAlphaComponent(0.6) // 반투명 빨간색
+            case .sheet:
+                baseColor = UIColor.systemYellow.withAlphaComponent(0.5) // 반투명 노란색
+            case .coil:
+                baseColor = UIColor.systemGray2 // 더 어두운 회색
+            case .unknown:
+                baseColor = UIColor.systemBlue.withAlphaComponent(0.7) // 반투명 파란색
+            }
+        }
+        
+        // 체인 색상과 2차 구조 색상을 블렌딩
+        return blendColors(chainColor, baseColor, alpha: 0.8)
+    }
+    
+    /// 2차 구조에 따른 리본 크기 조정
+    private func getRibbonDimensions(for structure: SecondaryStructure, baseWidth: CGFloat, baseFlatness: CGFloat) -> (width: CGFloat, flatness: CGFloat) {
+        switch structure {
+        case .helix:
+            return (baseWidth * 1.2, baseFlatness * 0.8) // α-helix: 더 두껍고 덜 평평
+        case .sheet:
+            return (baseWidth * 0.8, baseFlatness * 1.2) // β-sheet: 더 평평하고 좁음
+        case .coil:
+            return (baseWidth * 0.6, baseFlatness * 0.5) // Loop: 얇고 둥근 튜브
+        case .unknown:
+            return (baseWidth, baseFlatness)
+        }
+    }
+    
+    /// 접선과 법선 계산 (개선된 버전 - 동적 법선)
+    private func calculateTangentAndNormal(at index: Int, splinePoints: [SCNVector3]) -> (tangent: SCNVector3, normal: SCNVector3) {
+        let point = splinePoints[index]
+        
+        // 접선 계산
+        let tangent: SCNVector3
+        if index == 0 {
+            tangent = SCNVector3(
+                splinePoints[index + 1].x - point.x,
+                splinePoints[index + 1].y - point.y,
+                splinePoints[index + 1].z - point.z
+            )
+        } else if index == splinePoints.count - 1 {
+            tangent = SCNVector3(
+                point.x - splinePoints[index - 1].x,
+                point.y - splinePoints[index - 1].y,
+                point.z - splinePoints[index - 1].z
+            )
+        } else {
+            tangent = SCNVector3(
+                splinePoints[index + 1].x - splinePoints[index - 1].x,
+                splinePoints[index + 1].y - splinePoints[index - 1].y,
+                splinePoints[index + 1].z - splinePoints[index - 1].z
+            )
+        }
+        
+        // 접선 정규화
+        let tangentLength = sqrt(tangent.x * tangent.x + tangent.y * tangent.y + tangent.z * tangent.z)
+        guard tangentLength > 0 else {
+            return (SCNVector3(1, 0, 0), SCNVector3(0, 1, 0))
+        }
+        
+        let normalizedTangent = SCNVector3(
+            tangent.x / tangentLength,
+            tangent.y / tangentLength,
+            tangent.z / tangentLength
+        )
+        
+        // 동적 법선 계산 - 카메라 방향을 고려
+        let up = SCNVector3(0, 1, 0)
+        
+        // 접선이 Y축과 거의 평행한 경우를 처리
+        let dotProduct = abs(normalizedTangent.y)
+        let threshold: Float = 0.9
+        
+        let normal: SCNVector3
+        if dotProduct > threshold {
+            // 접선이 Y축과 거의 평행한 경우, X축을 사용
+            let right = SCNVector3(1, 0, 0)
+            normal = SCNVector3(
+                right.y * normalizedTangent.z - right.z * normalizedTangent.y,
+                right.z * normalizedTangent.x - right.x * normalizedTangent.z,
+                right.x * normalizedTangent.y - right.y * normalizedTangent.x
+            )
+        } else {
+            // 일반적인 경우, Y축을 사용
+            normal = SCNVector3(
+                up.y * normalizedTangent.z - up.z * normalizedTangent.y,
+                up.z * normalizedTangent.x - up.x * normalizedTangent.z,
+                up.x * normalizedTangent.y - up.y * normalizedTangent.x
+            )
+        }
+        
+        // 법선 정규화
+        let normalLength = sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z)
+        guard normalLength > 0 else {
+            return (normalizedTangent, SCNVector3(0, 1, 0))
+        }
+        
+        let normalizedNormal = SCNVector3(
+            normal.x / normalLength,
+            normal.y / normalLength,
+            normal.z / normalLength
+        )
+        
+        return (normalizedTangent, normalizedNormal)
+    }
+    
+    /// 2차 구조별 리본 점 생성
+    private func createRibbonPoints(center: SCNVector3, tangent: SCNVector3, normal: SCNVector3, width: CGFloat, flatness: CGFloat, secondaryStructure: SecondaryStructure, progress: Float) -> (vertices: [SCNVector3], normals: [SCNVector3], texCoords: [CGPoint]) {
+        
+        var vertices: [SCNVector3] = []
+        var normals: [SCNVector3] = []
+        var texCoords: [CGPoint] = []
+        
+        let halfWidth = width * 0.5
+        
+        switch secondaryStructure {
+        case .helix:
+            // α-helix: 원통형 나선
+            let helixRadius = halfWidth * 0.8
+            let angle = progress * Float.pi * 2 * 3.6 // 3.6회전 (α-helix의 특징)
+            
+            // 나선의 중심선에서 벗어난 위치 계산
+            let helixOffset = SCNVector3(
+                cos(angle) * Float(helixRadius),
+                sin(angle) * Float(helixRadius),
+                0
+            )
+            
+            // 나선의 실제 중심점
+            let helixCenter = SCNVector3(
+                center.x + helixOffset.x,
+                center.y + helixOffset.y,
+                center.z + helixOffset.z
+            )
+            
+            // 원통형 단면 생성
+            let segments = 8
+            for i in 0..<segments {
+                let angle = Float(i) * Float.pi * 2 / Float(segments)
+                let radius = Float(helixRadius * 0.3) // 원통의 반지름
+                
+                let offset = SCNVector3(
+                    cos(angle) * radius,
+                    sin(angle) * radius,
+                    0
+                )
+                
+                let vertex = SCNVector3(
+                    helixCenter.x + offset.x,
+                    helixCenter.y + offset.y,
+                    helixCenter.z + offset.z
+                )
+                
+                vertices.append(vertex)
+                normals.append(SCNVector3(offset.x, offset.y, offset.z))
+                texCoords.append(CGPoint(x: CGFloat(i) / CGFloat(segments), y: CGFloat(progress)))
+            }
+            
+        case .sheet:
+            // β-sheet: 평면적인 화살표 모양
+            let sheetWidth = halfWidth * (1.0 - CGFloat(progress) * 0.3) // 화살표가 좁아짐
+            let sheetHeight = halfWidth * 0.3
+            
+            // 화살표 모양의 4개 점
+            let left = SCNVector3(
+                center.x - normal.x * Float(sheetWidth),
+                center.y - normal.y * Float(sheetWidth),
+                center.z - normal.z * Float(sheetWidth)
+            )
+            
+            let right = SCNVector3(
+                center.x + normal.x * Float(sheetWidth),
+                center.y + normal.y * Float(sheetWidth),
+                center.z + normal.z * Float(sheetWidth)
+            )
+            
+            let leftTop = SCNVector3(
+                left.x + tangent.x * Float(sheetHeight),
+                left.y + tangent.y * Float(sheetHeight),
+                left.z + tangent.z * Float(sheetHeight)
+            )
+            
+            let rightTop = SCNVector3(
+                right.x + tangent.x * Float(sheetHeight),
+                right.y + tangent.y * Float(sheetHeight),
+                right.z + tangent.z * Float(sheetHeight)
+            )
+            
+            vertices.append(contentsOf: [left, right, leftTop, rightTop])
+            normals.append(contentsOf: [normal, normal, normal, normal])
+            texCoords.append(contentsOf: [
+                CGPoint(x: 0, y: CGFloat(progress)),
+                CGPoint(x: 1, y: CGFloat(progress)),
+                CGPoint(x: 0, y: CGFloat(progress)),
+                CGPoint(x: 1, y: CGFloat(progress))
+            ])
+            
+        case .coil:
+            // Loop/Turn: 얇은 튜브
+            let tubeRadius = halfWidth * 0.4
+            let segments = 6
+            
+            for i in 0..<segments {
+                let angle = Float(i) * Float.pi * 2 / Float(segments)
+                let radius = Float(tubeRadius)
+                
+                let offset = SCNVector3(
+                    cos(angle) * radius,
+                    sin(angle) * radius,
+                    0
+                )
+                
+                let vertex = SCNVector3(
+                    center.x + offset.x,
+                    center.y + offset.y,
+                    center.z + offset.z
+                )
+                
+                vertices.append(vertex)
+                normals.append(SCNVector3(offset.x, offset.y, offset.z))
+                texCoords.append(CGPoint(x: CGFloat(i) / CGFloat(segments), y: CGFloat(progress)))
+            }
+            
+        case .unknown:
+            // 기본 리본
+            let left = SCNVector3(
+                center.x - normal.x * Float(halfWidth),
+                center.y - normal.y * Float(halfWidth),
+                center.z - normal.z * Float(halfWidth)
+            )
+            
+            let right = SCNVector3(
+                center.x + normal.x * Float(halfWidth),
+                center.y + normal.y * Float(halfWidth),
+                center.z + normal.z * Float(halfWidth)
+            )
+            
+            vertices.append(contentsOf: [left, right])
+            normals.append(contentsOf: [normal, normal])
+            texCoords.append(contentsOf: [
+                CGPoint(x: 0, y: CGFloat(progress)),
+                CGPoint(x: 1, y: CGFloat(progress))
+            ])
+        }
+        
+        return (vertices, normals, texCoords)
+    }
+    
+    /// 2차 구조별 삼각형 인덱스 생성
+    private func createTriangleIndices(currentOffset: Int, nextOffset: Int, pointsPerSegment: Int, secondaryStructure: SecondaryStructure) -> [Int32] {
+        var indices: [Int32] = []
+        
+        switch secondaryStructure {
+        case .helix, .coil:
+            // 원통형/튜브형: 원형 단면을 삼각형으로 분할
+            for i in 0..<pointsPerSegment {
+                let next = (i + 1) % pointsPerSegment
+                
+                // 현재 원의 삼각형
+                indices.append(Int32(currentOffset + i))
+                indices.append(Int32(currentOffset + next))
+                indices.append(Int32(nextOffset + i))
+                
+                indices.append(Int32(nextOffset + i))
+                indices.append(Int32(currentOffset + next))
+                indices.append(Int32(nextOffset + next))
+            }
+            
+        case .sheet:
+            // 평면형: 4개 점을 2개 삼각형으로
+            indices.append(contentsOf: [
+                Int32(currentOffset), Int32(currentOffset + 1), Int32(nextOffset),
+                Int32(nextOffset), Int32(currentOffset + 1), Int32(nextOffset + 1),
+                Int32(currentOffset + 2), Int32(currentOffset + 3), Int32(nextOffset + 2),
+                Int32(nextOffset + 2), Int32(currentOffset + 3), Int32(nextOffset + 3)
+            ])
+            
+        case .unknown:
+            // 기본 리본: 2개 점을 2개 삼각형으로
+            indices.append(contentsOf: [
+                Int32(currentOffset), Int32(currentOffset + 1), Int32(nextOffset),
+                Int32(nextOffset), Int32(currentOffset + 1), Int32(nextOffset + 1)
+            ])
+        }
+        
+        return indices
+    }
+    
+    /// 2차 구조별 재질 생성
+    private func createMaterial(for structure: SecondaryStructure) -> SCNMaterial {
+        let material = SCNMaterial()
+        material.transparency = CGFloat(transparency)
+        material.isDoubleSided = true // 양면 렌더링 활성화
+        material.cullMode = .back // 컬링 완전 비활성화 (양면 모두 렌더링)
+        material.writesToDepthBuffer = true
+        material.readsFromDepthBuffer = true
+        material.fillMode = .fill // 채우기 모드
+        material.lightingModel = .lambert // 람버트 조명 모델
+        
+        switch structure {
+        case .helix:
+            material.diffuse.contents = UIColor.systemRed
+        case .sheet:
+            material.diffuse.contents = UIColor.systemYellow
+        case .coil:
+            material.diffuse.contents = UIColor.systemGray
+        case .unknown:
+            material.diffuse.contents = UIColor.systemBlue
+        }
+        
+        return material
+    }
+    
+    /// 체인별 색상을 반환합니다
+    private func getChainColor(for chainId: String) -> UIColor {
+        switch chainId.uppercased() {
+        case "A": return UIColor.systemBlue
+        case "B": return UIColor.systemOrange
+        case "C": return UIColor.systemGreen
+        case "D": return UIColor.systemPurple
+        case "E": return UIColor.systemPink
+        case "F": return UIColor.systemTeal
+        case "G": return UIColor.systemIndigo
+        case "H": return UIColor.systemBrown
+        default: return UIColor.systemGray
+        }
+    }
+    
+    /// 두 색상을 블렌딩합니다
+    private func blendColors(_ color1: UIColor, _ color2: UIColor, alpha: CGFloat) -> UIColor {
+        var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+        var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+        
+        color1.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+        color2.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+        
+        // 70% 체인 색상 + 30% 2차 구조 색상
+        let blendedR = r1 * 0.7 + r2 * 0.3
+        let blendedG = g1 * 0.7 + g2 * 0.3
+        let blendedB = b1 * 0.7 + b2 * 0.3
+        
+        return UIColor(red: blendedR, green: blendedG, blue: blendedB, alpha: alpha)
+    }
+    
+    /// 포켓 원자들을 스피어로 렌더링하는 노드들을 생성합니다
+    private func createPocketNodes(from structure: PDBStructure, atoms: [Atom]) -> [SCNNode] {
+        let pocketAtoms = atoms.filter { $0.isPocket }
+        var pocketNodes: [SCNNode] = []
+        
+        for atom in pocketAtoms {
+            let pocketNode = createPocketAtomNode(atom)
+            pocketNodes.append(pocketNode)
+        }
+        
+        print("Created \(pocketNodes.count) pocket nodes")
+        return pocketNodes
+    }
+    
+    /// 개별 포켓 원자를 스피어로 렌더링합니다
+    private func createPocketAtomNode(_ atom: Atom) -> SCNNode {
+        let radius: CGFloat = 1.2 // 포켓은 약간 큰 스피어로 표시
+        let color: UIColor = .orange // 포켓은 주황색으로 표시
+        
+        // 포켓 하이라이트 확인
+        let isHighlighted = highlightedPockets.contains(atom.residueName)
+        let isFocused = {
+            if let currentFocus = focusedElement,
+               case .pocket(let currentPocket) = currentFocus {
+                return currentPocket == atom.residueName
+            }
+            return false
+        }()
+        
+        let finalColor: UIColor
+        let finalRadius: CGFloat
+        
+        if isFocused {
+            finalColor = .yellow
+            finalRadius = radius * 1.5
+        } else if isHighlighted {
+            finalColor = .red
+            finalRadius = radius * 1.3
+        } else {
+            finalColor = color
+            finalRadius = radius
+        }
+        
+        let sphereGeometry = SCNSphere(radius: finalRadius)
+        let material = SCNMaterial()
+        material.diffuse.contents = finalColor
+        material.transparency = CGFloat(transparency)
+        sphereGeometry.firstMaterial = material
+        
+        let node = SCNNode(geometry: sphereGeometry)
+        node.position = SCNVector3(atom.position.x, atom.position.y, atom.position.z)
+        node.name = "pocket_\(atom.id)_\(atom.residueName)"
+        
+        return node
+    }
+    
+    /// 리간드와 보조 인자 노드를 생성합니다 (리본 모드용)
+    private func createLigandNodes(from structure: PDBStructure, atoms: [Atom]) -> [SCNNode] {
+        var ligandNodes: [SCNNode] = []
+        
+        // 리간드와 보조 인자만 필터링
+        let ligandAtoms = atoms.filter { $0.isLigand }
+        
+        // 리간드별로 그룹화
+        let ligandGroups = Dictionary(grouping: ligandAtoms) { $0.residueName }
+        
+        for (ligandName, atoms) in ligandGroups {
+            let ligandGroupNode = SCNNode()
+            ligandGroupNode.name = "ligand_\(ligandName)"
+            
+            // 리간드 내의 원자들 생성
+            for atom in atoms {
+                let atomNode = createLigandAtomNode(atom)
+                ligandGroupNode.addChildNode(atomNode)
+            }
+            
+            // 리간드 내의 결합 생성
+            let ligandBonds = structure.bonds.filter { bond in
+                let atom1 = structure.atoms.first { $0.id == bond.atomA }
+                let atom2 = structure.atoms.first { $0.id == bond.atomB }
+                return atom1?.isLigand == true && atom2?.isLigand == true &&
+                       atom1?.residueName == ligandName && atom2?.residueName == ligandName
+            }
+            
+            for bond in ligandBonds {
+                let bondNode = createBondNode(bond, atoms: structure.atoms)
+                ligandGroupNode.addChildNode(bondNode)
+            }
+            
+            ligandNodes.append(ligandGroupNode)
+        }
+        
+        return ligandNodes
+    }
+    
+    /// 리간드 원자 노드를 생성합니다 (리본 모드용)
+    private func createLigandAtomNode(_ atom: Atom) -> SCNNode {
+        let baseRadius: CGFloat = 1.0
+        let radius: CGFloat
+        let color: UIColor
+        
+        // Check if atom should be highlighted
+        let isHighlighted = highlightedChains.contains(atom.chain) || 
+                           highlightedLigands.contains(atom.residueName) || 
+                           highlightedPockets.contains(atom.residueName)
+        
+        // Check if atom is in focus
+        let isInFocus = isAtomInFocus(atom)
+        
+        // Determine opacity based on focus and highlight state
+        let baseOpacity: CGFloat
+        if isInFocus {
+            baseOpacity = 1.0 // Full opacity for focused atoms
+        } else if isHighlighted {
+            baseOpacity = 0.9 // High opacity for highlighted atoms
+        } else if focusedElement != nil {
+            baseOpacity = 0.3 // Medium opacity for non-focused atoms when something is focused
+        } else {
+            baseOpacity = 0.7 // Higher opacity for ligands in ribbon mode
+        }
+        
+        // Apply transparency slider
+        let opacity = baseOpacity * CGFloat(transparency)
+        
+        if isHighlighted {
+            // Highlighted atoms: brighter colors and slightly larger
+            radius = baseRadius * 1.3 * (atom.element.atomicRadius / 0.7) * CGFloat(atomSize)
+            switch colorMode {
+            case .element:
+                color = UIColor(atom.element.color).withAlphaComponent(opacity)
+            case .chain:
+                color = chainColor(for: atom.chain).withAlphaComponent(opacity)
+            case .uniform:
+                color = uniformColor.withAlphaComponent(opacity)
+            case .secondaryStructure:
+                color = UIColor(atom.secondaryStructure.color).withAlphaComponent(opacity)
+            }
+        } else {
+            // Normal atoms: standard colors with appropriate opacity
+            radius = baseRadius * (atom.element.atomicRadius / 0.7) * CGFloat(atomSize)
+            switch colorMode {
+            case .element:
+                color = UIColor(atom.element.color).withAlphaComponent(opacity)
+            case .chain:
+                color = chainColor(for: atom.chain).withAlphaComponent(opacity)
+            case .uniform:
+                color = uniformColor.withAlphaComponent(opacity)
+            case .secondaryStructure:
+                color = UIColor(atom.secondaryStructure.color).withAlphaComponent(opacity)
+            }
+        }
+        
+        let geometry = SCNSphere(radius: radius)
+        let material = SCNMaterial()
+        material.diffuse.contents = color
+        material.specular.contents = UIColor.white
+        material.shininess = 0.3
+        geometry.materials = [material]
+        
+        let node = SCNNode(geometry: geometry)
+        node.position = SCNVector3(atom.position.x, atom.position.y, atom.position.z)
+        node.name = "atom_\(atom.id)"
+        
+        return node
     }
     
     // Helper function for proportional sampling
@@ -3330,6 +4576,9 @@ struct ProteinSceneView: UIViewRepresentable {
             geometry = createCartoonGeometry(for: atom, radius: finalRadius, color: color)
         case .surface:
             geometry = createSurfaceGeometry(for: atom, radius: finalRadius, color: color)
+        case .ribbon:
+            // 리본 모드에서는 원자 노드를 생성하지 않음 (리본으로 대체)
+            return SCNNode()
         }
         
         let node = SCNNode(geometry: geometry)
@@ -3423,6 +4672,7 @@ struct ProteinSceneView: UIViewRepresentable {
         case .sticks: return 0.8
         case .cartoon: return 1.2
         case .surface: return 0.9
+        case .ribbon: return 1.0 // 리본 모드에서는 별도 크기 조절 사용
         }
     }
     
@@ -3524,6 +4774,8 @@ struct ProteinSceneView: UIViewRepresentable {
         var lastZoomLevel: Double = 1.0
         var lastTransparency: Double = 1.0
         var lastAtomSize: Double = 1.0
+        var lastRibbonWidth: Double = 1.2
+        var lastRibbonFlatness: Double = 0.5
         
         init(parent: ProteinSceneView) {
             self.parent = parent
@@ -3838,7 +5090,7 @@ struct TabBasedViewerControls: View {
     // Advanced controls state
     @State private var autoRotate = false
     @State private var showBonds = true
-    @State private var transparency: Double = 1.0
+    @State private var transparency: Double = 0.7
     @State private var atomSize: Double = 1.0
     
     enum ControlTab: String, CaseIterable {
@@ -4216,6 +5468,81 @@ extension SecondaryStructure {
         case .sheet: return .yellow
         case .coil: return .gray
         case .unknown: return Color(UIColor.lightGray)
+        }
+    }
+}
+
+// MARK: - Ribbon Optimization Functions
+
+extension ProteinSceneView {
+    /// 체인별 원자 최적화 (리본 렌더링용)
+    private func optimizeChainAtoms(_ atoms: [Atom], maxAtoms: Int) -> [Atom] {
+        if atoms.count <= maxAtoms {
+            print("🔧 Chain atoms already within limit: \(atoms.count) atoms")
+            return atoms
+        }
+        
+        print("🔧 Chain optimization: \(atoms.count) atoms → target: \(maxAtoms)")
+        
+        // 1. 2차 구조별로 그룹화
+        let structureGroups = Dictionary(grouping: atoms) { $0.secondaryStructure }
+        print("🔧 Secondary structure groups: \(structureGroups.mapValues { $0.count })")
+        
+        var optimizedAtoms: [Atom] = []
+        
+        for (structure, structureAtoms) in structureGroups {
+            let groupSize = max(10, maxAtoms / structureGroups.count) // 그룹당 최소 10개 보장 (리본용으로 줄임)
+            print("🔧 Structure \(structure): \(structureAtoms.count) atoms → target: \(groupSize)")
+            
+            let sampledAtoms = sampleAtomsFromGroup(structureAtoms, targetCount: groupSize)
+            optimizedAtoms.append(contentsOf: sampledAtoms)
+        }
+        
+        // 2. 여전히 많으면 균등 샘플링
+        if optimizedAtoms.count > maxAtoms {
+            print("🔧 Further sampling needed: \(optimizedAtoms.count) → \(maxAtoms)")
+            optimizedAtoms = sampleAtomsEvenly(optimizedAtoms, targetCount: maxAtoms)
+        }
+        
+        print("🔧 Chain optimization result: \(atoms.count) → \(optimizedAtoms.count) atoms")
+        return optimizedAtoms
+    }
+    
+    /// 그룹에서 원자 샘플링 (2차 구조 유지)
+    private func sampleAtomsFromGroup(_ atoms: [Atom], targetCount: Int) -> [Atom] {
+        if atoms.count <= targetCount {
+            return atoms
+        }
+        
+        // 균등 간격으로 샘플링하여 전체 구조를 대표
+        let step = Double(atoms.count) / Double(targetCount)
+        var sampledAtoms: [Atom] = []
+        
+        for i in 0..<targetCount {
+            let index = Int(Double(i) * step)
+            if index < atoms.count {
+                sampledAtoms.append(atoms[index])
+            }
+        }
+        
+        return sampledAtoms
+    }
+    
+    
+    /// 원자 수에 따른 최적 세그먼트 수 계산
+    private func calculateOptimalSegments(for atomCount: Int) -> Int {
+        // 원자 수에 따라 세그먼트 수를 동적으로 조정
+        switch atomCount {
+        case 0..<50:
+            return 4  // 매우 적은 원자: 낮은 품질
+        case 50..<100:
+            return 6  // 적은 원자: 중간 품질
+        case 100..<200:
+            return 8  // 보통 원자: 높은 품질
+        case 200..<500:
+            return 6  // 많은 원자: 중간 품질 (성능 우선)
+        default:
+            return 4  // 매우 많은 원자: 낮은 품질 (성능 최우선)
         }
     }
 }

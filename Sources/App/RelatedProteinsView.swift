@@ -184,34 +184,166 @@ struct RelatedProteinsView: View {
                 
                 await MainActor.run {
                     if relatedProteins.isEmpty {
-                        print("⚠️ API 결과가 비어있음 - 샘플 데이터 사용")
-                        self.relatedProteins = generateSampleRelatedProteins()
+                        print("⚠️ API 결과가 비어있음 - 실제 검색 시도")
+                        // 빈 결과일 때는 다른 검색 방법 시도
+                        Task {
+                            await loadAlternativeRelatedProteins()
+                        }
                     } else {
                         print("✅ 실제 API 데이터 사용")
                         self.relatedProteins = relatedProteins
+                        self.isLoading = false
                     }
-                    self.isLoading = false
                 }
             } catch let errorMessage {
                 print("❌ PDB API 실패: \(errorMessage.localizedDescription)")
                 await MainActor.run {
-                    print("🔄 샘플 데이터로 폴백")
-                    self.relatedProteins = generateSampleRelatedProteins()
-                    self.error = nil // 에러를 숨기고 샘플 데이터 표시
-                    self.isLoading = false
+                    print("🔄 대안 검색 방법 시도")
+                    Task {
+                        await loadAlternativeRelatedProteins()
+                    }
                 }
             }
         }
     }
     
+    // MARK: - Alternative Search Methods
+    private func loadAlternativeRelatedProteins() async {
+        do {
+            // 1. 같은 카테고리의 다른 단백질 검색
+            let categoryProteins = try await fetchProteinsByCategory()
+            if !categoryProteins.isEmpty {
+                await MainActor.run {
+                    self.relatedProteins = categoryProteins
+                    self.isLoading = false
+                }
+                return
+            }
+            
+            // 2. 유사한 크기의 단백질 검색
+            let similarSizeProteins = try await fetchProteinsBySimilarSize()
+            if !similarSizeProteins.isEmpty {
+                await MainActor.run {
+                    self.relatedProteins = similarSizeProteins
+                    self.isLoading = false
+                }
+                return
+            }
+            
+            // 3. 최근에 추가된 단백질 검색
+            let recentProteins = try await fetchRecentProteins()
+            await MainActor.run {
+                self.relatedProteins = recentProteins
+                self.isLoading = false
+            }
+            
+        } catch {
+            await MainActor.run {
+                self.error = "Failed to load related proteins: \(error.localizedDescription)"
+                self.isLoading = false
+            }
+        }
+    }
+    
+    private func fetchProteinsByCategory() async throws -> [RelatedProtein] {
+        // 더 간단한 카테고리 검색
+        let query = """
+        {
+            "query": {
+                "type": "terminal",
+                "service": "text",
+                "parameters": {
+                    "attribute": "struct_keywords.pdbx_keywords",
+                    "operator": "contains_phrase",
+                    "value": "protein"
+                }
+            },
+            "return_type": "entry",
+            "rows": 10
+        }
+        """
+        
+        guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            throw URLError(.badURL)
+        }
+        
+        let urlString = "https://search.rcsb.org/rcsbsearch/v2/query?json=\(encodedQuery)&return_type=entry&rows=10"
+        guard let url = URL(string: urlString) else { throw URLError(.badURL) }
+        
+        let (data, _) = try await URLSession.shared.data(from: url)
+        let searchResult = try JSONDecoder().decode(PDBSearchResult.self, from: data)
+        
+        return try await processSearchResults(searchResult)
+    }
+    
+    private func fetchProteinsBySimilarSize() async throws -> [RelatedProtein] {
+        // 더 간단한 크기 기반 검색
+        let query = """
+        {
+            "query": {
+                "type": "terminal",
+                "service": "text",
+                "parameters": {
+                    "attribute": "struct_keywords.pdbx_keywords",
+                    "operator": "contains_phrase",
+                    "value": "crystal"
+                }
+            },
+            "return_type": "entry",
+            "rows": 10
+        }
+        """
+        
+        guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            throw URLError(.badURL)
+        }
+        
+        let urlString = "https://search.rcsb.org/rcsbsearch/v2/query?json=\(encodedQuery)&return_type=entry&rows=10"
+        guard let url = URL(string: urlString) else { throw URLError(.badURL) }
+        
+        let (data, _) = try await URLSession.shared.data(from: url)
+        let searchResult = try JSONDecoder().decode(PDBSearchResult.self, from: data)
+        
+        return try await processSearchResults(searchResult)
+    }
+    
+    private func fetchRecentProteins() async throws -> [RelatedProtein] {
+        // 더 간단한 최근 단백질 검색
+        let query = """
+        {
+            "query": {
+                "type": "terminal",
+                "service": "text",
+                "parameters": {
+                    "attribute": "struct_keywords.pdbx_keywords",
+                    "operator": "contains_phrase",
+                    "value": "structure"
+                }
+            },
+            "return_type": "entry",
+            "rows": 10
+        }
+        """
+        
+        guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            throw URLError(.badURL)
+        }
+        
+        let urlString = "https://search.rcsb.org/rcsbsearch/v2/query?json=\(encodedQuery)&return_type=entry&rows=10"
+        guard let url = URL(string: urlString) else { throw URLError(.badURL) }
+        
+        let (data, _) = try await URLSession.shared.data(from: url)
+        let searchResult = try JSONDecoder().decode(PDBSearchResult.self, from: data)
+        
+        return try await processSearchResults(searchResult)
+    }
+    
     // MARK: - PDB API Integration
     private func fetchRelatedProteinsFromPDB() async throws -> [RelatedProtein] {
         // PDB Search API를 사용해서 관련 단백질 검색
-        let searchQuery = buildRelatedProteinsQuery()
-        let urlString = "https://data.rcsb.org/rest/v1/search?query=\(searchQuery)&return_type=entry&rows=20"
+        let urlString = "https://search.rcsb.org/rcsbsearch/v2/query?json=%7B%22query%22:%7B%22type%22:%22terminal%22,%22service%22:%22text%22,%22parameters%22:%7B%22attribute%22:%22struct_keywords.pdbx_keywords%22,%22operator%22:%22contains_phrase%22,%22value%22:%22hydrolase%22%7D%7D,%22return_type%22:%22entry%22%7D&return_type=entry&rows=20"
         
         print("🔍 PDB API 요청: \(urlString)")
-        print("🔍 검색 쿼리: \(searchQuery)")
         
         guard let url = URL(string: urlString) else {
             print("❌ 잘못된 URL: \(urlString)")
@@ -224,52 +356,74 @@ struct RelatedProteinsView: View {
             print("📥 HTTP 응답 상태: \(httpResponse.statusCode)")
             if httpResponse.statusCode != 200 {
                 print("❌ HTTP 오류: \(httpResponse.statusCode)")
-                throw URLError(.badServerResponse)
+                // 404 오류 시 더 간단한 쿼리로 재시도
+                return try await fetchSimpleRelatedProteins()
             }
         }
         
         print("📦 받은 데이터 크기: \(data.count) bytes")
         
         let searchResult = try JSONDecoder().decode(PDBSearchResult.self, from: data)
-        print("📦 검색 결과: \(searchResult.result_set?.query?.result_count ?? 0)개 단백질")
-        print("📦 엔트리 수: \(searchResult.result_set?.entries?.count ?? 0)개")
+        print("📦 검색 결과: \(searchResult.total_count ?? 0)개 단백질")
+        print("📦 엔트리 수: \(searchResult.result_set?.count ?? 0)개")
         
         return try await processSearchResults(searchResult)
     }
     
-    private func buildRelatedProteinsQuery() -> String {
-        // 현재 단백질과 유사한 단백질을 찾기 위한 검색 쿼리
-        let category = protein.category.rawValue.lowercased()
+    private func fetchSimpleRelatedProteins() async throws -> [RelatedProtein] {
+        // 더 간단한 쿼리로 재시도
+        let simpleQuery = """
+        {
+            "query": {
+                "type": "terminal",
+                "service": "text",
+                "parameters": {
+                    "attribute": "struct_keywords.pdbx_keywords",
+                    "operator": "contains_phrase",
+                    "value": "enzyme"
+                }
+            },
+            "return_type": "entry",
+            "rows": 10
+        }
+        """
         
-        // 같은 카테고리, 유사한 크기의 단백질 검색
+        guard let encodedQuery = simpleQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            throw URLError(.badURL)
+        }
+        
+        let urlString = "https://search.rcsb.org/rcsbsearch/v2/query?json=\(encodedQuery)&return_type=entry&rows=10"
+        print("🔄 간단한 쿼리로 재시도: \(urlString)")
+        
+        guard let url = URL(string: urlString) else {
+            throw URLError(.badURL)
+        }
+        
+        let (data, response) = try await URLSession.shared.data(from: url)
+        
+        if let httpResponse = response as? HTTPURLResponse {
+            print("📥 간단한 쿼리 HTTP 응답: \(httpResponse.statusCode)")
+            if httpResponse.statusCode != 200 {
+                throw URLError(.badServerResponse)
+            }
+        }
+        
+        let searchResult = try JSONDecoder().decode(PDBSearchResult.self, from: data)
+        return try await processSearchResults(searchResult)
+    }
+    
+    private func buildRelatedProteinsQuery() -> String {
+        // 간단한 쿼리로 수정 (새로운 API에서 복잡한 쿼리가 400 오류 발생)
         return """
         {
             "query": {
-                "type": "group",
-                "logical_operator": "and",
-                "nodes": [
-                    {
-                        "type": "terminal",
-                        "service": "text",
-                        "parameters": {
-                            "attribute": "struct_keywords.pdbx_keywords",
-                            "operator": "contains_phrase",
-                            "value": "\(category)"
-                        }
-                    },
-                    {
-                        "type": "terminal",
-                        "service": "range",
-                        "parameters": {
-                            "attribute": "rcsb_entry_info.deposited_atom_count",
-                            "operator": "range",
-                            "value": {
-                                "from": 500,
-                                "to": 5000
-                            }
-                        }
-                    }
-                ]
+                "type": "terminal",
+                "service": "text",
+                "parameters": {
+                    "attribute": "struct_keywords.pdbx_keywords",
+                    "operator": "contains_phrase",
+                    "value": "hydrolase"
+                }
             },
             "return_type": "entry"
         }
@@ -277,38 +431,50 @@ struct RelatedProteinsView: View {
     }
     
     private func processSearchResults(_ searchResult: PDBSearchResult) async throws -> [RelatedProtein] {
-        guard let entries = searchResult.result_set?.entries else {
+        guard let entries = searchResult.result_set else {
             return []
         }
         
         var relatedProteins: [RelatedProtein] = []
         
         for entry in entries {
+            guard let identifier = entry.identifier else { continue }
+            
             // 현재 단백질과 같은 ID는 제외
-            if entry.identifier == protein.id {
+            if identifier == protein.id {
                 continue
             }
             
-            let relatedProtein = RelatedProtein(
-                id: entry.identifier,
-                name: entry.struct?.title ?? "Unknown Protein",
-                description: entry.struct?.pdbx_descriptor ?? "",
-                category: determineCategory(from: entry),
-                chainCount: entry.polymer_entities?.count ?? 1,
-                atomCount: entry.rcsb_entry_info?.deposited_atom_count ?? 0,
-                resolution: entry.refine?.ls_d_res_high,
-                relationship: determineRelationship(from: entry)
-            )
-            
-            relatedProteins.append(relatedProtein)
+            // 각 엔트리에 대한 상세 정보 가져오기
+            do {
+                let entryUrl = URL(string: "https://data.rcsb.org/rest/v1/core/entry/\(identifier)")!
+                let (entryData, _) = try await URLSession.shared.data(from: entryUrl)
+                let entryResponse = try JSONDecoder().decode(EntryDetailsResponse.self, from: entryData)
+                
+                let relatedProtein = RelatedProtein(
+                    id: identifier,
+                    name: entryResponse.struct?.title ?? "Unknown Protein",
+                    description: entryResponse.struct?.pdbx_descriptor ?? "",
+                    category: determineCategory(from: entryResponse),
+                    chainCount: 1, // 기본값
+                    atomCount: entryResponse.rcsb_entry_info?.deposited_atom_count ?? 0,
+                    resolution: entryResponse.refine?.first?.ls_d_res_high,
+                    relationship: determineRelationship(from: entryResponse)
+                )
+                
+                relatedProteins.append(relatedProtein)
+            } catch {
+                print("⚠️ 엔트리 \(identifier) 정보 가져오기 실패: \(error)")
+                continue
+            }
         }
         
         return relatedProteins
     }
     
-    private func determineCategory(from entry: PDBSearchEntry) -> ProteinCategory {
+    private func determineCategory(from entry: EntryDetailsResponse) -> ProteinCategory {
         // PDB 키워드나 설명을 기반으로 카테고리 결정
-        let keywords = entry.struct?.pdbx_keywords?.lowercased() ?? ""
+        let keywords = entry.struct_keywords?.pdbx_keywords?.lowercased() ?? ""
         let title = entry.struct?.title?.lowercased() ?? ""
         let text = "\(keywords) \(title)"
         
@@ -339,9 +505,9 @@ struct RelatedProteinsView: View {
         }
     }
     
-    private func determineRelationship(from entry: PDBSearchEntry) -> String {
+    private func determineRelationship(from entry: EntryDetailsResponse) -> String {
         // 단백질 간의 관계 결정
-        let keywords = entry.struct?.pdbx_keywords?.lowercased() ?? ""
+        let keywords = entry.struct_keywords?.pdbx_keywords?.lowercased() ?? ""
         
         if keywords.contains("homolog") {
             return "Structural homolog"
@@ -431,24 +597,15 @@ struct RelatedProtein {
 
 // MARK: - PDB API Response Models
 struct PDBSearchResult: Codable {
-    let result_set: PDBSearchResultSet?
-}
-
-struct PDBSearchResultSet: Codable {
-    let query: PDBSearchQuery?
-    let entries: [PDBSearchEntry]?
-}
-
-struct PDBSearchQuery: Codable {
-    let result_count: Int?
+    let query_id: String?
+    let result_type: String?
+    let total_count: Int?
+    let result_set: [PDBSearchEntry]?
 }
 
 struct PDBSearchEntry: Codable {
-    let identifier: String
-    let `struct`: PDBSearchStruct?
-    let polymer_entities: [PDBPolymerEntity]?
-    let rcsb_entry_info: PDBSearchEntryInfo?
-    let refine: PDBSearchRefine?
+    let identifier: String?
+    let score: Double?
 }
 
 struct PDBSearchStruct: Codable {

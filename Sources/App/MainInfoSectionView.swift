@@ -1,13 +1,28 @@
 import SwiftUI
 import UIKit
 
+// MARK: - Selected Button Enum
+enum SelectedButton: CaseIterable {
+    case none
+    case structure
+    case coloring
+    case interact
+    
+    var title: String {
+        switch self {
+        case .none: return ""
+        case .structure: return "Structure"
+        case .coloring: return "Coloring"
+        case .interact: return "Interact"
+        }
+    }
+}
+
 struct MainInfoSectionView: View {
     let protein: ProteinInfo
     let structure: PDBStructure?
     @Binding var showingPDBWebsite: Bool
-    @State private var showingStructureDetails = false // 구조 세부 정보 표시 상태
-    @State private var showingColoringDetails = false // 색상 정보 표시 상태
-    @State private var showingInteractDetails = false // 상호작용 정보 표시 상태
+    @State private var selectedButton: SelectedButton = .none // 선택된 버튼 상태
     @State private var showingAminoAcidSequence = false // 아미노산 서열 화면 표시 상태
     @State private var aminoAcidSequences: [String] = [] // 아미노산 서열 데이터
     @State private var isLoadingSequence = false // 서열 로딩 상태
@@ -50,33 +65,70 @@ struct MainInfoSectionView: View {
                 // 구조 단계 버튼 (클릭 가능)
                 Button(action: {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        showingStructureDetails.toggle()
+                        selectedButton = selectedButton == .structure ? .none : .structure
                     }
                 }) {
                     MetricPill(title: "Structure", value: "1→4 단계", icon: "square.grid.2x2")
                 }
                 .buttonStyle(.plain)
+                .background(
+                    selectedButton == .structure ? 
+                    protein.category.color.opacity(0.15) : 
+                    Color.clear
+                )
+                .overlay(
+                    selectedButton == .structure ? 
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(protein.category.color, lineWidth: 2) : 
+                    nil
+                )
+                .cornerRadius(12)
                 
                 Button(action: {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        showingColoringDetails.toggle()
+                        selectedButton = selectedButton == .coloring ? .none : .coloring
                     }
                 }) {
                     MetricPill(title: "Coloring",  value: "Element/Chain/SS", icon: "paintbrush")
                 }
                 .buttonStyle(.plain)
+                .background(
+                    selectedButton == .coloring ? 
+                    protein.category.color.opacity(0.15) : 
+                    Color.clear
+                )
+                .overlay(
+                    selectedButton == .coloring ? 
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(protein.category.color, lineWidth: 2) : 
+                    nil
+                )
+                .cornerRadius(12)
+                
                 Button(action: {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        showingInteractDetails.toggle()
+                        selectedButton = selectedButton == .interact ? .none : .interact
                     }
                 }) {
                     MetricPill(title: "Interact",  value: "Rotate/Zoom/Slice", icon: "hand.tap")
                 }
                 .buttonStyle(.plain)
+                .background(
+                    selectedButton == .interact ? 
+                    protein.category.color.opacity(0.15) : 
+                    Color.clear
+                )
+                .overlay(
+                    selectedButton == .interact ? 
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(protein.category.color, lineWidth: 2) : 
+                    nil
+                )
+                .cornerRadius(12)
             }
             
             // 색상 정보 세부사항
-            if showingColoringDetails {
+            if selectedButton == .coloring {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Coloring Schemes")
                         .font(.headline.weight(.semibold))
@@ -113,7 +165,7 @@ struct MainInfoSectionView: View {
             }
             
             // 상호작용 정보 세부사항
-            if showingInteractDetails {
+            if selectedButton == .interact {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("3D Interaction Controls")
                         .font(.headline.weight(.semibold))
@@ -162,7 +214,7 @@ struct MainInfoSectionView: View {
             }
             
             // 구조 단계별 세부 정보
-            if showingStructureDetails {
+            if selectedButton == .structure {
                 structureDetailsView
                     .transition(.asymmetric(
                         insertion: .opacity.combined(with: .move(edge: .top)),

@@ -129,11 +129,15 @@ struct EnhancedProteinViewerView: View {
     @State private var error: String?
     
     // Viewer States
-    @State private var style: RenderStyle = .cartoon
+    @State private var style: RenderStyle = .ribbon
     @State private var colorMode: ColorMode = .chain
     @State private var uniformColor: Color = .blue
     @State private var autoRotate = false
     @State private var selectedAtom: Atom?
+    
+    // Ribbon-specific states
+    @State private var ribbonWidth: Double = 1.2
+    @State private var ribbonFlatness: Double = 0.5
     
     // Tab Selection
     // ✅ Tab Selection (주석 해제/복원)
@@ -201,7 +205,9 @@ struct EnhancedProteinViewerView: View {
                         highlightedLigands: [],
                         highlightedPockets: [],
                         focusedElement: nil,
-                        onFocusRequest: { _ in }
+                        onFocusRequest: { _ in },
+                        ribbonWidth: ribbonWidth,
+                        ribbonFlatness: ribbonFlatness
                     )
                     .background(Color.black)
                     .cornerRadius(12)
