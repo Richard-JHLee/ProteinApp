@@ -1547,9 +1547,12 @@ struct ProteinSceneContainer: View {
         .onChange(of: externalIs3DStructureLoading) { isLoading in
             if isLoading {
                 // 3D structure 로딩이 시작되면 overview tab으로 자동 전환
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    selectedTab = .overview
-                    shouldSwitchToOverview = true
+                // 단, highlight/focus 작업 중이 아닐 때만 전환
+                if !isRendering3D && renderingProgress.isEmpty {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        selectedTab = .overview
+                        shouldSwitchToOverview = true
+                    }
                 }
             }
         }
@@ -3643,8 +3646,8 @@ struct ProteinSceneView: UIViewRepresentable {
             texCoords.append(CGPoint(x: 1, y: CGFloat(u)))
             
             if ribbonFlatness > 0.3 {
-                texCoords.append(CGPoint(x: 0, y: CGFloat(u)))
-                texCoords.append(CGPoint(x: 1, y: CGFloat(u)))
+            texCoords.append(CGPoint(x: 0, y: CGFloat(u)))
+            texCoords.append(CGPoint(x: 1, y: CGFloat(u)))
             }
         }
         
@@ -3701,7 +3704,7 @@ struct ProteinSceneView: UIViewRepresentable {
         let segmentsCount = max(1, splinePoints.count - 1)
         
         for i in 0..<segmentsCount {
-            let material = SCNMaterial()
+        let material = SCNMaterial()
             let segmentIndex = min(i, caAtoms.count - 1)
             let ribbonColor = getRibbonColor(for: caAtoms, segmentIndex: segmentIndex)
             
@@ -3727,8 +3730,8 @@ struct ProteinSceneView: UIViewRepresentable {
             let finalOpacity = baseOpacity * CGFloat(transparency)
             
             material.diffuse.contents = ribbonColor.withAlphaComponent(finalOpacity)
-            material.specular.contents = UIColor.white
-            material.shininess = 0.1
+        material.specular.contents = UIColor.white
+        material.shininess = 0.1
             // transparency는 diffuse.contents의 alpha와 충돌하므로 제거
             material.isDoubleSided = true // 양면 렌더링 활성화
             material.cullMode = .back // 컬링 완전 비활성화 (양면 모두 렌더링)
@@ -3800,14 +3803,14 @@ struct ProteinSceneView: UIViewRepresentable {
         let baseColor: UIColor
         if isHighlighted {
             // Highlight된 경우 매우 밝고 대비가 강한 색상 사용
-            switch secondaryStructure {
-            case .helix:
+        switch secondaryStructure {
+        case .helix:
                 baseColor = UIColor.systemPink // 더 밝은 분홍색
-            case .sheet:
+        case .sheet:
                 baseColor = UIColor.systemYellow // 밝은 노란색
             case .coil:
                 baseColor = UIColor.systemGreen // 밝은 녹색
-            case .unknown:
+        case .unknown:
                 baseColor = UIColor.systemOrange // 밝은 주황색
             }
         } else {
@@ -4174,7 +4177,7 @@ struct ProteinSceneView: UIViewRepresentable {
     
     /// 개별 포켓 원자를 스피어로 렌더링합니다
     private func createPocketAtomNode(_ atom: Atom) -> SCNNode {
-        let radius: CGFloat = 1.2 // 포켓은 약간 큰 스피어로 표시
+        let baseRadius: CGFloat = 0.6 // 포켓을 작게 표시하여 리본이 잘 보이도록
         let color: UIColor = .orange // 포켓은 주황색으로 표시
         
         // 포켓 하이라이트 확인
@@ -4189,22 +4192,29 @@ struct ProteinSceneView: UIViewRepresentable {
         
         let finalColor: UIColor
         let finalRadius: CGFloat
+        let finalOpacity: CGFloat
         
         if isFocused {
+            // Focus 상태: 원래 크기로 표시
             finalColor = .yellow
-            finalRadius = radius * 1.5
+            finalRadius = baseRadius * 2.0 // 원래 크기 (1.2)
+            finalOpacity = 1.0 // 완전 불투명
         } else if isHighlighted {
+            // Highlight 상태: 약간 큰 크기
             finalColor = .red
-            finalRadius = radius * 1.3
+            finalRadius = baseRadius * 1.5
+            finalOpacity = 0.8 // 약간 투명
         } else {
+            // 일반 상태: 작은 크기, 리본과 같은 투명도
             finalColor = color
-            finalRadius = radius
+            finalRadius = baseRadius
+            finalOpacity = 0.4 // 리본과 비슷한 투명도
         }
         
         let sphereGeometry = SCNSphere(radius: finalRadius)
         let material = SCNMaterial()
-        material.diffuse.contents = finalColor
-        material.transparency = CGFloat(transparency)
+        material.diffuse.contents = finalColor.withAlphaComponent(finalOpacity)
+        // transparency 속성 제거 (diffuse.contents의 alpha로 충분)
         sphereGeometry.firstMaterial = material
         
         let node = SCNNode(geometry: sphereGeometry)
