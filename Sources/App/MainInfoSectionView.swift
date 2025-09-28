@@ -246,31 +246,31 @@ struct MainInfoSectionView: View {
             }
 
             // 질병 연관성
-            InfoCard(icon: "cross.case",
-                     title: "Disease Association",
-                     tint: .orange) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("This protein is associated with several diseases:")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    VStack(spacing: 6) {
-                        diseaseItem(name: "Inflammatory diseases", severity: "Moderate", color: .orange)
-                        diseaseItem(name: "Autoimmune disorders",  severity: "High",    color: .red)
-                        diseaseItem(name: "Metabolic syndrome",     severity: "Low",     color: .blue)
-                    }
-                }
-            }
-
-            // 연구 상태
-            InfoCard(icon: "flask.fill",
-                     title: "Research Status",
-                     tint: .purple) {
-                HStack(spacing: 12) {
-                    researchStatusItem(title: "Active Studies",  count: "12", color: .green)
-                    researchStatusItem(title: "Clinical Trials", count: "3",  color: .blue)
-                    researchStatusItem(title: "Publications",    count: "47", color: .purple)
-                }
-            }
+//            InfoCard(icon: "cross.case",
+//                     title: "Disease Association",
+//                     tint: .orange) {
+//                VStack(alignment: .leading, spacing: 8) {
+//                    Text("This protein is associated with several diseases:")
+//                        .font(.caption)
+//                        .foregroundStyle(.secondary)
+//                    VStack(spacing: 6) {
+//                        diseaseItem(name: "Inflammatory diseases", severity: "Moderate", color: .orange)
+//                        diseaseItem(name: "Autoimmune disorders",  severity: "High",    color: .red)
+//                        diseaseItem(name: "Metabolic syndrome",     severity: "Low",     color: .blue)
+//                    }
+//                }
+//            }
+//
+//            // 연구 상태
+//            InfoCard(icon: "flask.fill",
+//                     title: "Research Status",
+//                     tint: .purple) {
+//                HStack(spacing: 12) {
+//                    researchStatusItem(title: "Active Studies",  count: "12", color: .green)
+//                    researchStatusItem(title: "Clinical Trials", count: "3",  color: .blue)
+//                    researchStatusItem(title: "Publications",    count: "47", color: .purple)
+//                }
+//            }
         }
         .sheet(isPresented: $showingAminoAcidSequence) {
             aminoAcidSequenceSheet

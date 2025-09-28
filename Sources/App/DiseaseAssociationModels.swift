@@ -143,15 +143,41 @@ struct UniProtDiseaseComment: Codable {
 
 struct UniProtDisease: Codable {
     let diseaseId: String?
-    let name: String?
+    let diseaseAccession: String?
     let acronym: String?
-    let description: [UniProtDiseaseDescription]?
+    let description: String?
+    let diseaseCrossReference: UniProtDiseaseCrossReference?
+    let evidences: [UniProtDiseaseEvidence]?
     
     enum CodingKeys: String, CodingKey {
         case diseaseId
-        case name
+        case diseaseAccession
         case acronym
         case description
+        case diseaseCrossReference
+        case evidences
+    }
+}
+
+struct UniProtDiseaseCrossReference: Codable {
+    let database: String?
+    let id: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case database
+        case id
+    }
+}
+
+struct UniProtDiseaseEvidence: Codable {
+    let evidenceCode: String?
+    let source: String?
+    let id: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case evidenceCode
+        case source
+        case id
     }
 }
 
@@ -185,6 +211,44 @@ struct UniProtEvidenceSource: Codable {
     }
 }
 
+
+struct UniProtComment: Codable {
+    let commentType: String?
+    let texts: [UniProtCommentText]?
+    let disease: UniProtDisease?
+    let note: UniProtNote?
+    
+    enum CodingKeys: String, CodingKey {
+        case commentType = "commentType"
+        case texts
+        case disease
+        case note
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        commentType = try container.decodeIfPresent(String.self, forKey: .commentType)
+        texts = try container.decodeIfPresent([UniProtCommentText].self, forKey: .texts)
+        disease = try container.decodeIfPresent(UniProtDisease.self, forKey: .disease)
+        
+        // note 필드를 유연하게 처리
+        if let noteObject = try? container.decodeIfPresent(UniProtNote.self, forKey: .note) {
+            note = noteObject
+        } else {
+            // note가 다른 타입일 경우 nil로 설정
+            note = nil
+        }
+    }
+}
+
+struct UniProtNote: Codable {
+    let texts: [UniProtCommentText]?
+    
+    enum CodingKeys: String, CodingKey {
+        case texts
+    }
+}
 
 struct UniProtCommentText: Codable {
     let value: String?

@@ -55,46 +55,41 @@ struct DiseaseAssociationView: View {
             }
         }
         .onAppear {
+            print("🔍 DiseaseAssociationView: onAppear - isLoading: \(isLoading), diseases.count: \(diseases.count), errorMessage: \(errorMessage ?? "nil")")
             loadDiseaseAssociations()
         }
     }
     
     private func loadDiseaseAssociations() {
+        print("🔍 DiseaseAssociationView: Starting to load disease associations for protein: \(protein.id)")
         isLoading = true
         errorMessage = nil
         
         Task {
             do {
-                // Try to get UniProt ID from protein
-                let uniprotId = extractUniProtId(from: protein)
+                print("🔍 DiseaseAssociationView: Converting PDB ID \(protein.id) to UniProt ID...")
+                // Convert PDB ID to UniProt ID using the service
+                let uniprotId = try await DiseaseAssociationService.shared.fetchUniProtIdFromPDB(pdbId: protein.id)
+                print("🔍 DiseaseAssociationView: Got UniProt ID: \(uniprotId)")
                 
-                if let uniprotId = uniprotId {
-                    let fetchedDiseases = try await DiseaseAssociationService.shared.fetchDiseaseAssociations(uniprotId: uniprotId)
-                    
-                    await MainActor.run {
-                        self.diseases = fetchedDiseases
-                        self.summary = DiseaseAssociationService.shared.createDiseaseSummary(from: fetchedDiseases)
-                        self.isLoading = false
-                    }
-                } else {
-                    await MainActor.run {
-                        self.errorMessage = "No UniProt ID found for this protein"
-                        self.isLoading = false
-                    }
+                print("🔍 DiseaseAssociationView: Fetching disease associations for UniProt ID: \(uniprotId)")
+                let fetchedDiseases = try await DiseaseAssociationService.shared.fetchDiseaseAssociations(uniprotId: uniprotId)
+                print("🔍 DiseaseAssociationView: Fetched \(fetchedDiseases.count) disease associations")
+                
+                await MainActor.run {
+                    self.diseases = fetchedDiseases
+                    self.summary = DiseaseAssociationService.shared.createDiseaseSummary(from: fetchedDiseases)
+                    self.isLoading = false
+                    print("🔍 DiseaseAssociationView: Successfully loaded disease associations")
                 }
             } catch {
+                print("❌ DiseaseAssociationView: Error loading disease associations: \(error)")
                 await MainActor.run {
                     self.errorMessage = error.localizedDescription
                     self.isLoading = false
                 }
             }
         }
-    }
-    
-    private func extractUniProtId(from protein: ProteinInfo) -> String? {
-        // This is a simplified extraction - in reality, you'd need to map PDB ID to UniProt ID
-        // For now, we'll use the protein ID as a placeholder
-        return protein.id
     }
 }
 

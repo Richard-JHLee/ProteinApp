@@ -3009,12 +3009,13 @@ struct ProteinSceneView: UIViewRepresentable {
                 }
             }
             
-            // 체인 변경만 있는 경우 선택적 업데이트 시도
+            // 체인 변경만 있는 경우 선택적 업데이트 시도 (리본 모드 강화)
             if chainsChanged && !structureChanged && !styleChanged && !colorModeChanged && !ligandsChanged && !pocketsChanged && !focusChanged && !zoomChanged && !transparencyChanged && !atomSizeChanged && !ribbonWidthChanged && !ribbonFlatnessChanged {
                 if updateHighlightedChainsOnly(view: uiView, changedChains: changedChains) {
-                    print("🔧 체인 highlight만 선택적 업데이트 성공")
+                    print("🔧 체인 highlight만 선택적 업데이트 성공 (리본 모드)")
                     // 상태 저장
                     context.coordinator.lastHighlightedChains = highlightedChains
+                    context.coordinator.lastFocusElement = focusedElement
                     
                     // Loading 종료
                     DispatchQueue.main.async {
@@ -3091,8 +3092,9 @@ struct ProteinSceneView: UIViewRepresentable {
             
             guard caAtoms.count >= 3 else { continue }
             
-            // highlight 상태 확인
+            // highlight 상태 확인 (리본 전용 강화)
             let isChainHighlighted = highlightedChains.contains(chainId)
+            let isFocused = if case .chain(let focusedChainId) = focusedElement, focusedChainId == chainId { true } else { false }
             let isLigandHighlighted = highlightedLigands.contains { ligandId in
                 caAtoms.contains { $0.residueName == ligandId }
             }
@@ -3100,7 +3102,10 @@ struct ProteinSceneView: UIViewRepresentable {
                 caAtoms.contains { $0.residueName == pocketId }
             }
             
-            // highlight 적용
+            // 리본 전용 대비 값 계산
+            let contrastValue: CGFloat = (isChainHighlighted || isFocused) ? 1.0 : 0.2
+            
+            // highlight 적용 (강화된 버전)
             applyHighlightToRibbonNode(chainNode, isChainHighlighted: isChainHighlighted, isLigandHighlighted: isLigandHighlighted, isPocketHighlighted: isPocketHighlighted, caAtoms: caAtoms)
             
             print("🔧 체인 \(chainId) highlight 업데이트 완료")
@@ -3377,14 +3382,18 @@ struct ProteinSceneView: UIViewRepresentable {
             // 기본 캐시 키 (highlight 상태 제외) - 지오메트리 재사용
             let baseCacheKey = "ribbon_base_\(chainId)_\(ribbonWidth)_\(ribbonFlatness)_\(caAtoms.count)_\(effectiveOptimization)"
             
-            // highlight 상태 확인
+            // highlight 상태 확인 - 리본 전용 강화
             let isChainHighlighted = highlightedChains.contains(chainId)
+            let isFocused = if case .chain(let focusedChainId) = focusedElement, focusedChainId == chainId { true } else { false }
             let isLigandHighlighted = highlightedLigands.contains { ligandId in
                 caAtoms.contains { $0.residueName == ligandId }
             }
             let isPocketHighlighted = highlightedPockets.contains { pocketId in
                 caAtoms.contains { $0.residueName == pocketId }
             }
+            
+            // 리본 전용 대비 값 계산
+            let contrastValue: CGFloat = (isChainHighlighted || isFocused) ? 1.0 : 0.2
             
             // 체인 처리 시작 - 진행률 업데이트
             DispatchQueue.main.async {
@@ -3420,7 +3429,7 @@ struct ProteinSceneView: UIViewRepresentable {
         return ribbonNodes
     }
     
-    /// 리본 노드에 highlight 효과를 적용합니다
+    /// 리본 노드에 highlight 효과를 적용합니다 (강화된 버전)
     private func applyHighlightToRibbonNode(_ node: SCNNode, isChainHighlighted: Bool, isLigandHighlighted: Bool, isPocketHighlighted: Bool, caAtoms: [Atom]) {
         guard let geometry = node.geometry else { return }
         
@@ -3429,22 +3438,38 @@ struct ProteinSceneView: UIViewRepresentable {
             if index < caAtoms.count {
                 let atom = caAtoms[index]
                 let isHighlighted = isChainHighlighted || isLigandHighlighted || isPocketHighlighted
+                let isFocused = if case .chain(let focusedChainId) = focusedElement, focusedChainId == atom.chain { true } else { false }
                 
-                // 색상 업데이트
-                let ribbonColor = getRibbonColorWithHighlight(for: atom, isChainHighlighted: isChainHighlighted, isLigandHighlighted: isLigandHighlighted, isPocketHighlighted: isPocketHighlighted)
+                // 기본 체인 색상 가져오기
+                let chainColor = getChainColor(for: atom.chain)
                 
-                // 투명도 계산
+                // 새로운 색상 헬퍼 사용
+                let ribbonColor = colorForRibbonSegment(chainId: atom.chain, residue: atom, defaultColor: chainColor)
+                
+                // 투명도 계산 (리본 전용 강화)
                 let baseOpacity: CGFloat
-                if isHighlighted {
-                    baseOpacity = 1.0
+                if isFocused {
+                    baseOpacity = 1.0 // Focus된 체인은 완전 불투명
+                } else if isHighlighted {
+                    baseOpacity = 1.0 // Highlight된 체인은 완전 불투명
                 } else if focusedElement != nil {
-                    baseOpacity = 0.15
+                    baseOpacity = 0.15 // Focus가 있을 때 다른 체인은 매우 희미하게
                 } else {
-                    baseOpacity = 0.7
+                    baseOpacity = 0.7 // 일반 상태
                 }
                 
                 let finalOpacity = baseOpacity * CGFloat(transparency)
                 material.diffuse.contents = ribbonColor.withAlphaComponent(finalOpacity)
+                
+                // 리본 전용 머티리얼 속성 설정
+                material.specular.contents = UIColor.white
+                material.shininess = isHighlighted ? 0.3 : 0.1 // 하이라이트된 경우 더 반짝임
+                material.isDoubleSided = true
+                material.cullMode = .back
+                material.writesToDepthBuffer = true
+                material.readsFromDepthBuffer = true
+                material.fillMode = .fill
+                material.lightingModel = .lambert
             }
         }
     }
@@ -3706,10 +3731,15 @@ struct ProteinSceneView: UIViewRepresentable {
         for i in 0..<segmentsCount {
         let material = SCNMaterial()
             let segmentIndex = min(i, caAtoms.count - 1)
-            let ribbonColor = getRibbonColor(for: caAtoms, segmentIndex: segmentIndex)
-            
-            // Focus/Highlight 상태에 따른 투명도 계산 (다른 스타일과 동일한 로직)
             let atom = caAtoms[segmentIndex]
+            
+            // 기본 체인 색상 가져오기
+            let chainColor = getChainColor(for: atom.chain)
+            
+            // 새로운 색상 헬퍼 사용
+            let ribbonColor = colorForRibbonSegment(chainId: atom.chain, residue: atom, defaultColor: chainColor)
+            
+            // Focus/Highlight 상태에 따른 투명도 계산
             let isHighlighted = highlightedChains.contains(atom.chain) || 
                                highlightedLigands.contains(atom.residueName) || 
                                highlightedPockets.contains(atom.residueName)
@@ -3745,6 +3775,23 @@ struct ProteinSceneView: UIViewRepresentable {
         geometry.materials = materials
         
         return geometry
+    }
+    
+    /// 리본 세그먼트의 색상을 계산하는 새로운 헬퍼 함수
+    private func colorForRibbonSegment(chainId: String, residue: Atom, defaultColor: UIColor) -> UIColor {
+        let isChainHighlighted = highlightedChains.contains(chainId)
+        let isFocused = isAtomInFocus(residue)
+        
+        if isChainHighlighted || isFocused {
+            // 하이라이트된 체인: 색상을 진하게 만들기
+            var hsb = defaultColor.hsb
+            hsb.saturation = min(1.0, hsb.saturation * 1.3) // 채도 증가
+            hsb.brightness = min(1.0, hsb.brightness * 1.2)  // 밝기 증가
+            return UIColor(hue: hsb.hue, saturation: hsb.saturation, brightness: hsb.brightness, alpha: 1.0)
+        } else {
+            // 하이라이트되지 않은 체인: 투명도 낮추기
+            return defaultColor.withAlphaComponent(0.2)
+        }
     }
     
     /// Highlight 상태를 고려한 리본 색상을 반환합니다
@@ -5479,6 +5526,15 @@ extension SecondaryStructure {
         case .coil: return .gray
         case .unknown: return Color(UIColor.lightGray)
         }
+    }
+}
+
+// MARK: - UIColor HSB Extension
+extension UIColor {
+    var hsb: (hue: CGFloat, saturation: CGFloat, brightness: CGFloat, alpha: CGFloat) {
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        return (h, s, b, a)
     }
 }
 

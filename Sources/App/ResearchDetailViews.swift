@@ -9,8 +9,14 @@ struct ResearchDetailView: View {
     @State private var clinicalTrials: [ClinicalTrial] = []
     @State private var activeStudies: [ActiveStudy] = []
     @State private var isLoading = false
+    @State private var isLoadingMore = false
     @State private var errorMessage: String?
+    @State private var hasMoreData = true
+    @State private var currentPage = 0
     @Environment(\.dismiss) private var dismiss
+    
+    // ResearchStatusViewModel을 통해 캐시된 데이터 접근
+    @StateObject private var researchViewModel = ResearchStatusViewModel.shared
     
     enum ResearchType: Identifiable {
         case publications
@@ -71,6 +77,31 @@ struct ResearchDetailView: View {
                                 ActiveStudyCard(study: study)
                             }
                         }
+                        
+                        // More 버튼
+                        if hasMoreData {
+                            HStack {
+                                Spacer()
+                                Button(action: loadMoreData) {
+                                    HStack {
+                                        if isLoadingMore {
+                                            ProgressView()
+                                                .scaleEffect(0.8)
+                                        }
+                                        Text(isLoadingMore ? "Loading..." : "Load More")
+                                            .font(.headline)
+                                    }
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 10)
+                                    .background(Color.blue)
+                                    .cornerRadius(8)
+                                }
+                                .disabled(isLoadingMore)
+                                Spacer()
+                            }
+                            .padding(.vertical, 10)
+                        }
                     }
                     .listStyle(.plain)
                 }
@@ -102,6 +133,37 @@ struct ResearchDetailView: View {
     }
     
     private func loadData() {
+        print("🔍 ResearchDetailView: Loading data for \(protein.id), type: \(researchType)")
+        
+        // 먼저 캐시된 데이터 확인
+        switch researchType {
+        case .publications:
+            if let cachedPublications = researchViewModel.getCachedPublications(for: protein.id) {
+                print("📚 Found cached publications: \(cachedPublications.count)")
+                self.publications = cachedPublications
+                return
+            } else {
+                print("📚 No cached publications found")
+            }
+        case .clinicalTrials:
+            if let cachedTrials = researchViewModel.getCachedClinicalTrials(for: protein.id) {
+                print("🏥 Found cached clinical trials: \(cachedTrials.count)")
+                self.clinicalTrials = cachedTrials
+                return
+            } else {
+                print("🏥 No cached clinical trials found")
+            }
+        case .activeStudies:
+            if let cachedStudies = researchViewModel.getCachedActiveStudies(for: protein.id) {
+                print("🔬 Found cached active studies: \(cachedStudies.count)")
+                self.activeStudies = cachedStudies
+                return
+            } else {
+                print("🔬 No cached active studies found")
+            }
+        }
+        
+        // 캐시된 데이터가 없으면 로드
         isLoading = true
         errorMessage = nil
         
@@ -112,18 +174,21 @@ struct ResearchDetailView: View {
                     let fetchedPublications = try await ResearchDetailService.shared.fetchPublications(for: protein.id)
                     await MainActor.run {
                         self.publications = fetchedPublications
+                        self.researchViewModel.cachePublications(fetchedPublications, for: protein.id)
                         self.isLoading = false
                     }
                 case .clinicalTrials:
                     let fetchedTrials = try await ResearchDetailService.shared.fetchClinicalTrials(for: protein.id)
                     await MainActor.run {
                         self.clinicalTrials = fetchedTrials
+                        self.researchViewModel.cacheClinicalTrials(fetchedTrials, for: protein.id)
                         self.isLoading = false
                     }
                 case .activeStudies:
                     let fetchedStudies = try await ResearchDetailService.shared.fetchActiveStudies(for: protein.id)
                     await MainActor.run {
                         self.activeStudies = fetchedStudies
+                        self.researchViewModel.cacheActiveStudies(fetchedStudies, for: protein.id)
                         self.isLoading = false
                     }
                 }
@@ -131,6 +196,62 @@ struct ResearchDetailView: View {
                 await MainActor.run {
                     self.errorMessage = error.localizedDescription
                     self.isLoading = false
+                }
+            }
+        }
+    }
+    
+    private func loadMoreData() {
+        guard !isLoadingMore && hasMoreData else { return }
+        
+        isLoadingMore = true
+        currentPage += 1
+        
+        Task {
+            do {
+                switch researchType {
+                case .publications:
+                    let newPublications = try await ResearchDetailService.shared.fetchPublicationsPage(for: protein.id, page: currentPage)
+                    await MainActor.run {
+                        if newPublications.isEmpty {
+                            self.hasMoreData = false
+                        } else {
+                            self.publications.append(contentsOf: newPublications)
+                            // 캐시 업데이트
+                            let allPublications = self.publications
+                            self.researchViewModel.cachePublications(allPublications, for: protein.id)
+                        }
+                        self.isLoadingMore = false
+                    }
+                case .clinicalTrials:
+                    let newTrials = try await ResearchDetailService.shared.fetchClinicalTrialsPage(for: protein.id, page: currentPage)
+                    await MainActor.run {
+                        if newTrials.isEmpty {
+                            self.hasMoreData = false
+                        } else {
+                            self.clinicalTrials.append(contentsOf: newTrials)
+                            let allTrials = self.clinicalTrials
+                            self.researchViewModel.cacheClinicalTrials(allTrials, for: protein.id)
+                        }
+                        self.isLoadingMore = false
+                    }
+                case .activeStudies:
+                    let newStudies = try await ResearchDetailService.shared.fetchActiveStudiesPage(for: protein.id, page: currentPage)
+                    await MainActor.run {
+                        if newStudies.isEmpty {
+                            self.hasMoreData = false
+                        } else {
+                            self.activeStudies.append(contentsOf: newStudies)
+                            let allStudies = self.activeStudies
+                            self.researchViewModel.cacheActiveStudies(allStudies, for: protein.id)
+                        }
+                        self.isLoadingMore = false
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.errorMessage = error.localizedDescription
+                    self.isLoadingMore = false
                 }
             }
         }

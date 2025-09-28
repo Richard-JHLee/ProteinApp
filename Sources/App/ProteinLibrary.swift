@@ -3355,6 +3355,13 @@ class ProteinDatabase: ObservableObject {
                 keywords: ["collagen", "콜라겐", "피부", "뼈", "구조"]
             ),
             ProteinInfo(
+                id: "P12111",
+                name: "Collagen alpha-3(VI) chain",
+                category: .structural,
+                description: "콜라겐 VI형의 알파-3 체인, 근육 질환과 연관",
+                keywords: ["collagen", "콜라겐", "VI", "COL6A3", "근병증", "근이영양증"]
+            ),
+            ProteinInfo(
                 id: "1AO6",
                 name: "Keratin",
                 category: .structural,

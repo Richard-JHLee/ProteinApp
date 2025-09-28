@@ -360,16 +360,6 @@ struct UniProtResponse: Codable {
     let proteinDescription: UniProtProteinDescription?
 }
 
-struct UniProtComment: Codable {
-    let commentType: String?
-    let texts: [UniProtText]?
-    
-    enum CodingKeys: String, CodingKey {
-        case commentType = "commentType"
-        case texts = "texts"
-    }
-}
-
 struct UniProtText: Codable {
     let value: String?
 }
