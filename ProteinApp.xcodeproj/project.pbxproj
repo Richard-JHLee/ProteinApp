@@ -11,6 +11,13 @@
 		3EFDF2053CD3A6B58C54AA8E /* MiniProteinViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF017AD4B427A9A68A473A0A /* MiniProteinViewer.swift */; };
 		4E276CBDE560EDBC9919290E /* PDB.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F7B844E14B6CC3907FFBEC /* PDB.swift */; };
 		4E618D2CB3A72FAA015CBD99 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2722617C118B539735B9A4C5 /* ContentView.swift */; };
+		7921855A2E88F04800B9D8FB /* DiseaseAssociationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792185562E88F04800B9D8FB /* DiseaseAssociationModels.swift */; };
+		7921855B2E88F04800B9D8FB /* DiseaseAssociationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792185582E88F04800B9D8FB /* DiseaseAssociationView.swift */; };
+		7921855D2E88F04800B9D8FB /* DiseaseAssociationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792185572E88F04800B9D8FB /* DiseaseAssociationService.swift */; };
+		792185612E88F0FF00B9D8FB /* ResearchStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792185602E88F0FF00B9D8FB /* ResearchStatusView.swift */; };
+		792185652E88F11F00B9D8FB /* ResearchDetailModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792185622E88F11F00B9D8FB /* ResearchDetailModels.swift */; };
+		792185662E88F11F00B9D8FB /* ResearchDetailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792185632E88F11F00B9D8FB /* ResearchDetailViews.swift */; };
+		792185672E88F11F00B9D8FB /* ResearchStatusModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 792185642E88F11F00B9D8FB /* ResearchStatusModels.swift */; };
 		7953D2B52E5EF380004C95A1 /* EnhancedProteinViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7953D2B42E5EF380004C95A1 /* EnhancedProteinViewerView.swift */; };
 		7953D2B72E5EF7C2004C95A1 /* ProteinStructurePreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7953D2B62E5EF7C2004C95A1 /* ProteinStructurePreview.swift */; };
 		797284232E587182000842BE /* InfoSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 797284222E587182000842BE /* InfoSheet.swift */; };
@@ -51,6 +58,13 @@
 		2B5A091B94160CE42052DDCE /* ProteinLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProteinLibrary.swift; sourceTree = "<group>"; };
 		39F7B844E14B6CC3907FFBEC /* PDB.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDB.swift; sourceTree = "<group>"; };
 		486BC17E3218B56871333E70 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		792185562E88F04800B9D8FB /* DiseaseAssociationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiseaseAssociationModels.swift; sourceTree = "<group>"; };
+		792185572E88F04800B9D8FB /* DiseaseAssociationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiseaseAssociationService.swift; sourceTree = "<group>"; };
+		792185582E88F04800B9D8FB /* DiseaseAssociationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiseaseAssociationView.swift; sourceTree = "<group>"; };
+		792185602E88F0FF00B9D8FB /* ResearchStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchStatusView.swift; sourceTree = "<group>"; };
+		792185622E88F11F00B9D8FB /* ResearchDetailModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchDetailModels.swift; sourceTree = "<group>"; };
+		792185632E88F11F00B9D8FB /* ResearchDetailViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchDetailViews.swift; sourceTree = "<group>"; };
+		792185642E88F11F00B9D8FB /* ResearchStatusModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchStatusModels.swift; sourceTree = "<group>"; };
 		7953D2B42E5EF380004C95A1 /* EnhancedProteinViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancedProteinViewerView.swift; sourceTree = "<group>"; };
 		7953D2B62E5EF7C2004C95A1 /* ProteinStructurePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProteinStructurePreview.swift; sourceTree = "<group>"; };
 		797284222E587182000842BE /* InfoSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoSheet.swift; sourceTree = "<group>"; };
@@ -127,6 +141,13 @@
 			isa = PBXGroup;
 			children = (
 				79D906152E6D603B00C202D2 /* PrimaryStructureView.swift */,
+				792185562E88F04800B9D8FB /* DiseaseAssociationModels.swift */,
+				792185622E88F11F00B9D8FB /* ResearchDetailModels.swift */,
+				792185632E88F11F00B9D8FB /* ResearchDetailViews.swift */,
+				792185642E88F11F00B9D8FB /* ResearchStatusModels.swift */,
+				792185602E88F0FF00B9D8FB /* ResearchStatusView.swift */,
+				792185572E88F04800B9D8FB /* DiseaseAssociationService.swift */,
+				792185582E88F04800B9D8FB /* DiseaseAssociationView.swift */,
 				79D9061D2E6D6AE200C202D2 /* FunctionDetailsView.swift */,
 				799CDC4C2E73E87000185DF6 /* iPadContentView.swift */,
 				799CDC4D2E73E87000185DF6 /* iPhoneContentView.swift */,
@@ -247,6 +268,7 @@
 			files = (
 				7972842A2E587417000842BE /* AdditionalInfoSectionView.swift in Sources */,
 				7972842B2E587417000842BE /* HeaderSectionView.swift in Sources */,
+				792185612E88F0FF00B9D8FB /* ResearchStatusView.swift in Sources */,
 				79D906062E6ABD3800C202D2 /* AboutView.swift in Sources */,
 				7972842C2E587417000842BE /* UIComponents.swift in Sources */,
 				7972842D2E587417000842BE /* MainInfoSectionView.swift in Sources */,
@@ -258,6 +280,9 @@
 				79D906192E6D603B00C202D2 /* PrimaryStructureView.swift in Sources */,
 				79D9061A2E6D603B00C202D2 /* TertiaryStructureView.swift in Sources */,
 				79D9061B2E6D603B00C202D2 /* SecondaryStructureView.swift in Sources */,
+				7921855A2E88F04800B9D8FB /* DiseaseAssociationModels.swift in Sources */,
+				7921855B2E88F04800B9D8FB /* DiseaseAssociationView.swift in Sources */,
+				7921855D2E88F04800B9D8FB /* DiseaseAssociationService.swift in Sources */,
 				799CDC512E73E87000185DF6 /* iPadContentView.swift in Sources */,
 				799CDC522E73E87000185DF6 /* iPhoneContentView.swift in Sources */,
 				799CDC532E73E87000185DF6 /* ProteinViewModel.swift in Sources */,
@@ -268,6 +293,9 @@
 				79D906142E6ABD4800C202D2 /* MenuItemType.swift in Sources */,
 				7972842F2E587417000842BE /* DetailedInfoSectionView.swift in Sources */,
 				4E618D2CB3A72FAA015CBD99 /* ContentView.swift in Sources */,
+				792185652E88F11F00B9D8FB /* ResearchDetailModels.swift in Sources */,
+				792185662E88F11F00B9D8FB /* ResearchDetailViews.swift in Sources */,
+				792185672E88F11F00B9D8FB /* ResearchStatusModels.swift in Sources */,
 				79D906202E6D6CF000C202D2 /* RelatedProteinsView.swift in Sources */,
 				3EFDF2053CD3A6B58C54AA8E /* MiniProteinViewer.swift in Sources */,
 				4E276CBDE560EDBC9919290E /* PDB.swift in Sources */,
@@ -306,7 +334,7 @@
 				"CODE_SIGNING_REQUIRED[sdk=macosx*]" = NO;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_ASSET_PATHS = Sources/Assets.xcassets;
 				INFOPLIST_FILE = Sources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ProteinViewerApp;
@@ -317,7 +345,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avas.proteinapp;
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = iphoneos;
@@ -400,7 +428,7 @@
 				"CODE_SIGNING_REQUIRED[sdk=macosx*]" = NO;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_ASSET_PATHS = Sources/Assets.xcassets;
 				INFOPLIST_FILE = Sources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ProteinViewerApp;
@@ -411,7 +439,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.avas.proteinapp;
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = iphoneos;

@@ -54,12 +54,14 @@ struct HeaderSectionView: View {
     
     // MARK: - Navigation Bar
     private var navigationBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             navigationButton(title: "Overview", section: "overview", icon: "info.circle")
             navigationButton(title: "Function", section: "function", icon: "function")
             navigationButton(title: "Structure", section: "structure", icon: "cube.box")
+            navigationButton(title: "Disease", section: "disease", icon: "cross.case.fill")
+            navigationButton(title: "Research", section: "research", icon: "flask.fill")
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
     }

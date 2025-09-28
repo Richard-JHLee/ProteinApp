@@ -82,6 +82,22 @@ struct InfoSheet: View {
                         AdditionalInfoSectionView(protein: protein)
                         .id("additional")
 
+                        // 5단계: Disease Association Section
+                        InfoCard(icon: "cross.case.fill",
+                                title: "Disease Association",
+                                tint: .orange) {
+                            DiseaseAssociationView(protein: protein)
+                        }
+                        .id("disease")
+
+                        // 6단계: Research Status Section
+                        InfoCard(icon: "flask.fill",
+                                title: "Research Status",
+                                tint: .purple) {
+                            ResearchStatusView(protein: protein)
+                        }
+                        .id("research")
+
                         // Action Buttons
                         ActionButtonsSectionView(
                             protein: protein,
