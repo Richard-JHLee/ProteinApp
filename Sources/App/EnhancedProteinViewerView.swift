@@ -180,6 +180,10 @@ struct EnhancedProteinViewerView: View {
     @State private var pocketsData: [PocketModel] = []
     @State private var annotationsData: AnnotationData?
     
+    // Highlight and Focus States
+    @State private var highlightedChains: Set<String> = []
+    @State private var focusedElement: FocusedElement?
+    
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -201,11 +205,13 @@ struct EnhancedProteinViewerView: View {
                         onSelectAtom: { atom in
                             selectedAtom = atom
                         },
-                        highlightedChains: [], // Enhanced view에서는 highlight 기능 없음
+                        highlightedChains: highlightedChains,
                         highlightedLigands: [],
                         highlightedPockets: [],
-                        focusedElement: nil,
-                        onFocusRequest: { _ in },
+                        focusedElement: focusedElement,
+                        onFocusRequest: { element in
+                            focusedElement = element
+                        },
                         ribbonWidth: ribbonWidth,
                         ribbonFlatness: ribbonFlatness
                     )
@@ -635,14 +641,14 @@ struct EnhancedProteinViewerView: View {
             
             // Chain Actions
             HStack(spacing: 8) {
-                Button(action: { highlightChain() }) {
+                Button(action: { highlightChain(chainId) }) {
                     Label("Highlight", systemImage: "eye")
                         .font(.caption)
-                        .foregroundColor(.blue)
+                        .foregroundColor(highlightedChains.contains(chainId) ? .orange : .blue)
                 }
                 .buttonStyle(.bordered)
                 
-                Button(action: { focusOnChain() }) {
+                Button(action: { focusOnChain(chainId) }) {
                     Label("Focus", systemImage: "scope")
                         .font(.caption)
                         .foregroundColor(.blue)
@@ -1195,12 +1201,24 @@ struct EnhancedProteinViewerView: View {
         print("Sharing structure...")
     }
     
-    private func highlightChain() {
-        print("Highlighting chain...")
+    private func highlightChain(_ chainId: String) {
+        print("🔧 highlightChain called for chain: \(chainId)")
+        print("🔧 Current highlightedChains before: \(highlightedChains)")
+        
+        if highlightedChains.contains(chainId) {
+            highlightedChains.remove(chainId)
+            print("🔧 Removed highlight from chain \(chainId)")
+        } else {
+            highlightedChains.insert(chainId)
+            print("🔧 Highlighted chain \(chainId)")
+        }
+        
+        print("🔧 Current highlightedChains after: \(highlightedChains)")
     }
     
-    private func focusOnChain() {
-        print("Focusing on chain...")
+    private func focusOnChain(_ chainId: String) {
+        focusedElement = .chain(chainId)
+        print("Focused on chain \(chainId)")
     }
     
     private func focusOnLigand() {

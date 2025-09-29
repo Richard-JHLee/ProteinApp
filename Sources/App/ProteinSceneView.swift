@@ -3009,24 +3009,24 @@ struct ProteinSceneView: UIViewRepresentable {
                 }
             }
             
-            // 체인 변경만 있는 경우 선택적 업데이트 시도 (리본 모드 강화)
-            if chainsChanged && !structureChanged && !styleChanged && !colorModeChanged && !ligandsChanged && !pocketsChanged && !focusChanged && !zoomChanged && !transparencyChanged && !atomSizeChanged && !ribbonWidthChanged && !ribbonFlatnessChanged {
-                if updateHighlightedChainsOnly(view: uiView, changedChains: changedChains) {
-                    print("🔧 체인 highlight만 선택적 업데이트 성공 (리본 모드)")
-                    // 상태 저장
-                    context.coordinator.lastHighlightedChains = highlightedChains
-                    context.coordinator.lastFocusElement = focusedElement
-                    
-                    // Loading 종료
-                    DispatchQueue.main.async {
-                        self.isRendering3D?.wrappedValue = false
-                        self.renderingProgress?.wrappedValue = ""
-                    }
-                    return
-                } else {
-                    print("🔧 선택적 업데이트 실패 - 전체 빌드 진행")
+        // 체인 변경만 있는 경우 선택적 업데이트 시도 (리본 모드 강화)
+        if chainsChanged && !structureChanged && !styleChanged && !colorModeChanged && !ligandsChanged && !pocketsChanged && !focusChanged && !zoomChanged && !transparencyChanged && !atomSizeChanged && !ribbonWidthChanged && !ribbonFlatnessChanged {
+            if updateHighlightedChainsOnly(view: uiView, changedChains: changedChains) {
+                print("🔧 체인 highlight만 선택적 업데이트 성공 (리본 모드)")
+                // 상태 저장
+                context.coordinator.lastHighlightedChains = highlightedChains
+                context.coordinator.lastFocusElement = focusedElement
+                
+                // Loading 종료
+                DispatchQueue.main.async {
+                    self.isRendering3D?.wrappedValue = false
+                    self.renderingProgress?.wrappedValue = ""
                 }
+                return
+            } else {
+                print("🔧 선택적 업데이트 실패 - 전체 빌드 진행")
             }
+        }
             
             rebuild(view: uiView)
             
@@ -3076,42 +3076,11 @@ struct ProteinSceneView: UIViewRepresentable {
         guard style == .ribbon else { return false }
         
         print("🔧 선택적 업데이트: \(changedChains) 체인들")
+        print("🔧 현재 highlightedChains: \(highlightedChains)")
         
-        for chainId in changedChains {
-            // 해당 체인의 노드를 찾습니다
-            let chainNodeName = "ribbon_chain_\(chainId)"
-            guard let chainNode = scene.rootNode.childNode(withName: chainNodeName, recursively: true) else {
-                print("🔧 체인 노드를 찾을 수 없음: \(chainId)")
-                continue
-            }
-            
-            // 체인의 원자들을 가져옵니다
-            guard let structure = structure else { continue }
-            let chainAtoms = structure.atoms.filter { $0.chain == chainId }
-            let caAtoms = chainAtoms.filter { $0.element == "CA" }
-            
-            guard caAtoms.count >= 3 else { continue }
-            
-            // highlight 상태 확인 (리본 전용 강화)
-            let isChainHighlighted = highlightedChains.contains(chainId)
-            let isFocused = if case .chain(let focusedChainId) = focusedElement, focusedChainId == chainId { true } else { false }
-            let isLigandHighlighted = highlightedLigands.contains { ligandId in
-                caAtoms.contains { $0.residueName == ligandId }
-            }
-            let isPocketHighlighted = highlightedPockets.contains { pocketId in
-                caAtoms.contains { $0.residueName == pocketId }
-            }
-            
-            // 리본 전용 대비 값 계산
-            let contrastValue: CGFloat = (isChainHighlighted || isFocused) ? 1.0 : 0.2
-            
-            // highlight 적용 (강화된 버전)
-            applyHighlightToRibbonNode(chainNode, isChainHighlighted: isChainHighlighted, isLigandHighlighted: isLigandHighlighted, isPocketHighlighted: isPocketHighlighted, caAtoms: caAtoms)
-            
-            print("🔧 체인 \(chainId) highlight 업데이트 완료")
-        }
-        
-        return true
+        // 하이라이트 변경 시 강제로 전체 리빌드 수행
+        print("🔧 하이라이트 변경으로 인한 전체 리빌드 수행")
+        return false // false를 반환해서 전체 리빌드가 진행되도록 함
     }
 
     // Improved rebuild method for ProteinSceneView
@@ -3433,6 +3402,8 @@ struct ProteinSceneView: UIViewRepresentable {
     private func applyHighlightToRibbonNode(_ node: SCNNode, isChainHighlighted: Bool, isLigandHighlighted: Bool, isPocketHighlighted: Bool, caAtoms: [Atom]) {
         guard let geometry = node.geometry else { return }
         
+        print("🔧 applyHighlightToRibbonNode - isChainHighlighted: \(isChainHighlighted), materials: \(geometry.materials.count)")
+        
         // 각 세그먼트의 material 업데이트
         for (index, material) in geometry.materials.enumerated() {
             if index < caAtoms.count {
@@ -3452,13 +3423,22 @@ struct ProteinSceneView: UIViewRepresentable {
                     baseOpacity = 1.0 // Focus된 체인은 완전 불투명
                 } else if isHighlighted {
                     baseOpacity = 1.0 // Highlight된 체인은 완전 불투명
+                } else if highlightedChains.isEmpty && focusedElement == nil {
+                    baseOpacity = 0.5 // 초기 상태: 연한 색상
                 } else if focusedElement != nil {
-                    baseOpacity = 0.15 // Focus가 있을 때 다른 체인은 매우 희미하게
+                    baseOpacity = 0.1 // Focus가 있을 때 다른 체인은 매우 희미하게
                 } else {
-                    baseOpacity = 0.7 // 일반 상태
+                    baseOpacity = 0.15 // 하이라이트가 있을 때 하이라이트되지 않은 체인
                 }
                 
                 let finalOpacity = baseOpacity * CGFloat(transparency)
+                
+                // 디버깅 로그 추가
+                if index == 0 { // 첫 번째 세그먼트만 로그 출력
+                    print("🔧 Material update - isHighlighted: \(isHighlighted), isFocused: \(isFocused)")
+                    print("🔧 Color: \(ribbonColor), finalOpacity: \(finalOpacity)")
+                }
+                
                 material.diffuse.contents = ribbonColor.withAlphaComponent(finalOpacity)
                 
                 // 리본 전용 머티리얼 속성 설정
@@ -3750,10 +3730,12 @@ struct ProteinSceneView: UIViewRepresentable {
                 baseOpacity = 1.0 // Focus된 원자는 완전 불투명
             } else if isHighlighted {
                 baseOpacity = 1.0 // Highlight된 원자는 완전 불투명으로 더 명확하게
+            } else if highlightedChains.isEmpty && focusedElement == nil {
+                baseOpacity = 0.5 // 초기 상태: 연한 색상
             } else if focusedElement != nil {
-                baseOpacity = 0.15 // Focus가 있을 때 다른 원자는 매우 희미하게
+                baseOpacity = 0.1 // Focus가 있을 때 다른 원자는 매우 희미하게
             } else {
-                baseOpacity = 0.5 // 일반 상태에서는 더 희미하게
+                baseOpacity = 0.15 // 하이라이트가 있을 때 하이라이트되지 않은 체인
             }
             
             // 투명도 슬라이더와 결합
@@ -3783,14 +3765,17 @@ struct ProteinSceneView: UIViewRepresentable {
         let isFocused = isAtomInFocus(residue)
         
         if isChainHighlighted || isFocused {
-            // 하이라이트된 체인: 색상을 진하게 만들기
+            // 하이라이트된 체인: 진한 색상으로 만들기
             var hsb = defaultColor.hsb
-            hsb.saturation = min(1.0, hsb.saturation * 1.3) // 채도 증가
-            hsb.brightness = min(1.0, hsb.brightness * 1.2)  // 밝기 증가
+            hsb.saturation = min(1.0, hsb.saturation * 1.4) // 채도 더 증가
+            hsb.brightness = min(1.0, hsb.brightness * 1.3)  // 밝기 더 증가
             return UIColor(hue: hsb.hue, saturation: hsb.saturation, brightness: hsb.brightness, alpha: 1.0)
+        } else if highlightedChains.isEmpty && focusedElement == nil {
+            // 초기 상태: 연한 색상으로 표시
+            return defaultColor.withAlphaComponent(0.5)
         } else {
-            // 하이라이트되지 않은 체인: 투명도 낮추기
-            return defaultColor.withAlphaComponent(0.2)
+            // 하이라이트가 있을 때 하이라이트되지 않은 체인: 매우 희미하게
+            return defaultColor.withAlphaComponent(0.15)
         }
     }
     
